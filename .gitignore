@@ -1,0 +1,8 @@
+__pycache__/
+.env
+.venv/
+dist/
+build/
+*.pyc
+00-contexto-do-projeto.md
+desktop/tsconfig.node.tsbuildinfo

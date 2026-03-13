@@ -1,0 +1,15 @@
+[project]
+name = "cli-ai-harness"
+version = "0.1.0"
+description = "CLI harness for integrating AI backends"
+requires-python = ">=3.9"
+dependencies = [
+  "typer[all]>=0.7",
+  "httpx>=0.24",
+  "python-dotenv>=1.0",
+  "PySide6>=6.7"
+]
+
+[project.scripts]
+cli-ai = "cli_harness.cli:app"
+cli-ai-native = "cli_harness.native_app:main"

@@ -1,0 +1,35 @@
+{
+  "name": "osaurus-like-desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "electron-dist/main.js",
+  "scripts": {
+    "dev": "NODE_ENV=development ELECTRON_DISABLE_SANDBOX=1 concurrently -k \"tsc -p tsconfig.node.json --watch\" \"vite\" \"wait-on http://localhost:5173 electron-dist/main.js && electron . --no-sandbox\"",
+    "build": "NODE_ENV=production tsc -p tsconfig.node.json && vite build",
+    "native": "npm run build && NODE_ENV=production ELECTRON_DISABLE_SANDBOX=1 electron . --no-sandbox",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "electron:build": "tsc -p tsconfig.node.json"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/node": "^20.14.10",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.0.1",
+    "electron": "^30.0.9",
+    "eslint": "^9.7.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "typescript-eslint": "^8.40.0",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.8",
+    "wait-on": "^7.2.0"
+  }
+}
