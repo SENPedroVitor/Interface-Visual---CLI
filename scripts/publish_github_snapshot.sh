@@ -28,10 +28,7 @@ rsync -a \
   --exclude ".venv" \
   --exclude "__pycache__" \
   --exclude "00-contexto-do-projeto.md" \
-  --exclude "desktop/tsconfig.node.tsbuildinfo" \
-  --exclude "desktop/node_modules" \
-  --exclude "desktop/dist" \
-  --exclude "desktop/electron-dist" \
+  --exclude ".pytest_cache" \
   --exclude ".env" \
   "$ROOT_DIR/" "$TMP_DIR/repo/"
 

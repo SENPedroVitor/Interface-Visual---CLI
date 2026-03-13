@@ -29,6 +29,34 @@ from .history import HistoryStore
 ANSI_ESCAPE_RE = re.compile(
     r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?(?:\x07|\x1B\\))"
 )
+DRAWING_LINE_RE = re.compile(r"^[\s\-\u2500-\u257f\u2580-\u259f]+$")
+PROMPT_MARKER_RE = re.compile(r"^[>\u203a]\s*")
+BULLET_MARKER_RE = re.compile(r"^[\u2022\u2726]\s+")
+WHITESPACE_RE = re.compile(r"\s+")
+
+UI_NOISE_PREFIXES = (
+    "Tip:",
+    "Tips:",
+    "OpenAI Codex",
+    "Qwen Code",
+    "Qwen OAuth",
+    "model:",
+    "directory:",
+    "You are running Qwen Code",
+    "It is recommended to run",
+    "Tip: New",
+    "/model to change",
+)
+
+INTERNAL_TRACE_PREFIXES = (
+    "Explored",
+    "Read ",
+    "Searching",
+    "Opening",
+    "Vou ",
+    "The user ",
+    "I should ",
+)
 
 
 def sanitize_terminal_text(text: str) -> str:
@@ -36,6 +64,27 @@ def sanitize_terminal_text(text: str) -> str:
     cleaned = cleaned.replace("\r", "")
     cleaned = cleaned.replace("\x00", "")
     return cleaned
+
+
+def normalize_prompt_text(text: str) -> str:
+    normalized = PROMPT_MARKER_RE.sub("", text.strip())
+    normalized = normalized.strip("\"'` ")
+    normalized = WHITESPACE_RE.sub(" ", normalized)
+    return normalized.lower()
+
+
+def is_ui_noise_line(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return False
+
+    if DRAWING_LINE_RE.match(stripped):
+        return True
+
+    if any(char in stripped for char in "╭╮╰╯│┌┐└┘"):
+        return True
+
+    return stripped.startswith(UI_NOISE_PREFIXES)
 
 
 class MessageListModel(QAbstractListModel):
@@ -110,6 +159,7 @@ class NativeChatController(QObject):
     currentBackendLabelChanged = Signal()
     composerPlaceholderChanged = Signal()
     canSendChanged = Signal()
+    canStopChanged = Signal()
     messagesModelChanged = Signal()
 
     def __init__(self) -> None:
@@ -126,6 +176,8 @@ class NativeChatController(QObject):
         self._history = HistoryStore.open()
         self._session_id: int | None = None
         self._command_label: str | None = None
+        self._pending_output = ""
+        self._last_prompt = ""
 
     @Property(QObject, notify=messagesModelChanged)
     def messagesModel(self) -> MessageListModel:
@@ -159,6 +211,10 @@ class NativeChatController(QObject):
     @Property(bool, notify=canSendChanged)
     def canSend(self) -> bool:
         return self._bridge_status != "starting"
+
+    @Property(bool, notify=canStopChanged)
+    def canStop(self) -> bool:
+        return self._proc is not None and self._proc.poll() is None
 
     @Property(str, notify=greetingChanged)
     def greeting(self) -> str:
@@ -196,10 +252,16 @@ class NativeChatController(QObject):
     @Slot()
     def connectBackend(self) -> None:
         if self._proc and self._proc.poll() is None:
-            self._set_bridge_status("ready")
-            return
+            self._messages_model.add_message(
+                "system",
+                f"Reiniciando a sessao de {self.currentBackendLabel}.",
+                "Sistema",
+            )
+            self.stop_session(announce=False)
 
         self._set_bridge_status("starting")
+        self._pending_output = ""
+        self._last_prompt = ""
 
         command = resolve_backend_command(self._selected_backend)
         self._command_label = command
@@ -269,6 +331,7 @@ class NativeChatController(QObject):
             return
 
         self._messages_model.add_message("user", prompt, "Voce")
+        self._last_prompt = prompt
         if self._history and self._session_id is not None:
             self._history.log_event(self._session_id, "in", prompt + "\n")
 
@@ -292,12 +355,19 @@ class NativeChatController(QObject):
     def stopSession(self) -> None:
         self.stop_session()
 
-    def stop_session(self) -> None:
+    def stop_session(self, announce: bool = True) -> None:
         if self._proc and self._proc.poll() is None:
             try:
                 self._proc.send_signal(signal.SIGTERM)
             except Exception:
                 pass
+
+        if announce and (self._proc is not None or self._bridge_status == "ready"):
+            self._messages_model.add_message(
+                "system",
+                f"Sessao de {self.currentBackendLabel} encerrada.",
+                "Sistema",
+            )
 
         self._finalize_history()
         self._teardown_process()
@@ -336,8 +406,7 @@ class NativeChatController(QObject):
         if self._history and self._session_id is not None:
             self._history.log_event(self._session_id, "out", text)
 
-        self._messages_model.append_to_last_ai(text)
-        self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+        self._append_backend_output(text)
 
     def _check_process_state(self) -> None:
         if not self._proc:
@@ -351,6 +420,7 @@ class NativeChatController(QObject):
             return
 
         return_code = self._proc.poll()
+        self._flush_pending_output()
         self._finalize_history()
         self._teardown_process()
 
@@ -386,6 +456,8 @@ class NativeChatController(QObject):
             self._master_fd = None
 
         self._proc = None
+        self._pending_output = ""
+        self.canStopChanged.emit()
 
     def _set_bridge_status(self, value: str) -> None:
         if value == self._bridge_status:
@@ -393,3 +465,82 @@ class NativeChatController(QObject):
         self._bridge_status = value
         self.bridgeStatusChanged.emit()
         self.canSendChanged.emit()
+        self.canStopChanged.emit()
+
+    def _append_backend_output(self, text: str) -> None:
+        self._pending_output += text
+        lines = self._pending_output.split("\n")
+        self._pending_output = lines.pop()
+
+        fragments: list[str] = []
+        for raw_line in lines:
+            cleaned = self._clean_backend_line(raw_line)
+            if cleaned is None:
+                continue
+            if cleaned == "":
+                if fragments and fragments[-1] != "\n":
+                    fragments.append("\n")
+                continue
+            fragments.append(cleaned + "\n")
+
+        if fragments:
+            payload = "".join(fragments).rstrip() + "\n"
+            self._messages_model.append_to_last_ai(payload)
+            self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+            return
+
+        # Flush long partial fragments to keep visible streaming alive.
+        if len(self._pending_output.strip()) > 160:
+            partial = self._clean_backend_line(self._pending_output)
+            self._pending_output = ""
+            if partial:
+                self._messages_model.append_to_last_ai(partial)
+                self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+
+    def _flush_pending_output(self) -> None:
+        if not self._pending_output.strip():
+            self._pending_output = ""
+            return
+
+        cleaned = self._clean_backend_line(self._pending_output)
+        self._pending_output = ""
+        if cleaned:
+            self._messages_model.append_to_last_ai(cleaned)
+            self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+
+    def _clean_backend_line(self, line: str) -> str | None:
+        stripped = line.strip()
+        if not stripped:
+            return ""
+
+        if is_ui_noise_line(stripped):
+            return None
+
+        if self._looks_like_prompt_echo(stripped):
+            return None
+
+        bulletless = BULLET_MARKER_RE.sub("", stripped)
+        if bulletless.startswith(INTERNAL_TRACE_PREFIXES):
+            return None
+        if bulletless in {"~", ">_", ">", "›"}:
+            return None
+
+        if "recommended to run in a project-specific directory" in bulletless:
+            return None
+        if "rate limits" in bulletless.lower():
+            return None
+        if "approval mode" in bulletless.lower():
+            return None
+
+        return bulletless
+
+    def _looks_like_prompt_echo(self, text: str) -> bool:
+        if not self._last_prompt:
+            return False
+
+        normalized_line = normalize_prompt_text(text)
+        normalized_prompt = normalize_prompt_text(self._last_prompt)
+        if not normalized_line:
+            return False
+
+        return normalized_line == normalized_prompt

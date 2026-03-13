@@ -1,6 +1,6 @@
 # CLI AI Harness
 
-Python core for AI CLI orchestration, now with a native desktop shell built in `PySide6 + QML`.
+Python core for AI CLI orchestration, with a native desktop shell built in `PySide6 + QML`.
 
 Quick start
 
@@ -28,6 +28,12 @@ Install the app in your Linux session with a launcher and desktop shortcut:
 
 ```bash
 ./scripts/install_native_app.sh
+```
+
+After installation, open it from the app menu or with:
+
+```bash
+osaurus-native
 ```
 
 Remove the launcher and desktop shortcut:
