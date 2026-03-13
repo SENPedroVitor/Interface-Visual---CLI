@@ -5,34 +5,34 @@ import QtQuick.Layouts
 ApplicationWindow {
     id: window
 
-    width: 1440
-    height: 920
-    minimumWidth: 1180
+    width: 1280
+    height: 860
+    minimumWidth: 1080
     minimumHeight: 760
     visible: true
     title: "Osaurus Native"
     color: "#0b1020"
 
-    property string displayFont: "SF Pro Display"
-    property string bodyFont: "SF Pro Text"
+    property string displayFont: "Sans Serif"
+    property string bodyFont: "Sans Serif"
+    property string monoFont: "Monospace"
     property var controller: (typeof chatController !== "undefined") ? chatController : null
-    property var backends: ["codex", "qwen"]
     property var starterCards: [
-        { icon: "</>", title: "Escrever codigo", subtitle: "Comecar implementacoes limpas e diretas.", prompt: "Escreva uma implementacao limpa para este problema." },
-        { icon: "Aa", title: "Lapidar texto", subtitle: "Melhorar estrutura, clareza e tom.", prompt: "Me ajude a reescrever este texto com mais clareza e melhor estrutura." },
-        { icon: "::", title: "Resumir conteudo", subtitle: "Compactar blocos grandes em pontos uteis.", prompt: "Resuma este conteudo em pontos curtos e objetivos." },
-        { icon: "?", title: "Planejar proximo passo", subtitle: "Transformar ideias em acao organizada.", prompt: "Me ajude a organizar essa ideia em proximos passos claros." }
+        { tag: "<>", title: "Write code", subtitle: "Implementacoes limpas e diretas.", prompt: "Escreva uma implementacao limpa para este problema." },
+        { tag: "Aa", title: "Refine text", subtitle: "Melhorar estrutura e clareza.", prompt: "Me ajude a reescrever este texto com mais clareza." },
+        { tag: "::", title: "Summarize", subtitle: "Pontos curtos e objetivos.", prompt: "Resuma este conteudo em pontos curtos e objetivos." },
+        { tag: "??", title: "Plan steps", subtitle: "Transformar ideias em acao.", prompt: "Me ajude a organizar essa ideia em proximos passos claros." }
     ]
 
     function submitPrompt() {
         if (!window.controller) {
             return
         }
-        if (promptInput.text.trim().length === 0) {
+        let text = promptInput.text.trim()
+        if (text.length === 0) {
             return
         }
-
-        window.controller.sendPrompt(promptInput.text)
+        window.controller.sendPrompt(text)
         promptInput.text = ""
         promptInput.forceActiveFocus()
     }
@@ -45,32 +45,57 @@ ApplicationWindow {
         })
     }
 
+    component IconBadge: Rectangle {
+        id: iconBadge
+
+        property string label: ""
+        property color fillColor: "#2a1d4d"
+        property color textColor: "#eef4ff"
+
+        implicitWidth: 34
+        implicitHeight: 34
+        radius: 12
+        color: fillColor
+        border.width: 1
+        border.color: "#4b3474"
+
+        Text {
+            anchors.centerIn: parent
+            text: iconBadge.label
+            color: iconBadge.textColor
+            font.pixelSize: 12
+            font.weight: Font.DemiBold
+            font.family: window.displayFont
+        }
+    }
+
     component CapsuleButton: Rectangle {
         id: capsuleButton
 
         property string label: ""
+        property string tag: ""
         property bool active: false
         property bool primary: false
         signal clicked()
 
-        implicitWidth: capsuleLabel.implicitWidth + 28
+        implicitWidth: buttonRow.implicitWidth + 24
         implicitHeight: 40
-        radius: 15
+        radius: 14
         color: !enabled
-            ? "#151d31"
+            ? "#171d31"
             : primary
-                ? "#eff3ff"
+                ? "#eef3ff"
                 : active
-                    ? "#283a63"
+                    ? "#3d2a67"
                     : buttonArea.containsMouse
-                        ? "#1f2943"
-                        : "#171f35"
+                        ? "#2a1d47"
+                        : "#171427"
         border.width: 1
         border.color: primary
             ? "#ffffff"
             : active
-                ? "#6e95ff"
-                : "#2a3554"
+                ? "#b88cff"
+                : "#27324d"
         opacity: enabled ? 1.0 : 0.45
         scale: buttonArea.pressed ? 0.985 : 1.0
 
@@ -87,111 +112,36 @@ ApplicationWindow {
             onClicked: capsuleButton.clicked()
         }
 
-        Text {
-            id: capsuleLabel
+        RowLayout {
+            id: buttonRow
             anchors.centerIn: parent
-            text: capsuleButton.label
-            color: primary ? "#0f172a" : "#eff4ff"
-            font.pixelSize: 13
-            font.weight: Font.DemiBold
-            font.family: window.bodyFont
-        }
-    }
-
-    component NavChip: Rectangle {
-        id: navChip
-
-        property string label: ""
-        property bool active: false
-
-        implicitWidth: navLabel.implicitWidth + 26
-        implicitHeight: 38
-        radius: 13
-        color: active ? "#2a3558" : "transparent"
-        border.width: active ? 1 : 0
-        border.color: "#34456f"
-
-        Text {
-            id: navLabel
-            anchors.centerIn: parent
-            text: navChip.label
-            color: active ? "#f7f9ff" : "#9aaed5"
-            font.pixelSize: 13
-            font.weight: active ? Font.DemiBold : Font.Medium
-            font.family: window.bodyFont
-        }
-    }
-
-    component SuggestionCard: Rectangle {
-        id: suggestionCard
-
-        property string icon: ""
-        property string title: ""
-        property string subtitle: ""
-        property string prompt: ""
-        signal clicked()
-
-        radius: 22
-        color: suggestionArea.containsMouse ? "#18213a" : "#131a2f"
-        border.width: 1
-        border.color: suggestionArea.containsMouse ? "#31456f" : "#202b47"
-        scale: suggestionArea.pressed ? 0.99 : 1.0
-
-        Behavior on scale {
-            NumberAnimation { duration: 90 }
-        }
-
-        MouseArea {
-            id: suggestionArea
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: suggestionCard.clicked()
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 18
-            spacing: 12
+            spacing: 8
 
             Rectangle {
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 42
-                radius: 14
-                color: "#1e2947"
+                visible: capsuleButton.tag.length > 0
+                implicitWidth: 20
+                implicitHeight: 20
+                radius: 7
+                color: capsuleButton.primary ? "#f0e5ff" : "#35255c"
                 border.width: 1
-                border.color: "#30415f"
+                border.color: capsuleButton.primary ? "#d8c2ff" : "#4b3474"
 
                 Text {
                     anchors.centerIn: parent
-                    text: suggestionCard.icon
-                    color: "#eef2ff"
-                    font.pixelSize: 13
-                    font.weight: Font.DemiBold
-                    font.family: window.bodyFont
+                    text: capsuleButton.tag
+                    color: capsuleButton.primary ? "#241540" : "#eef4ff"
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                    font.family: window.displayFont
                 }
             }
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 4
-
-                Text {
-                    text: suggestionCard.title
-                    color: "#f8faff"
-                    font.pixelSize: 15
-                    font.weight: Font.DemiBold
-                    font.family: window.bodyFont
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: suggestionCard.subtitle
-                    color: "#95a8ce"
-                    font.pixelSize: 12
-                    wrapMode: Text.WordWrap
-                    font.family: window.bodyFont
-                }
+            Text {
+                text: capsuleButton.label
+                color: capsuleButton.primary ? "#101828" : "#f7f9ff"
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                font.family: window.bodyFont
             }
         }
     }
@@ -202,68 +152,146 @@ ApplicationWindow {
         property string tone: "idle"
         property string label: ""
 
-        implicitWidth: badgeLabel.implicitWidth + 24
+        implicitWidth: statusRow.implicitWidth + 20
         implicitHeight: 34
-        radius: 999
+        radius: 17
         color: tone === "ready"
-            ? "#173228"
+            ? "#24183b"
             : tone === "starting"
-                ? "#453116"
+                ? "#443115"
                 : tone === "error"
-                    ? "#452027"
-                    : "#171f35"
+                    ? "#462127"
+                    : "#151d31"
         border.width: 1
         border.color: tone === "ready"
-            ? "#37d0ae"
+            ? "#a78bfa"
             : tone === "starting"
                 ? "#f2a72f"
                 : tone === "error"
                     ? "#ee7d86"
-                    : "#2a3554"
+                    : "#2b3652"
 
-        Text {
-            id: badgeLabel
+        RowLayout {
+            id: statusRow
             anchors.centerIn: parent
-            text: statusBadge.label
-            color: "#eef3ff"
-            font.pixelSize: 12
-            font.weight: Font.DemiBold
-            font.family: window.bodyFont
+            spacing: 8
+
+            Rectangle {
+                width: 8
+                height: 8
+                radius: 4
+                color: tone === "ready"
+                    ? "#a78bfa"
+                    : tone === "starting"
+                        ? "#f2a72f"
+                        : tone === "error"
+                            ? "#ee7d86"
+                            : "#8b7ad1"
+            }
+
+            Text {
+                text: statusBadge.label
+                color: "#eef4ff"
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+                font.family: window.bodyFont
+            }
+        }
+    }
+
+    component StarterCard: Rectangle {
+        id: starterCard
+
+        property string tag: ""
+        property string title: ""
+        property string subtitle: ""
+        signal clicked()
+
+        radius: 22
+        color: cardArea.containsMouse ? "#18213a" : "#12192d"
+        border.width: 1
+        border.color: cardArea.containsMouse ? "#624493" : "#3b295e"
+        scale: cardArea.pressed ? 0.99 : 1.0
+
+        Behavior on scale {
+            NumberAnimation { duration: 90 }
+        }
+
+        MouseArea {
+            id: cardArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: starterCard.clicked()
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 18
+            spacing: 14
+
+            IconBadge {
+                label: starterCard.tag
+                fillColor: "#2a1d4d"
+                textColor: "#eef4ff"
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+
+                Text {
+                    text: starterCard.title
+                    color: "#f8fbff"
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                    font.family: window.bodyFont
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: starterCard.subtitle
+                    color: "#91a4cb"
+                    font.pixelSize: 12
+                    wrapMode: Text.WordWrap
+                    font.family: window.bodyFont
+                }
+            }
         }
     }
 
     background: Rectangle {
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#171438" }
-            GradientStop { position: 0.42; color: "#10214a" }
-            GradientStop { position: 1.0; color: "#08101f" }
+            GradientStop { position: 0.0; color: "#1a1038" }
+            GradientStop { position: 0.42; color: "#2a1450" }
+            GradientStop { position: 1.0; color: "#0a0618" }
         }
 
         Rectangle {
             width: 620
             height: 620
             radius: 310
-            x: window.width * 0.5 - width / 2
-            y: -350
-            color: "#2d6cff48"
+            x: window.width * 0.48 - width / 2
+            y: -340
+            color: "transparent"
         }
 
         Rectangle {
-            width: 420
-            height: 420
-            radius: 210
-            x: window.width - 280
-            y: window.height * 0.50
-            color: "#1f4aff2d"
+            width: 440
+            height: 440
+            radius: 220
+            x: window.width - 300
+            y: window.height * 0.52
+            color: "transparent"
         }
 
         Rectangle {
-            width: 300
-            height: 300
-            radius: 150
+            width: 340
+            height: 340
+            radius: 170
             x: -120
             y: window.height - 120
-            color: "#1cc0ff22"
+            color: "transparent"
         }
     }
 
@@ -274,41 +302,40 @@ ApplicationWindow {
 
         Rectangle {
             Layout.fillWidth: true
-            implicitHeight: 74
-            radius: 26
-            color: "#1b112330"
+            implicitHeight: 72
+            radius: 24
+            color: "#22121f30"
             border.width: 1
-            border.color: "#243150"
+            border.color: "#422f67"
 
             RowLayout {
                 anchors.fill: parent
                 anchors.margins: 18
                 spacing: 14
 
-                Rectangle {
-                    Layout.preferredWidth: 44
-                    Layout.preferredHeight: 44
-                    radius: 16
-                    color: "#1a2440"
-                    border.width: 1
-                    border.color: "#314264"
+                IconBadge {
+                    label: "OS"
+                    fillColor: "#2a1d4d"
+                }
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: "OS"
-                        color: "#f8fbff"
-                        font.pixelSize: 13
-                        font.weight: Font.Bold
-                        font.family: window.displayFont
-                    }
+                Text {
+                    text: "Osaurus Native"
+                    color: "#f7fbff"
+                    font.pixelSize: 17
+                    font.weight: Font.DemiBold
+                    font.family: window.displayFont
+                }
+
+                Item {
+                    Layout.fillWidth: true
                 }
 
                 Rectangle {
                     radius: 18
-                    color: "#141a2c"
+                    color: "#171427"
                     border.width: 1
-                    border.color: "#242f4e"
-                    implicitHeight: 44
+                    border.color: "#4b3474"
+                    implicitHeight: 42
                     implicitWidth: navRow.implicitWidth + 14
 
                     RowLayout {
@@ -316,13 +343,15 @@ ApplicationWindow {
                         anchors.centerIn: parent
                         spacing: 4
 
-                        NavChip { label: "Chat"; active: true }
-                        NavChip { label: "Work" }
-                        NavChip { label: "Sandbox" }
+                        CapsuleButton { label: "Chat"; active: true; enabled: false }
+                        CapsuleButton { label: "Work"; enabled: false }
+                        CapsuleButton { label: "Sandbox"; enabled: false }
                     }
                 }
 
-                Item { Layout.fillWidth: true }
+                Item {
+                    Layout.fillWidth: true
+                }
 
                 StatusBadge {
                     label: window.controller ? window.controller.statusTitle : "Carregando"
@@ -331,6 +360,7 @@ ApplicationWindow {
 
                 CapsuleButton {
                     label: window.controller ? window.controller.currentBackendLabel : "CLI"
+                    tag: window.controller && window.controller.currentBackendLabel === "Codex" ? "C" : "Q"
                     active: true
                     enabled: false
                 }
@@ -340,10 +370,10 @@ ApplicationWindow {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: 34
-            color: "#2e0b1325"
+            radius: 32
+            color: "#2a0c1324"
             border.width: 1
-            border.color: "#243150"
+            border.color: "#422f67"
 
             ColumnLayout {
                 anchors.fill: parent
@@ -353,104 +383,115 @@ ApplicationWindow {
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    clip: true
 
-                    Column {
-                        anchors.centerIn: parent
-                        width: 760
-                        spacing: 24
+                    Flickable {
+                        anchors.fill: parent
                         visible: chatList.count === 0
-
-                        Item {
-                            width: 126
-                            height: 126
-                            anchors.horizontalCenter: parent.horizontalCenter
-
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 126
-                                height: 126
-                                radius: 63
-                                color: "#32b6ff30"
-                            }
-
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 88
-                                height: 88
-                                radius: 44
-                                color: "#e7f6ffdd"
-                            }
-
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 22
-                                height: 22
-                                radius: 11
-                                color: "#8bd4ff"
-                            }
-                        }
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        contentWidth: width
+                        contentHeight: Math.max(height, emptyStateContent.implicitHeight + 48)
+                        interactive: contentHeight > height
 
                         Column {
-                            width: parent.width
-                            spacing: 8
+                            id: emptyStateContent
+                            width: Math.min(parent.width - 40, 760)
+                            x: Math.max(0, (parent.width - width) / 2)
+                            y: Math.max(24, (parent.height - implicitHeight) / 2)
+                            spacing: 24
 
-                            Text {
+                            Item {
+                                width: 126
+                                height: 126
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: window.controller ? window.controller.greeting : "Ola"
-                                color: "#f8faff"
-                                font.pixelSize: 58
-                                font.weight: Font.Bold
-                                font.family: window.displayFont
-                            }
 
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "Como posso ajudar voce hoje?"
-                                color: "#c2cee7"
-                                font.pixelSize: 20
-                                font.family: window.bodyFont
-                            }
-
-                            Rectangle {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                implicitWidth: backendBadgeLabel.implicitWidth + 26
-                                implicitHeight: 36
-                                radius: 18
-                                color: "#141b30"
-                                border.width: 1
-                                border.color: "#25304b"
-
-                                Text {
-                                    id: backendBadgeLabel
+                                Rectangle {
                                     anchors.centerIn: parent
-                                    text: "Usando " + (window.controller ? window.controller.currentBackendLabel : "CLI")
-                                    color: "#e8eefc"
-                                    font.pixelSize: 13
-                                    font.weight: Font.Medium
-                                    font.family: window.bodyFont
+                                    width: 126
+                                    height: 126
+                                    radius: 63
+                                    color: "transparent"
+                                }
+
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 88
+                                    height: 88
+                                    radius: 44
+                                    color: "transparent"
+                                }
+
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 22
+                                    height: 22
+                                    radius: 11
+                                    color: "transparent"
                                 }
                             }
-                        }
 
-                        GridLayout {
-                            width: parent.width
-                            columns: 2
-                            rowSpacing: 14
-                            columnSpacing: 14
+                            Column {
+                                width: parent.width
+                                spacing: 8
 
-                            Repeater {
-                                model: window.starterCards
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: window.controller ? window.controller.greeting : "Ola"
+                                    color: "#f8fbff"
+                                    font.pixelSize: 58
+                                    font.weight: Font.Bold
+                                    font.family: window.displayFont
+                                }
 
-                                SuggestionCard {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 118
-                                    icon: modelData.icon
-                                    title: modelData.title
-                                    subtitle: modelData.subtitle
-                                    prompt: modelData.prompt
-                                    onClicked: {
-                                        promptInput.text = modelData.prompt
-                                        promptInput.forceActiveFocus()
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: window.controller ? window.controller.greetingSubtitle : "Como posso ajudar voce hoje?"
+                                    color: "#c3cee7"
+                                    font.pixelSize: 20
+                                    font.family: window.bodyFont
+                                }
+
+                                Rectangle {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    implicitWidth: backendLabel.implicitWidth + 26
+                                    implicitHeight: 36
+                                    radius: 18
+                                    color: "#141b30"
+                                    border.width: 1
+                                    border.color: "#4b3474"
+
+                                    Text {
+                                        id: backendLabel
+                                        anchors.centerIn: parent
+                                        text: "Usando " + (window.controller ? window.controller.currentBackendLabel : "CLI")
+                                        color: "#e9effd"
+                                        font.pixelSize: 13
+                                        font.weight: Font.Medium
+                                        font.family: window.bodyFont
+                                    }
+                                }
+                            }
+
+                            GridLayout {
+                                width: parent.width
+                                columns: 2
+                                rowSpacing: 14
+                                columnSpacing: 14
+
+                                Repeater {
+                                    model: window.starterCards
+
+                                    StarterCard {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 118
+                                        tag: modelData.tag
+                                        title: modelData.title
+                                        subtitle: modelData.subtitle
+                                        onClicked: {
+                                            promptInput.text = modelData.prompt
+                                            promptInput.forceActiveFocus()
+                                        }
                                     }
                                 }
                             }
@@ -482,39 +523,50 @@ ApplicationWindow {
                                 anchors.left: role === "user" ? undefined : parent.left
                                 radius: 24
                                 color: role === "user"
-                                    ? "#dbe6ff"
+                                    ? "#efe7ff"
                                     : role === "system"
                                         ? "#18213b"
-                                        : "#141b30"
+                                        : "#131a2f"
                                 border.width: 1
                                 border.color: role === "user"
-                                    ? "#b2c8ff"
+                                    ? "#d8c2ff"
                                     : role === "system"
-                                        ? "#36466f"
-                                        : "#243150"
+                                        ? "#5a3f89"
+                                        : "#3b295e"
 
-                                Column {
+                                RowLayout {
                                     id: bubbleColumn
-                                    x: 16
-                                    y: 14
-                                    width: bubbleBox.width - 32
-                                    spacing: 6
+                                    anchors.fill: parent
+                                    anchors.margins: 16
+                                    spacing: 12
 
-                                    Text {
-                                        text: meta
-                                        color: role === "user" ? "#365ab5" : "#90a4ca"
-                                        font.pixelSize: 12
-                                        font.weight: Font.Medium
-                                        font.family: window.bodyFont
+                                    IconBadge {
+                                        label: role === "user" ? "U" : (role === "system" ? "!" : "A")
+                                        fillColor: role === "user" ? "#eadcff" : "#2a1d4d"
+                                        textColor: role === "user" ? "#3b2462" : "#eef4ff"
+                                        Layout.alignment: Qt.AlignTop
                                     }
 
-                                    Text {
-                                        width: parent.width
-                                        text: content
-                                        color: role === "user" ? "#0f172a" : "#f8fbff"
-                                        font.pixelSize: 14
-                                        wrapMode: Text.Wrap
-                                        font.family: window.bodyFont
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Text {
+                                            text: role === "user" ? "Voce" : (meta.length > 0 ? meta : "Agente")
+                                            color: role === "user" ? "#8b5cf6" : "#b8a8dc"
+                                            font.pixelSize: 12
+                                            font.weight: Font.Medium
+                                            font.family: window.bodyFont
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: content
+                                            color: role === "user" ? "#0f172a" : "#f8fbff"
+                                            font.pixelSize: 14
+                                            wrapMode: Text.Wrap
+                                            font.family: window.bodyFont
+                                        }
                                     }
                                 }
                             }
@@ -531,11 +583,12 @@ ApplicationWindow {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    implicitHeight: 194
+                    Layout.minimumHeight: 194
+                    Layout.preferredHeight: 194
                     radius: 30
-                    color: "#31111a2a"
+                    color: "#3011192a"
                     border.width: 1
-                    border.color: "#243150"
+                    border.color: "#3b295e"
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -550,7 +603,7 @@ ApplicationWindow {
                                 radius: 16
                                 color: "#12192d"
                                 border.width: 1
-                                border.color: "#232f4d"
+                                border.color: "#3b295e"
                                 implicitHeight: 44
                                 implicitWidth: backendRow.implicitWidth + 10
 
@@ -560,13 +613,17 @@ ApplicationWindow {
                                     spacing: 6
 
                                     Repeater {
-                                        model: window.backends
+                                        model: [
+                                            { key: "codex", label: "Codex", tag: "C" },
+                                            { key: "qwen", label: "Qwen", tag: "Q" }
+                                        ]
 
                                         CapsuleButton {
-                                            label: modelData === "codex" ? "Codex" : "Qwen"
-                                            active: window.controller && window.controller.selectedBackend === modelData
+                                            label: modelData.label
+                                            tag: modelData.tag
+                                            active: window.controller && window.controller.selectedBackend === modelData.key
                                             enabled: !!window.controller
-                                            onClicked: window.controller.selectedBackend = modelData
+                                            onClicked: window.controller.selectedBackend = modelData.key
                                         }
                                     }
                                 }
@@ -574,33 +631,39 @@ ApplicationWindow {
 
                             CapsuleButton {
                                 label: window.controller && window.controller.bridgeStatus === "ready" ? "Reconectar" : "Conectar"
+                                tag: ">"
                                 enabled: !!window.controller
                                 onClicked: window.controller.connectBackend()
                             }
 
                             CapsuleButton {
                                 label: "Parar"
+                                tag: "[]"
                                 enabled: window.controller && window.controller.canStop
                                 onClicked: window.controller.stopSession()
                             }
 
                             CapsuleButton {
                                 label: "/model"
+                                tag: "M"
                                 enabled: window.controller && window.controller.canSend
                                 onClicked: window.controller.sendQuickCommand("/model")
                             }
 
                             CapsuleButton {
                                 label: "/reset"
+                                tag: "R"
                                 enabled: window.controller && window.controller.canSend
                                 onClicked: window.controller.sendQuickCommand("/reset")
                             }
 
-                            Item { Layout.fillWidth: true }
+                            Item {
+                                Layout.fillWidth: true
+                            }
 
                             Text {
                                 text: "Enter para enviar"
-                                color: "#8397c0"
+                                color: "#b39adf"
                                 font.pixelSize: 12
                                 font.family: window.bodyFont
                             }
@@ -609,10 +672,11 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                            Layout.minimumHeight: 118
                             radius: 24
                             color: "#0c1222"
                             border.width: 1
-                            border.color: "#27324f"
+                            border.color: "#26324f"
 
                             RowLayout {
                                 anchors.fill: parent
@@ -630,9 +694,9 @@ ApplicationWindow {
                                         Layout.fillHeight: true
                                         wrapMode: TextEdit.Wrap
                                         placeholderText: window.controller ? window.controller.composerPlaceholder : "Comece a conversa..."
-                                        placeholderTextColor: "#7182a7"
+                                        placeholderTextColor: "#9b86c7"
                                         color: "#f8fbff"
-                                        selectionColor: "#7aa2ff"
+                                        selectionColor: "#b88cff"
                                         font.pixelSize: 18
                                         font.family: window.bodyFont
                                         padding: 0
@@ -656,7 +720,7 @@ ApplicationWindow {
                                     Text {
                                         Layout.fillWidth: true
                                         text: window.controller ? window.controller.statusDescription : "Carregando controlador..."
-                                        color: "#879abf"
+                                        color: "#b59fdb"
                                         font.pixelSize: 13
                                         elide: Text.ElideRight
                                         font.family: window.bodyFont
@@ -665,6 +729,7 @@ ApplicationWindow {
 
                                 CapsuleButton {
                                     label: "Enviar"
+                                    tag: ">>"
                                     primary: true
                                     enabled: window.controller && window.controller.canSend
                                     onClicked: window.submitPrompt()

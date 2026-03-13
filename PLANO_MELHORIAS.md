@@ -48,13 +48,13 @@ Dar ao app uma identidade visual coerente, mais premium e menos improvisada.
 
 ### Checklist
 
-- [ ] Definir uma paleta unica e remover cores inconsistentes
-- [ ] Melhorar header, estado vazio, chat e composer
-- [ ] Ajustar tipografia para um visual mais proximo de apps Apple-like
-- [ ] Reduzir elementos decorativos sem funcao
-- [ ] Refinar espacos, raios, sombras e contraste
-- [ ] Diferenciar visualmente mensagens do usuario, agente e sistema
-- [ ] Melhorar o estado vazio com onboarding curto e util
+- [x] Definir uma paleta unica e remover cores inconsistentes
+- [x] Melhorar header, estado vazio, chat e composer
+- [x] Ajustar tipografia para um visual mais proximo de apps Apple-like
+- [x] Reduzir elementos decorativos sem funcao
+- [x] Refinar espacos, raios, sombras e contraste
+- [x] Diferenciar visualmente mensagens do usuario, agente e sistema
+- [x] Melhorar o estado vazio com onboarding curto e util
 
 ## Sprint 3 - Integracao robusta com Codex e Qwen
 

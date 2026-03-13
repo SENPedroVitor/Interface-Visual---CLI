@@ -58,6 +58,69 @@ INTERNAL_TRACE_PREFIXES = (
     "I should ",
 )
 
+GREETING_VARIANTS: dict[str, list[tuple[str, str]]] = {
+    "morning": [
+        ("Bom dia, {name}", "Vamos abrir o dia com alguma coisa util."),
+        ("Bom dia, {name}", "Se tiver algo travado, vamos destravar cedo."),
+        ("Comeco de dia, {name}", "Boa hora para organizar as prioridades."),
+        ("Manha boa, {name}", "Dá para sair com bastante coisa resolvida."),
+        ("Bom dia, {name}", "Se quiser, a gente começa pelo mais dificil."),
+        ("Modo foco, {name}", "Vamos aproveitar a manha enquanto ela rende."),
+        ("Bom dia, {name}", "Hora de colocar as ideias em ordem."),
+        ("Partiu resolver, {name}", "A manha costuma ser a melhor janela."),
+        ("Bom dia, {name}", "Se tiver bagunçado, a gente estrutura."),
+        ("Primeira rodada do dia, {name}", "Vamos fazer isso andar."),
+    ],
+    "afternoon": [
+        ("Boa tarde, {name}", "Se tiver pendencia, agora e uma boa hora para destravar."),
+        ("Boa tarde, {name}", "Vamos pegar o que ficou aberto e fechar direito."),
+        ("Turno da tarde, {name}", "Ainda dá para render bastante."),
+        ("Boa tarde, {name}", "Se quiser, a gente retoma do ponto mais importante."),
+        ("Hora de ajustar a rota, {name}", "Vamos deixar o resto do dia mais leve."),
+        ("Boa tarde, {name}", "Dá para transformar essa pilha em proximos passos."),
+        ("Seguimos, {name}", "A tarde ainda salva bastante coisa."),
+        ("Boa tarde, {name}", "Vamos direto no que mais importa."),
+        ("Tarde de trabalho, {name}", "Se tiver ruido, eu organizo contigo."),
+        ("Boa tarde, {name}", "Vamos fazer progresso sem complicar."),
+    ],
+    "coffee": [
+        ("Hora do cafe, {name}", "Uma rodada boa agora ja salva o resto da tarde."),
+        ("Pausa estrategica, {name}", "Café e organizacao costumam combinar bem."),
+        ("Cafe da tarde, {name}", "Vamos resolver isso antes de esfriar."),
+        ("Hora do cafe, {name}", "Boa janela para limpar pendencias curtas."),
+        ("Ritmo de cafe, {name}", "Se quiser, a gente fecha isso rapidinho."),
+        ("Café na mesa, {name}", "Bora transformar isso em algo objetivo."),
+        ("Hora boa para focar, {name}", "Um passo certo agora vale por varios depois."),
+        ("Cafe e clareza, {name}", "Vamos simplificar o que estiver embolado."),
+        ("Voltando pro eixo, {name}", "Hora boa para uma resposta limpa."),
+        ("Hora do cafe, {name}", "Dá para sair daqui com isso encaminhado."),
+    ],
+    "evening": [
+        ("Boa noite, {name}", "Dá para fechar isso com calma e clareza."),
+        ("Boa noite, {name}", "Se quiser, a gente resolve sem pressa."),
+        ("Noite produtiva, {name}", "Vamos deixar isso redondo antes de encerrar."),
+        ("Boa noite, {name}", "Hora boa para lapidar o que ficou pendente."),
+        ("Seguimos a noite, {name}", "Se tiver ruido, eu ajudo a simplificar."),
+        ("Boa noite, {name}", "Vamos organizar a ultima rodada do dia."),
+        ("Clima de fechamento, {name}", "Dá para sair com isso melhor do que entrou."),
+        ("Boa noite, {name}", "Se quiser, vamos direto ao ponto."),
+        ("Noite de foco, {name}", "Vamos resolver isso sem dispersao."),
+        ("Boa noite, {name}", "Ainda dá para produzir algo bem feito."),
+    ],
+    "late_night": [
+        ("Noite longa, {name}", "Se ainda estiver por aqui, vamos resolver sem complicar."),
+        ("Virando a noite, {name}", "Vamos manter isso simples e objetivo."),
+        ("Ainda acordado, {name}", "Então bora fechar isso direito."),
+        ("Hora silenciosa, {name}", "Boa para pensar com menos ruido."),
+        ("Noite funda, {name}", "Se for para fazer, vamos fazer limpo."),
+        ("Ultima rodada, {name}", "Vamos deixar isso em um estado bom."),
+        ("Noite de concentracao, {name}", "Se quiser, eu vou direto no essencial."),
+        ("Ainda no teclado, {name}", "Vamos destravar isso com calma."),
+        ("Sem enrolacao, {name}", "Hora de resolver e encerrar."),
+        ("Noite longa, {name}", "Eu seguro o contexto, voce decide o ritmo."),
+    ],
+}
+
 
 def sanitize_terminal_text(text: str) -> str:
     cleaned = ANSI_ESCAPE_RE.sub("", text)
@@ -85,6 +148,33 @@ def is_ui_noise_line(text: str) -> bool:
         return True
 
     return stripped.startswith(UI_NOISE_PREFIXES)
+
+
+def resolve_display_name() -> str:
+    preferred = (os.getenv("OSAURUS_NAME") or "").strip()
+    if preferred:
+        return preferred.split()[0]
+
+    system_name = (os.getenv("USER") or os.getenv("USERNAME") or "").strip()
+    if not system_name:
+        return ""
+
+    cleaned = re.sub(r"[^A-Za-zÀ-ÿ0-9_-]", "", system_name)
+    if not cleaned:
+        return ""
+    return cleaned[:1].upper() + cleaned[1:]
+
+
+def get_greeting_period(current_hour: int) -> str:
+    if current_hour < 12:
+        return "morning"
+    if current_hour < 15:
+        return "afternoon"
+    if current_hour < 18:
+        return "coffee"
+    if current_hour < 22:
+        return "evening"
+    return "late_night"
 
 
 class MessageListModel(QAbstractListModel):
@@ -178,6 +268,7 @@ class NativeChatController(QObject):
         self._command_label: str | None = None
         self._pending_output = ""
         self._last_prompt = ""
+        self._display_name = resolve_display_name()
 
     @Property(QObject, notify=messagesModelChanged)
     def messagesModel(self) -> MessageListModel:
@@ -218,12 +309,13 @@ class NativeChatController(QObject):
 
     @Property(str, notify=greetingChanged)
     def greeting(self) -> str:
-        current_hour = datetime.now().hour
-        if current_hour < 12:
-            return "Bom dia"
-        if current_hour < 18:
-            return "Boa tarde"
-        return "Boa noite"
+        title, _subtitle = self._current_greeting_pair()
+        return title
+
+    @Property(str, notify=greetingChanged)
+    def greetingSubtitle(self) -> str:
+        _title, subtitle = self._current_greeting_pair()
+        return subtitle
 
     @Property(str, notify=composerPlaceholderChanged)
     def composerPlaceholder(self) -> str:
@@ -466,6 +558,15 @@ class NativeChatController(QObject):
         self.bridgeStatusChanged.emit()
         self.canSendChanged.emit()
         self.canStopChanged.emit()
+
+    def _current_greeting_pair(self) -> tuple[str, str]:
+        now = datetime.now()
+        period = get_greeting_period(now.hour)
+        variants = GREETING_VARIANTS[period]
+        index = (now.timetuple().tm_yday + now.hour) % len(variants)
+        title, subtitle = variants[index]
+        name = self._display_name or "Faux"
+        return title.format(name=name), subtitle
 
     def _append_backend_output(self, text: str) -> None:
         self._pending_output += text
