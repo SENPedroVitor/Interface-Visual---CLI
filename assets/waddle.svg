@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="waddle-bg" x1="32" y1="24" x2="224" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="waddle-accent" x1="72" y1="64" x2="188" y2="192" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="44" fill="url(#waddle-bg)"/>
+  <!-- Penguin body -->
+  <ellipse cx="128" cy="140" rx="70" ry="80" fill="#1F2937"/>
+  <ellipse cx="128" cy="140" rx="50" ry="60" fill="#F3F4F6"/>
+  <!-- Eyes -->
+  <circle cx="108" cy="90" r="10" fill="#F3F4F6"/>
+  <circle cx="148" cy="90" r="10" fill="#F3F4F6"/>
+  <circle cx="110" cy="92" r="5" fill="#1F2937"/>
+  <circle cx="150" cy="92" r="5" fill="#1F2937"/>
+  <!-- Beak -->
+  <path d="M120 105 L136 105 L128 118 Z" fill="#F59E0B"/>
+  <!-- Belly -->
+  <ellipse cx="128" cy="160" rx="35" ry="45" fill="#F3F4F6" fill-opacity="0.9"/>
+  <!-- Wings -->
+  <ellipse cx="65" cy="140" rx="18" ry="35" fill="#1D4ED8" transform="rotate(-20 65 140)"/>
+  <ellipse cx="191" cy="140" rx="18" ry="35" fill="#1D4ED8" transform="rotate(20 191 140)"/>
+  <!-- Feet -->
+  <ellipse cx="105" cy="210" rx="15" ry="8" fill="#F59E0B"/>
+  <ellipse cx="151" cy="210" rx="15" ry="8" fill="#F59E0B"/>
+</svg>

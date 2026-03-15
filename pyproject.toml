@@ -1,7 +1,7 @@
 [project]
-name = "cli-ai-harness"
+name = "waddle"
 version = "0.1.0"
-description = "CLI harness for integrating AI backends"
+description = "Native desktop shell for AI CLI agents (Codex, Qwen)"
 requires-python = ">=3.9"
 dependencies = [
   "typer[all]>=0.7",
@@ -11,5 +11,5 @@ dependencies = [
 ]
 
 [project.scripts]
+waddle = "cli_harness.native_app:main"
 cli-ai = "cli_harness.cli:app"
-cli-ai-native = "cli_harness.native_app:main"

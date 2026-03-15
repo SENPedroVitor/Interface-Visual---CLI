@@ -10,8 +10,9 @@ ApplicationWindow {
     minimumWidth: 1080
     minimumHeight: 760
     visible: true
-    title: "Osaurus Native"
+    title: "Waddle"
     color: "#0b1020"
+    objectName: "waddle"
 
     property string displayFont: "Sans Serif"
     property string bodyFont: "Sans Serif"
@@ -52,11 +53,11 @@ ApplicationWindow {
         property color fillColor: "#2a1d4d"
         property color textColor: "#eef4ff"
 
-        implicitWidth: 34
-        implicitHeight: 34
-        radius: 12
+        implicitWidth: 32
+        implicitHeight: 32
+        radius: 0
         color: fillColor
-        border.width: 1
+        border.width: 2
         border.color: "#4b3474"
 
         Text {
@@ -78,29 +79,29 @@ ApplicationWindow {
         property bool primary: false
         signal clicked()
 
-        implicitWidth: buttonRow.implicitWidth + 24
+        implicitWidth: buttonRow.implicitWidth + 20
         implicitHeight: 40
-        radius: 14
+        radius: 0
         color: !enabled
             ? "#171d31"
             : primary
-                ? "#eef3ff"
+                ? "#7c3aed"
                 : active
-                    ? "#3d2a67"
+                    ? "#4c1d95"
                     : buttonArea.containsMouse
-                        ? "#2a1d47"
-                        : "#171427"
-        border.width: 1
+                        ? "#3d2a67"
+                        : "#2a1d47"
+        border.width: 2
         border.color: primary
-            ? "#ffffff"
+            ? "#a78bfa"
             : active
                 ? "#b88cff"
-                : "#27324d"
-        opacity: enabled ? 1.0 : 0.45
-        scale: buttonArea.pressed ? 0.985 : 1.0
+                : "#4b3474"
+        opacity: enabled ? 1.0 : 0.5
+        scale: buttonArea.pressed ? 0.98 : 1.0
 
         Behavior on scale {
-            NumberAnimation { duration: 90 }
+            NumberAnimation { duration: 80 }
         }
 
         MouseArea {
@@ -121,15 +122,14 @@ ApplicationWindow {
                 visible: capsuleButton.tag.length > 0
                 implicitWidth: 20
                 implicitHeight: 20
-                radius: 7
-                color: capsuleButton.primary ? "#f0e5ff" : "#35255c"
-                border.width: 1
-                border.color: capsuleButton.primary ? "#d8c2ff" : "#4b3474"
+                radius: 0
+                color: capsuleButton.primary ? "#a78bfa" : "#4b3474"
+                border.width: 0
 
                 Text {
                     anchors.centerIn: parent
                     text: capsuleButton.tag
-                    color: capsuleButton.primary ? "#241540" : "#eef4ff"
+                    color: capsuleButton.primary ? "#1e1b4b" : "#eef4ff"
                     font.pixelSize: 10
                     font.weight: Font.Bold
                     font.family: window.displayFont
@@ -138,7 +138,7 @@ ApplicationWindow {
 
             Text {
                 text: capsuleButton.label
-                color: capsuleButton.primary ? "#101828" : "#f7f9ff"
+                color: capsuleButton.primary ? "#ffffff" : "#e2e8f0"
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
                 font.family: window.bodyFont
@@ -154,7 +154,7 @@ ApplicationWindow {
 
         implicitWidth: statusRow.implicitWidth + 20
         implicitHeight: 34
-        radius: 17
+        radius: 0
         color: tone === "ready"
             ? "#24183b"
             : tone === "starting"
@@ -162,7 +162,7 @@ ApplicationWindow {
                 : tone === "error"
                     ? "#462127"
                     : "#151d31"
-        border.width: 1
+        border.width: 2
         border.color: tone === "ready"
             ? "#a78bfa"
             : tone === "starting"
@@ -179,7 +179,7 @@ ApplicationWindow {
             Rectangle {
                 width: 8
                 height: 8
-                radius: 4
+                radius: 0
                 color: tone === "ready"
                     ? "#a78bfa"
                     : tone === "starting"
@@ -207,14 +207,14 @@ ApplicationWindow {
         property string subtitle: ""
         signal clicked()
 
-        radius: 22
+        radius: 0
         color: cardArea.containsMouse ? "#18213a" : "#12192d"
-        border.width: 1
+        border.width: 2
         border.color: cardArea.containsMouse ? "#624493" : "#3b295e"
-        scale: cardArea.pressed ? 0.99 : 1.0
+        scale: cardArea.pressed ? 0.98 : 1.0
 
         Behavior on scale {
-            NumberAnimation { duration: 90 }
+            NumberAnimation { duration: 80 }
         }
 
         MouseArea {
@@ -261,38 +261,51 @@ ApplicationWindow {
     }
 
     background: Rectangle {
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#1a1038" }
-            GradientStop { position: 0.42; color: "#2a1450" }
-            GradientStop { position: 1.0; color: "#0a0618" }
+        color: "#1a1038"
+
+        // Big pixel grid pattern
+        Repeater {
+            model: 40
+            delegate: Rectangle {
+                width: 60
+                height: 60
+                x: (index % 20) * 60
+                y: Math.floor(index / 20) * 60
+                color: (index % 2 === 0) ? "#2a1450" : "#1a1038"
+                opacity: 0.5
+            }
         }
 
-        Rectangle {
-            width: 620
-            height: 620
-            radius: 310
-            x: window.width * 0.48 - width / 2
-            y: -340
-            color: "transparent"
-        }
+        // Big pixel stars
+        Rectangle { width: 12; height: 12; x: 120; y: 100; color: "#a78bfa" }
+        Rectangle { width: 12; height: 12; x: 280; y: 180; color: "#c4b5fd" }
+        Rectangle { width: 12; height: 12; x: 450; y: 120; color: "#a78bfa" }
+        Rectangle { width: 12; height: 12; x: 620; y: 220; color: "#c4b5fd" }
+        Rectangle { width: 12; height: 12; x: 800; y: 140; color: "#a78bfa" }
+        Rectangle { width: 12; height: 12; x: 980; y: 200; color: "#c4b5fd" }
+        Rectangle { width: 12; height: 12; x: 1150; y: 110; color: "#a78bfa" }
 
-        Rectangle {
-            width: 440
-            height: 440
-            radius: 220
-            x: window.width - 300
-            y: window.height * 0.52
-            color: "transparent"
-        }
+        Rectangle { width: 12; height: 12; x: 200; y: 350; color: "#c4b5fd" }
+        Rectangle { width: 12; height: 12; x: 500; y: 400; color: "#a78bfa" }
+        Rectangle { width: 12; height: 12; x: 750; y: 370; color: "#c4b5fd" }
+        Rectangle { width: 12; height: 12; x: 1050; y: 420; color: "#a78bfa" }
 
-        Rectangle {
-            width: 340
-            height: 340
-            radius: 170
-            x: -120
-            y: window.height - 120
-            color: "transparent"
-        }
+        Rectangle { width: 12; height: 12; x: 350; y: 550; color: "#a78bfa" }
+        Rectangle { width: 12; height: 12; x: 650; y: 600; color: "#c4b5fd" }
+        Rectangle { width: 12; height: 12; x: 950; y: 530; color: "#a78bfa" }
+
+        // Big pixel clouds - blocky style
+        Rectangle { width: 60; height: 24; x: 180; y: 650; color: "#4c1d95"; opacity: 0.5 }
+        Rectangle { width: 36; height: 24; x: 156; y: 626; color: "#4c1d95"; opacity: 0.5 }
+        Rectangle { width: 36; height: 24; x: 204; y: 626; color: "#4c1d95"; opacity: 0.5 }
+
+        Rectangle { width: 72; height: 24; x: 520; y: 700; color: "#4c1d95"; opacity: 0.4 }
+        Rectangle { width: 42; height: 24; x: 496; y: 676; color: "#4c1d95"; opacity: 0.4 }
+        Rectangle { width: 42; height: 24; x: 550; y: 676; color: "#4c1d95"; opacity: 0.4 }
+
+        Rectangle { width: 48; height: 24; x: 880; y: 620; color: "#4c1d95"; opacity: 0.5 }
+        Rectangle { width: 30; height: 24; x: 862; y: 596; color: "#4c1d95"; opacity: 0.5 }
+        Rectangle { width: 30; height: 24; x: 898; y: 596; color: "#4c1d95"; opacity: 0.5 }
     }
 
     ColumnLayout {
@@ -303,9 +316,9 @@ ApplicationWindow {
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: 72
-            radius: 24
+            radius: 0
             color: "#22121f30"
-            border.width: 1
+            border.width: 2
             border.color: "#422f67"
 
             RowLayout {
@@ -319,7 +332,7 @@ ApplicationWindow {
                 }
 
                 Text {
-                    text: "Osaurus Native"
+                    text: "Waddle"
                     color: "#f7fbff"
                     font.pixelSize: 17
                     font.weight: Font.DemiBold
@@ -370,9 +383,9 @@ ApplicationWindow {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: 32
+            radius: 0
             color: "#2a0c1324"
-            border.width: 1
+            border.width: 2
             border.color: "#422f67"
 
             ColumnLayout {
@@ -402,53 +415,147 @@ ApplicationWindow {
                             spacing: 24
 
                             Item {
-                                width: 126
-                                height: 126
+                                width: 220
+                                height: 200
                                 anchors.horizontalCenter: parent.horizontalCenter
 
+                                // Speech bubble with rounded corners
                                 Rectangle {
-                                    anchors.centerIn: parent
-                                    width: 126
-                                    height: 126
-                                    radius: 63
-                                    color: "transparent"
+                                    id: speechBubbleBody
+                                    anchors.top: parent.top
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.topMargin: 8
+                                    width: 140
+                                    height: 32
+                                    radius: 0
+                                    color: "#ffffff"
+                                    border.width: 3
+                                    border.color: "#475569"
+
+                                    Text {
+                                        id: speechText
+                                        anchors.centerIn: parent
+                                        text: window.controller ? window.controller.greeting : "Ola"
+                                        color: "#1e293b"
+                                        font.pixelSize: 13
+                                        font.weight: Font.DemiBold
+                                        font.family: window.bodyFont
+                                        wrapMode: Text.Wrap
+                                        horizontalAlignment: Text.AlignHCenter
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
                                 }
 
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    width: 88
-                                    height: 88
-                                    radius: 44
-                                    color: "transparent"
+                                // Speech bubble tail (triangle pointing up)
+                                Canvas {
+                                    anchors.top: speechBubbleBody.bottom
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.horizontalCenterOffset: -25
+                                    width: 20
+                                    height: 12
+
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.reset()
+                                        ctx.fillStyle = "#ffffff"
+                                        ctx.strokeStyle = "#475569"
+                                        ctx.lineWidth = 2
+                                        ctx.beginPath()
+                                        ctx.moveTo(0, 0)
+                                        ctx.lineTo(width / 2, height)
+                                        ctx.lineTo(width, 0)
+                                        ctx.closePath()
+                                        ctx.fill()
+                                        ctx.stroke()
+                                    }
                                 }
 
-                                Rectangle {
+                                Item {
+                                    id: mascotContainer
+                                    anchors.bottom: parent.bottom
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: 160
+                                    height: 160
+
+                                    Image {
+                                        id: mascotImage
+                                        anchors.centerIn: parent
+                                        width: parent.width
+                                        height: parent.height
+                                        source: mascotUrl
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: false
+                                        antialiasing: false
+
+                                        // Foot tapping animation on first load
+                                        SequentialAnimation {
+                                            id: footTapAnimation
+                                            running: false
+                                            loops: 1
+
+                                            NumberAnimation {
+                                                target: mascotImage
+                                                property: "scale"
+                                                to: 1.05
+                                                duration: 150
+                                                easing.type: Easing.OutQuad
+                                            }
+                                            NumberAnimation {
+                                                target: mascotImage
+                                                property: "scale"
+                                                to: 1.0
+                                                duration: 150
+                                                easing.type: Easing.InQuad
+                                            }
+                                            PauseAnimation { duration: 100 }
+                                            NumberAnimation {
+                                                target: mascotImage
+                                                property: "scale"
+                                                to: 1.05
+                                                duration: 150
+                                                easing.type: Easing.OutQuad
+                                            }
+                                            NumberAnimation {
+                                                target: mascotImage
+                                                property: "scale"
+                                                to: 1.0
+                                                duration: 150
+                                                easing.type: Easing.InQuad
+                                            }
+                                        }
+                                    }
+
+                                    Component.onCompleted: {
+                                        footTapAnimation.start()
+                                    }
+                                }
+
+                                // Fallback penguin emoji if SVG doesn't load
+                                Text {
                                     anchors.centerIn: parent
-                                    width: 22
-                                    height: 22
-                                    radius: 11
-                                    color: "transparent"
+                                    text: "🐧"
+                                    font.pixelSize: 80
+                                    visible: mascotImage.status === Image.Error
+
+                                    SequentialAnimation on scale {
+                                        loops: Animation.Infinite
+                                        running: visible
+                                        NumberAnimation { to: 1.1; duration: 800; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.0; duration: 800; easing.type: Easing.InOutSine }
+                                    }
                                 }
                             }
 
                             Column {
                                 width: parent.width
-                                spacing: 8
-
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: window.controller ? window.controller.greeting : "Ola"
-                                    color: "#f8fbff"
-                                    font.pixelSize: 58
-                                    font.weight: Font.Bold
-                                    font.family: window.displayFont
-                                }
+                                spacing: 12
 
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     text: window.controller ? window.controller.greetingSubtitle : "Como posso ajudar voce hoje?"
-                                    color: "#c3cee7"
-                                    font.pixelSize: 20
+                                    color: "#94a3b8"
+                                    font.pixelSize: 14
                                     font.family: window.bodyFont
                                 }
 
@@ -521,13 +628,13 @@ ApplicationWindow {
                                 implicitHeight: bubbleColumn.implicitHeight + 28
                                 anchors.right: role === "user" ? parent.right : undefined
                                 anchors.left: role === "user" ? undefined : parent.left
-                                radius: 24
+                                radius: 0
                                 color: role === "user"
                                     ? "#efe7ff"
                                     : role === "system"
                                         ? "#18213b"
                                         : "#131a2f"
-                                border.width: 1
+                                border.width: 2
                                 border.color: role === "user"
                                     ? "#d8c2ff"
                                     : role === "system"
@@ -585,9 +692,9 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.minimumHeight: 194
                     Layout.preferredHeight: 194
-                    radius: 30
+                    radius: 0
                     color: "#3011192a"
-                    border.width: 1
+                    border.width: 2
                     border.color: "#3b295e"
 
                     ColumnLayout {
@@ -600,9 +707,9 @@ ApplicationWindow {
                             spacing: 10
 
                             Rectangle {
-                                radius: 16
+                                radius: 0
                                 color: "#12192d"
-                                border.width: 1
+                                border.width: 2
                                 border.color: "#3b295e"
                                 implicitHeight: 44
                                 implicitWidth: backendRow.implicitWidth + 10
@@ -673,9 +780,9 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             Layout.minimumHeight: 118
-                            radius: 24
+                            radius: 0
                             color: "#0c1222"
-                            border.width: 1
+                            border.width: 2
                             border.color: "#26324f"
 
                             RowLayout {

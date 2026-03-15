@@ -1,48 +1,52 @@
-# CLI AI Harness
+# Waddle
 
-Python core for AI CLI orchestration, with a native desktop shell built in `PySide6 + QML`.
+Native desktop shell for AI CLI agents (Codex, Qwen). Built with PySide6 + QML.
 
-Quick start
+![Waddle](assets/waddle.svg)
 
-Install deps:
+## Quick Start
+
+### Install dependencies
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-Run the native desktop app (from project root):
+### Run the desktop app
+
+From project root:
 
 ```bash
 PYTHONPATH=src python -m cli_harness.native_app
 ```
 
-Or, if installed as a package:
+### Install as a native Linux app
 
-```bash
-cli-ai-native
-```
-
-Install the app in your Linux session with a launcher and desktop shortcut:
+Install with launcher, desktop entry, and icons:
 
 ```bash
 ./scripts/install_native_app.sh
 ```
 
-After installation, open it from the app menu or with:
+After installation, launch with:
 
 ```bash
-osaurus-native
+waddle
 ```
 
-Remove the launcher and desktop shortcut:
+Or find it in your application menu.
+
+### Uninstall
 
 ```bash
 ./scripts/uninstall_native_app.sh
 ```
 
-Run the terminal CLI (from project root):
+## Terminal CLI
+
+Run the terminal CLI:
 
 ```bash
 PYTHONPATH=src python -m cli_harness.cli --help
@@ -54,7 +58,7 @@ Example:
 PYTHONPATH=src python -m cli_harness.cli chat --backend dummy --message "Hello"
 ```
 
-Interactive REPL backends (Codex / Qwen) in terminal mode:
+Interactive REPL backends (Codex / Qwen):
 
 ```bash
 PYTHONPATH=src python -m cli_harness.cli chat --backend codex
@@ -68,9 +72,17 @@ CODEX_CMD="codex --model gpt-5.3-codex" PYTHONPATH=src python -m cli_harness.cli
 QWEN_CMD="qwen --model coder-model" PYTHONPATH=src python -m cli_harness.cli chat --backend qwen
 ```
 
-Files created:
+## Project Structure
 
-- src/cli_harness: core package
-- src/cli_harness/backends: backend adapters (dummy example)
-- src/cli_harness/qml: native desktop UI
-- .env.example: env template
+- `src/cli_harness/` - Core package
+- `src/cli_harness/backends/` - Backend adapters (dummy, codex, qwen)
+- `src/cli_harness/qml/` - Native desktop UI
+- `assets/waddle.svg` - App icon
+- `scripts/` - Install/uninstall scripts
+
+## Requirements
+
+- Python 3.9+
+- PySide6 >= 6.7
+- Linux desktop environment (GNOME, KDE, XFCE, etc.)
+- `codex` or `qwen` CLI installed (optional, for AI features)

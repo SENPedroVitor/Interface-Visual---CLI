@@ -4,6 +4,7 @@ import os
 import pty
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import termios
@@ -357,6 +358,42 @@ class NativeChatController(QObject):
 
         command = resolve_backend_command(self._selected_backend)
         self._command_label = command
+
+        # Get full PATH from user's shell environment
+        import subprocess as sp
+        try:
+            shell_path = sp.check_output(
+                ["bash", "-ic", "echo $PATH"],
+                stderr=sp.DEVNULL,
+                timeout=5,
+                text=True
+            ).strip()
+        except Exception:
+            shell_path = ""
+
+        # Build extended PATH
+        env = os.environ.copy()
+        current_path = env.get("PATH", "")
+        extra_paths = [
+            shell_path,
+            "/home/faux/.npm-global/bin",
+            "/home/faux/.nvm/versions/node/v20.20.0/bin",
+            "/home/faux/.local/bin",
+        ]
+        env["PATH"] = ":".join(p for p in extra_paths if p)
+
+        # Check if command exists
+        cmd_name = shlex.split(command)[0]
+        cmd_path = shutil.which(cmd_name, path=env["PATH"])
+        if not cmd_path:
+            self._set_bridge_status("error")
+            self._messages_model.add_message(
+                "system",
+                f"Comando '{cmd_name}' nao encontrado no PATH.",
+                "Sistema",
+            )
+            return
+
         master_fd = None
         slave_fd = None
 
@@ -373,6 +410,7 @@ class NativeChatController(QObject):
                 stderr=slave_fd,
                 cwd=os.getcwd(),
                 close_fds=True,
+                env=env,
             )
             os.close(slave_fd)
             self._master_fd = master_fd
@@ -390,6 +428,24 @@ class NativeChatController(QObject):
                 f"Conectado a {self.currentBackendLabel}. Envie seu primeiro prompt.",
                 "Sistema",
             )
+        except FileNotFoundError as exc:
+            if slave_fd is not None:
+                try:
+                    os.close(slave_fd)
+                except OSError:
+                    pass
+            if master_fd is not None:
+                try:
+                    os.close(master_fd)
+                except OSError:
+                    pass
+            self._set_bridge_status("error")
+            self._messages_model.add_message(
+                "system",
+                f"Comando nao encontrado: {cmd_name}",
+                "Sistema",
+            )
+            self._teardown_process()
         except Exception as exc:
             if slave_fd is not None:
                 try:
