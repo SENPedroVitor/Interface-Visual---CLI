@@ -33,9 +33,34 @@ fi
 cat >"$LAUNCHER_PATH" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$ROOT_DIR"
-export PYTHONPATH="$ROOT_DIR/src\${PYTHONPATH:+:\$PYTHONPATH}"
-exec "$PYTHON_BIN" -m cli_harness.native_app "\$@"
+
+ROOT_DIR="$ROOT_DIR"
+cd "\$ROOT_DIR"
+export PYTHONPATH="\$ROOT_DIR/src\${PYTHONPATH:+:\$PYTHONPATH}"
+export QML_DISABLE_DISK_CACHE=1
+
+choose_python() {
+  local candidate=""
+  for candidate in "\$ROOT_DIR/.venv/bin/python" "\$(command -v python3)"; do
+    if [ -z "\$candidate" ] || [ ! -x "\$candidate" ]; then
+      continue
+    fi
+    if "\$candidate" -c "import cli_harness.native_app" >/dev/null 2>&1; then
+      echo "\$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+PYTHON_BIN="\$(choose_python || true)"
+if [ -z "\$PYTHON_BIN" ]; then
+  echo "waddle launcher: could not find a Python runtime with project dependencies." >&2
+  echo "Run: $ROOT_DIR/scripts/install_native_app.sh" >&2
+  exit 1
+fi
+
+exec "\$PYTHON_BIN" -m cli_harness.native_app "\$@"
 EOF
 
 chmod +x "$LAUNCHER_PATH"
