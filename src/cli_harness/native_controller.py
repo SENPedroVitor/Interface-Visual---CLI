@@ -169,6 +169,8 @@ DEFAULT_RESPONSE_TIMEOUT_SECONDS = 20
 MIN_RESPONSE_TIMEOUT_SECONDS = 5
 MAX_RESPONSE_TIMEOUT_SECONDS = 180
 DEFAULT_CONNECT_RETRY_ATTEMPTS = 2
+STREAM_RENDER_DEBOUNCE_MS = 80
+STREAM_IDLE_COMPLETE_MS = 420
 
 SESSION_STATE_TRANSITIONS: dict[str, set[str]] = {
     "idle": {"starting"},
@@ -204,6 +206,23 @@ def resolve_session_state(bridge_status: str, awaiting_response: bool) -> str:
     if bridge_status == "ready":
         return "ready"
     return "idle"
+
+
+def coalesce_history_events(
+    events: list[tuple[str, str]],
+) -> list[tuple[str, str]]:
+    if not events:
+        return []
+    merged: list[tuple[str, str]] = []
+    for direction, content in events:
+        if not content:
+            continue
+        if merged and merged[-1][0] == direction:
+            prev_direction, prev_content = merged[-1]
+            merged[-1] = (prev_direction, prev_content + content)
+            continue
+        merged.append((direction, content))
+    return merged
 
 
 ANSI_ESCAPE_RE = re.compile(
@@ -532,6 +551,12 @@ class NativeChatController(QObject):
         self._history_flush_timer.setSingleShot(False)
         self._history_flush_timer.timeout.connect(self._flush_history_buffer)
         self._history_flush_timer.start()
+        # Debounced UI stream updates reduce render churn on long responses.
+        self._render_buffer = ""
+        self._render_flush_timer = QTimer(self)
+        self._render_flush_timer.setInterval(STREAM_RENDER_DEBOUNCE_MS)
+        self._render_flush_timer.setSingleShot(True)
+        self._render_flush_timer.timeout.connect(self._flush_render_buffer)
         # Mascot variant tracking
         self._mascot_index = 0
         self._mascot_url = ""
@@ -551,6 +576,11 @@ class NativeChatController(QObject):
         self._response_timeout_timer.setInterval(self._response_timeout_seconds * 1000)
         self._response_timeout_timer.setSingleShot(True)
         self._response_timeout_timer.timeout.connect(self._handle_response_timeout)
+        # Response is considered complete after a short output idle gap.
+        self._stream_idle_timer = QTimer(self)
+        self._stream_idle_timer.setInterval(STREAM_IDLE_COMPLETE_MS)
+        self._stream_idle_timer.setSingleShot(True)
+        self._stream_idle_timer.timeout.connect(self._handle_stream_idle_complete)
 
     @Property(QObject, notify=messagesModelChanged)
     def messagesModel(self) -> MessageListModel:
@@ -700,9 +730,12 @@ class NativeChatController(QObject):
         self._set_bridge_status("starting")
         self._set_needs_reconnect(False)
         self._pending_output = ""
+        self._render_buffer = ""
+        self._render_flush_timer.stop()
         self._last_prompt = ""
         self._set_awaiting_response(False)
         self._response_timeout_timer.stop()
+        self._stream_idle_timer.stop()
 
         command = resolve_backend_command(self._selected_backend)
         self._command_label = command
@@ -898,6 +931,7 @@ class NativeChatController(QObject):
 
         try:
             os.write(self._master_fd, (prompt + "\n").encode("utf-8"))
+            self._stream_idle_timer.stop()
             self._set_awaiting_response(True)
             self._response_timeout_timer.start()
         except OSError as exc:
@@ -1092,6 +1126,8 @@ class NativeChatController(QObject):
             return
 
         return_code = self._proc.poll()
+        self._stream_idle_timer.stop()
+        self._render_flush_timer.stop()
         self._flush_pending_output()
         self._set_awaiting_response(False)
         self._response_timeout_timer.stop()
@@ -1122,8 +1158,9 @@ class NativeChatController(QObject):
         if not self._history_buffer or not self._history or self._session_id is None:
             self._history_buffer.clear()
             return
-        for direction, content in self._history_buffer:
-            self._history.log_event(self._session_id, direction, content)
+        merged_events = coalesce_history_events(self._history_buffer)
+        if merged_events:
+            self._history.log_events_batch(self._session_id, merged_events)
         self._history_buffer.clear()
 
     def _teardown_process(self) -> None:
@@ -1145,6 +1182,9 @@ class NativeChatController(QObject):
 
         self._proc = None
         self._pending_output = ""
+        self._render_buffer = ""
+        self._render_flush_timer.stop()
+        self._stream_idle_timer.stop()
         self._set_awaiting_response(False)
         self._response_timeout_timer.stop()
         self.canStopChanged.emit()
@@ -1180,6 +1220,8 @@ class NativeChatController(QObject):
         if value == self._awaiting_response:
             return
         self._awaiting_response = value
+        if not value:
+            self._stream_idle_timer.stop()
         self._sync_session_state()
         self.awaitingResponseChanged.emit()
 
@@ -1276,6 +1318,27 @@ class NativeChatController(QObject):
         name = self._display_name or "Faux"
         return title.format(name=name), subtitle
 
+    def _mark_stream_chunk_received(self) -> None:
+        if not self._awaiting_response:
+            return
+        self._response_timeout_timer.stop()
+        self._stream_idle_timer.start()
+
+    def _enqueue_render_payload(self, payload: str) -> None:
+        if not payload:
+            return
+        self._render_buffer += payload
+        if not self._render_flush_timer.isActive():
+            self._render_flush_timer.start()
+
+    def _flush_render_buffer(self) -> None:
+        if not self._render_buffer:
+            return
+        payload = self._render_buffer
+        self._render_buffer = ""
+        self._messages_model.append_to_last_ai(payload)
+        self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+
     def _append_backend_output(self, text: str) -> None:
         self._pending_output += text
         lines = self._pending_output.split("\n")
@@ -1294,10 +1357,8 @@ class NativeChatController(QObject):
 
         if fragments:
             payload = "".join(fragments).rstrip() + "\n"
-            self._messages_model.append_to_last_ai(payload)
-            self._messages_model.set_last_ai_meta(self.currentBackendLabel)
-            self._set_awaiting_response(False)
-            self._response_timeout_timer.stop()
+            self._enqueue_render_payload(payload)
+            self._mark_stream_chunk_received()
             return
 
         # Flush long partial fragments to keep visible streaming alive.
@@ -1305,27 +1366,23 @@ class NativeChatController(QObject):
             partial = self._clean_backend_line(self._pending_output)
             self._pending_output = ""
             if partial:
-                self._messages_model.append_to_last_ai(partial)
-                self._messages_model.set_last_ai_meta(self.currentBackendLabel)
-                self._set_awaiting_response(False)
-                self._response_timeout_timer.stop()
+                self._enqueue_render_payload(partial)
+                self._mark_stream_chunk_received()
 
     def _flush_pending_output(self) -> None:
-        if not self._pending_output.strip():
+        if self._pending_output.strip():
+            cleaned = self._clean_backend_line(self._pending_output)
             self._pending_output = ""
-            return
-
-        cleaned = self._clean_backend_line(self._pending_output)
-        self._pending_output = ""
-        if cleaned:
-            self._messages_model.append_to_last_ai(cleaned)
-            self._messages_model.set_last_ai_meta(self.currentBackendLabel)
-            self._set_awaiting_response(False)
-            self._response_timeout_timer.stop()
+            if cleaned:
+                self._enqueue_render_payload(cleaned)
+        else:
+            self._pending_output = ""
+        self._flush_render_buffer()
 
     def _handle_response_timeout(self) -> None:
         if not self._awaiting_response or self._bridge_status != "ready":
             return
+        self._stream_idle_timer.stop()
         self._set_awaiting_response(False)
         self._messages_model.add_message(
             "system",
@@ -1336,6 +1393,12 @@ class NativeChatController(QObject):
             ),
             "System",
         )
+
+    def _handle_stream_idle_complete(self) -> None:
+        if not self._awaiting_response:
+            return
+        self._flush_render_buffer()
+        self._set_awaiting_response(False)
 
     def _clean_backend_line(self, line: str) -> str | None:
         if self._selected_backend == "qwen":

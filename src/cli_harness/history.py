@@ -82,6 +82,24 @@ class HistoryStore:
         )
         self.conn.commit()
 
+    def log_events_batch(
+        self, session_id: int, events: list[tuple[str, str]]
+    ) -> None:
+        if not events:
+            return
+        rows = [
+            (session_id, _utc_now(), direction, content)
+            for direction, content in events
+            if content
+        ]
+        if not rows:
+            return
+        self.conn.executemany(
+            "INSERT INTO events (session_id, ts, direction, content) VALUES (?, ?, ?, ?)",
+            rows,
+        )
+        self.conn.commit()
+
     def list_sessions(self) -> list[dict]:
         cur = self.conn.execute(
             "SELECT id, backend, command, started_at, ended_at FROM sessions ORDER BY id DESC"

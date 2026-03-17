@@ -4,6 +4,7 @@ import os
 
 from cli_harness import config
 from cli_harness.native_controller import (
+    coalesce_history_events,
     markdown_to_html,
     parse_response_timeout_seconds,
     resolve_session_state,
@@ -63,3 +64,16 @@ def test_resolve_session_state_maps_streaming_explicitly() -> None:
     assert resolve_session_state("ready", False) == "ready"
     assert resolve_session_state("ready", True) == "streaming"
     assert resolve_session_state("error", False) == "error"
+
+
+def test_coalesce_history_events_merges_adjacent_chunks() -> None:
+    merged = coalesce_history_events(
+        [
+            ("out", "hello "),
+            ("out", "world"),
+            ("in", "ask"),
+            ("in", ""),
+            ("out", "!\n"),
+        ]
+    )
+    assert merged == [("out", "hello world"), ("in", "ask"), ("out", "!\n")]

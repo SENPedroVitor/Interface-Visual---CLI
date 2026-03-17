@@ -1294,6 +1294,12 @@ ApplicationWindow {
         property var themeObj
         property int cornerRadius: 14
         property string bodyFont: "Sans Serif"
+        property int collapsedHeight: 240
+        property bool expanded: false
+        readonly property bool isCollapsible: (
+            (messageBubble.role === "user" ? userBody.contentHeight : messageBody.contentHeight)
+            > (messageBubble.collapsedHeight + 24)
+        )
         signal copyRequested(string text)
 
         width: ListView.view ? ListView.view.width : 0
@@ -1343,29 +1349,90 @@ ApplicationWindow {
                         font.family: messageBubble.bodyFont
                     }
 
-                    Text {
+                    Item {
+                        id: userContentClip
                         visible: messageBubble.role === "user"
                         Layout.fillWidth: true
-                        text: messageBubble.content
-                        color: messageBubble.themeObj.textPrimary
-                        font.pixelSize: 13
-                        wrapMode: Text.Wrap
-                        font.family: messageBubble.bodyFont
+                        implicitHeight: messageBubble.expanded
+                            ? userBody.contentHeight
+                            : Math.min(userBody.contentHeight, messageBubble.collapsedHeight)
+                        clip: messageBubble.isCollapsible && !messageBubble.expanded
+
+                        Text {
+                            id: userBody
+                            width: parent.width
+                            text: messageBubble.content
+                            color: messageBubble.themeObj.textPrimary
+                            font.pixelSize: 13
+                            wrapMode: Text.Wrap
+                            font.family: messageBubble.bodyFont
+                        }
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            height: 38
+                            visible: messageBubble.isCollapsible && !messageBubble.expanded
+                            color: "transparent"
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.0) }
+                                GradientStop { position: 1.0; color: Qt.rgba(messageBubble.themeObj.panelInset.r, messageBubble.themeObj.panelInset.g, messageBubble.themeObj.panelInset.b, 0.92) }
+                            }
+                        }
                     }
 
-                    TextEdit {
-                        id: messageBody
+                    Item {
+                        id: aiContentClip
                         visible: messageBubble.role !== "user"
                         Layout.fillWidth: true
-                        text: messageBubble.content
-                        color: messageBubble.themeObj.textPrimary
-                        font.pixelSize: 13
+                        implicitHeight: messageBubble.expanded
+                            ? messageBody.contentHeight
+                            : Math.min(messageBody.contentHeight, messageBubble.collapsedHeight)
+                        clip: messageBubble.isCollapsible && !messageBubble.expanded
+
+                        TextEdit {
+                            id: messageBody
+                            width: parent.width
+                            height: contentHeight
+                            text: messageBubble.content
+                            color: messageBubble.themeObj.textPrimary
+                            font.pixelSize: 13
+                            font.family: messageBubble.bodyFont
+                            wrapMode: TextEdit.Wrap
+                            textFormat: TextEdit.RichText
+                            readOnly: true
+                            selectionColor: messageBubble.themeObj.accent
+                            selectedTextColor: "#ffffff"
+                        }
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            height: 38
+                            visible: messageBubble.isCollapsible && !messageBubble.expanded
+                            color: "transparent"
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.0) }
+                                GradientStop { position: 1.0; color: Qt.rgba(messageBubble.themeObj.panelInset.r, messageBubble.themeObj.panelInset.g, messageBubble.themeObj.panelInset.b, 0.92) }
+                            }
+                        }
+                    }
+
+                    Text {
+                        visible: messageBubble.isCollapsible
+                        text: messageBubble.expanded ? "Show less" : "Show full message"
+                        color: messageBubble.themeObj.accentSoft
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
                         font.family: messageBubble.bodyFont
-                        wrapMode: TextEdit.Wrap
-                        textFormat: TextEdit.RichText
-                        readOnly: true
-                        selectionColor: messageBubble.themeObj.accent
-                        selectedTextColor: "#ffffff"
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: messageBubble.expanded = !messageBubble.expanded
+                        }
                     }
                 }
             }
