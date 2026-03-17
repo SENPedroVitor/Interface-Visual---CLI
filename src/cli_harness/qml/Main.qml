@@ -219,8 +219,6 @@ ApplicationWindow {
         mascotWalkingOut = true
         mascotWalkX = 0.5
         mascotWalkFrame = 1
-        walkOutFrameAnim.stop()
-        walkOutFrameAnim.loops = 3
         walkOutAnim.start()
     }
 
@@ -229,8 +227,6 @@ ApplicationWindow {
         mascotWalkingIn = true
         mascotWalkX = -0.2  // Start from off-screen left
         mascotWalkFrame = 1
-        walkInFrameAnim.stop()
-        walkInFrameAnim.loops = 3
         walkInAnim.start()
     }
 
@@ -850,6 +846,53 @@ ApplicationWindow {
         easing.type: Easing.OutCubic
     }
 
+    // Keep walk sprite frames cycling while mascot is moving.
+    SequentialAnimation {
+        id: walkOutFrameAnim
+        running: window.mascotWalkingOut
+        loops: Animation.Infinite
+
+        NumberAnimation {
+            target: window
+            property: "mascotWalkFrame"
+            from: 1
+            to: 3
+            duration: 330
+            easing.type: Easing.Linear
+        }
+        NumberAnimation {
+            target: window
+            property: "mascotWalkFrame"
+            from: 3
+            to: 1
+            duration: 330
+            easing.type: Easing.Linear
+        }
+    }
+
+    SequentialAnimation {
+        id: walkInFrameAnim
+        running: window.mascotWalkingIn
+        loops: Animation.Infinite
+
+        NumberAnimation {
+            target: window
+            property: "mascotWalkFrame"
+            from: 1
+            to: 3
+            duration: 330
+            easing.type: Easing.Linear
+        }
+        NumberAnimation {
+            target: window
+            property: "mascotWalkFrame"
+            from: 3
+            to: 1
+            duration: 330
+            easing.type: Easing.Linear
+        }
+    }
+
     // Walk out animation - mascot walks from center to right edge
     ParallelAnimation {
         id: walkOutAnim
@@ -864,40 +907,8 @@ ApplicationWindow {
             to: 1.2  // Walk past right edge
             duration: animationConfig.walkDuration
             easing.type: Easing.InOutQuad
-            onFinished: {
-                walkOutFrameAnim.stop()
-            }
-        }
-
-        // Cycle through walk frames
-        SequentialAnimation {
-            id: walkOutFrameAnim
-            running: false
-            loops: 3  // Run 3 cycles (enough for 2s walk)
-
-            NumberAnimation {
-                target: window
-                property: "mascotWalkFrame"
-                from: 1
-                to: 3
-                duration: 330
-                easing.type: Easing.Linear
-            }
-            NumberAnimation {
-                target: window
-                property: "mascotWalkFrame"
-                from: 3
-                to: 1
-                duration: 330
-                easing.type: Easing.Linear
-            }
-        }
-
-        onStarted: {
-            walkOutFrameAnim.start()
         }
         onFinished: {
-            walkOutFrameAnim.stop()
             window.mascotWalkingOut = false
             window.mascotWalkingIn = false
             window.mascotWalkX = 0.5  // Reset to center
@@ -920,40 +931,8 @@ ApplicationWindow {
             to: 0.5
             duration: animationConfig.walkDuration
             easing.type: Easing.OutQuad
-            onFinished: {
-                walkInFrameAnim.stop()
-            }
-        }
-
-        // Cycle through walk frames
-        SequentialAnimation {
-            id: walkInFrameAnim
-            running: false
-            loops: 3  // Run 3 cycles (enough for 2s walk)
-
-            NumberAnimation {
-                target: window
-                property: "mascotWalkFrame"
-                from: 1
-                to: 3
-                duration: 330
-                easing.type: Easing.Linear
-            }
-            NumberAnimation {
-                target: window
-                property: "mascotWalkFrame"
-                from: 3
-                to: 1
-                duration: 330
-                easing.type: Easing.Linear
-            }
-        }
-
-        onStarted: {
-            walkInFrameAnim.start()
         }
         onFinished: {
-            walkInFrameAnim.stop()
             window.mascotWalkingIn = false
             window.mascotWalkingOut = false
             window.mascotWalkX = 0.5  // Reset to center
@@ -971,7 +950,9 @@ ApplicationWindow {
         gameModeTimer.stop()
         sendPenguinTimer.stop()
         walkOutTimer.stop()
+        walkOutFrameAnim.stop()
         walkOutAnim.stop()
+        walkInFrameAnim.stop()
         walkInAnim.stop()
         footTapAnimation.stop()
     }
@@ -2188,7 +2169,7 @@ ApplicationWindow {
                                             MouseArea {
                                                 anchors.fill: parent
                                                 acceptedButtons: Qt.RightButton
-                                                onClicked: {
+                                                onClicked: function(mouse) {
                                                     if (mouse.button === Qt.RightButton) {
                                                         copyMenu.popup()
                                                     }
@@ -2587,8 +2568,8 @@ ApplicationWindow {
         hoverEnabled: true
         cursorShape: Qt.ArrowCursor
         acceptedButtons: Qt.NoButton  // Don't intercept clicks
-        
-        onPositionChanged: {
+
+        onPositionChanged: function(mouse) {
             updateEyeTracking(mouse.x, mouse.y)
         }
     }

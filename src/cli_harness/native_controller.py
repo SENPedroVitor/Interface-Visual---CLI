@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import html
 import os
 import pty
 import re
 import shlex
 import shutil
-import signal
 import subprocess
 import termios
 from datetime import datetime
@@ -42,43 +42,76 @@ def markdown_to_html(text: str) -> str:
     if not text:
         return text
 
-    html = text
+    html_text = text
+    code_blocks: list[tuple[str, str]] = []
 
-    # Escape HTML special chars first (but preserve existing HTML)
-    html = html.replace("&", "&amp;")
-    html = html.replace("<", "&lt;")
-    html = html.replace(">", "&gt;")
+    # Replace fenced code blocks with placeholders first, then process remaining text.
+    def stash_code_block(match: re.Match[str]) -> str:
+        lang = html.escape(match.group(1) or "")
+        code = html.escape(match.group(2))
+        lang_label = (
+            "<div style='background:#2d1f4e;color:#c4b5fd;padding:4px 8px;font-size:11px;"
+            "font-weight:bold;border:1px solid #6d28d9;border-bottom:none;display:flex;"
+            "justify-content:space-between;align-items:center;'><span>"
+            f"{lang}</span></div>"
+            if lang
+            else ""
+        )
+        block_html = (
+            "<div style='background:#1e1b3a;border:1px solid #4c1d95;border-radius:0;"
+            "margin:8px 0;overflow:hidden;'><pre style='margin:0;padding:8px;"
+            "background:#0f172a;color:#e2e8f0;font-family:\"JetBrains Mono\",\"Consolas\","
+            "\"Monospace\";font-size:13px;white-space:pre-wrap;word-wrap:break-word;'>"
+            f"<code>{code}</code></pre>{lang_label}</div>"
+        )
+        token = f"@@CODEBLOCK_{len(code_blocks)}@@"
+        code_blocks.append((token, block_html))
+        return token
 
-    # Code blocks (```language ... ```)
-    # Convert to formatted blocks with copy button
-    def replace_code_block(match):
-        lang = match.group(1) or ""
-        code = match.group(2)
-        # Escape any remaining HTML in code
-        code_escaped = code.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        lang_label = f"<div style='background:#2d1f4e;color:#c4b5fd;padding:4px 8px;font-size:11px;font-weight:bold;border:1px solid #6d28d9;border-bottom:none;display:flex;justify-content:space-between;align-items:center;'><span>{lang}</span></div>" if lang else ""
-        return f"<div style='background:#1e1b3a;border:1px solid #4c1d95;border-radius:0;margin:8px 0;overflow:hidden;'><pre style='margin:0;padding:8px;background:#0f172a;color:#e2e8f0;font-family:\"JetBrains Mono\",\"Consolas\",\"Monospace\";font-size:13px;white-space:pre-wrap;word-wrap:break-word;'><code>{code_escaped}</code></pre>{lang_label}</div>"
-
-    html = re.sub(r'```(\w*)\n(.*?)```', replace_code_block, html, flags=re.DOTALL)
+    html_text = re.sub(r"```(\w*)\n(.*?)```", stash_code_block, html_text, flags=re.DOTALL)
+    html_text = html.escape(html_text)
 
     # Inline code (`code`)
-    html = re.sub(r'`([^`]+)`', r'<span style="background:#2d1f4e;color:#e2e8f0;padding:2px 6px;border-radius:0;font-family:\"JetBrains Mono\",\"Monospace\";font-size:12px;">\1</span>', html)
+    def replace_inline_code(match: re.Match[str]) -> str:
+        code = html.escape(match.group(1))
+        return (
+            '<span style="background:#2d1f4e;color:#e2e8f0;padding:2px 6px;border-radius:0;'
+            'font-family:&quot;JetBrains Mono&quot;,&quot;Monospace&quot;;font-size:12px;">'
+            f"{code}</span>"
+        )
+
+    html_text = re.sub(r"`([^`]+)`", replace_inline_code, html_text)
 
     # Bold (**text** or __text__)
-    html = re.sub(r'\*\*([^*]+)\*\*', r'<span style="font-weight:bold;">\1</span>', html)
-    html = re.sub(r'__([^_]+)__', r'<span style="font-weight:bold;">\1</span>', html)
+    html_text = re.sub(r"\*\*([^*]+)\*\*", r'<span style="font-weight:bold;">\1</span>', html_text)
+    html_text = re.sub(r"__([^_]+)__", r'<span style="font-weight:bold;">\1</span>', html_text)
 
     # Italic (*text* or _text_)
-    html = re.sub(r'\*([^*]+)\*', r'<span style="font-style:italic;">\1</span>', html)
-    html = re.sub(r'_([^_]+)_', r'<span style="font-style:italic;">\1</span>', html)
+    html_text = re.sub(r"\*([^*]+)\*", r'<span style="font-style:italic;">\1</span>', html_text)
+    html_text = re.sub(r"_([^_]+)_", r'<span style="font-style:italic;">\1</span>', html_text)
 
     # Headers
-    html = re.sub(r'^### (.+)$', r'<span style="font-size:16px;font-weight:bold;color:#f8fbff;">\1</span>', html, flags=re.MULTILINE)
-    html = re.sub(r'^## (.+)$', r'<span style="font-size:18px;font-weight:bold;color:#f8fbff;">\1</span>', html, flags=re.MULTILINE)
-    html = re.sub(r'^# (.+)$', r'<span style="font-size:20px;font-weight:bold;color:#f8fbff;">\1</span>', html, flags=re.MULTILINE)
+    html_text = re.sub(
+        r"^### (.+)$",
+        r'<span style="font-size:16px;font-weight:bold;color:#f8fbff;">\1</span>',
+        html_text,
+        flags=re.MULTILINE,
+    )
+    html_text = re.sub(
+        r"^## (.+)$",
+        r'<span style="font-size:18px;font-weight:bold;color:#f8fbff;">\1</span>',
+        html_text,
+        flags=re.MULTILINE,
+    )
+    html_text = re.sub(
+        r"^# (.+)$",
+        r'<span style="font-size:20px;font-weight:bold;color:#f8fbff;">\1</span>',
+        html_text,
+        flags=re.MULTILINE,
+    )
 
     # Line breaks (preserve paragraphs)
-    lines = html.split('\n')
+    lines = html_text.split("\n")
     processed_lines = []
     in_list = False
 
@@ -107,15 +140,29 @@ def markdown_to_html(text: str) -> str:
     if in_list:
         processed_lines.append('</div>')
 
-    html = '\n'.join(processed_lines)
+    html_text = "\n".join(processed_lines)
 
     # Convert newlines to <br/> for non-block content
-    html = html.replace('\n', '<br/>')
+    html_text = html_text.replace("\n", "<br/>")
 
     # Clean up multiple <br/>
-    html = re.sub(r'(<br/>){3,}', '<br/><br/>', html)
+    html_text = re.sub(r"(<br/>){3,}", "<br/><br/>", html_text)
 
-    return html
+    for token, block in code_blocks:
+        html_text = html_text.replace(token, block)
+
+    return html_text
+
+
+def split_command_parts(command: str) -> list[str] | None:
+    stripped = command.strip()
+    if not stripped:
+        return None
+    try:
+        parts = shlex.split(stripped)
+    except ValueError:
+        return None
+    return parts or None
 
 
 ANSI_ESCAPE_RE = re.compile(
@@ -650,8 +697,19 @@ class NativeChatController(QObject):
             return
         env["OBSIDIAN_VAULT_PATH"] = str(workspace_path)
 
+        command_parts = split_command_parts(command)
+        if not command_parts:
+            self._set_missing_cli_name("")
+            self._set_bridge_status("error")
+            self._messages_model.add_message(
+                "system",
+                f"Invalid command configured for {self.currentBackendLabel}: {command!r}",
+                "System",
+            )
+            return
+
         # Check if command exists
-        cmd_name = shlex.split(command)[0]
+        cmd_name = command_parts[0]
         cmd_path = shutil.which(cmd_name, path=env["PATH"])
         if not cmd_path:
             self._set_missing_cli_name(cmd_name)
@@ -674,7 +732,7 @@ class NativeChatController(QObject):
             termios.tcsetattr(slave_fd, termios.TCSANOW, attrs)
 
             self._proc = subprocess.Popen(
-                shlex.split(command),
+                command_parts,
                 stdin=slave_fd,
                 stdout=slave_fd,
                 stderr=slave_fd,
@@ -870,12 +928,23 @@ class NativeChatController(QObject):
         # Update message count for next comparison
         self._last_message_count = current_msg_count
 
-    def stop_session(self, announce: bool = True) -> None:
+    def _terminate_process(self, timeout: float = 1.5) -> None:
         if self._proc and self._proc.poll() is None:
             try:
-                self._proc.send_signal(signal.SIGTERM)
+                self._proc.terminate()
             except Exception:
-                pass
+                return
+            try:
+                self._proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                try:
+                    self._proc.kill()
+                    self._proc.wait(timeout=1.0)
+                except Exception:
+                    pass
+
+    def stop_session(self, announce: bool = True) -> None:
+        self._terminate_process()
 
         if announce and (self._proc is not None or self._bridge_status == "ready"):
             self._messages_model.add_message(
@@ -971,6 +1040,8 @@ class NativeChatController(QObject):
         self._history_buffer.clear()
 
     def _teardown_process(self) -> None:
+        self._terminate_process(timeout=0.5)
+
         if self._notifier is not None:
             self._notifier.setEnabled(False)
             self._notifier.deleteLater()
@@ -1035,8 +1106,7 @@ class NativeChatController(QObject):
         qwen_value = qwen_command.strip() or "qwen"
         display_value = display_name.strip()
 
-        if vault_value:
-            set_env_value("OBSIDIAN_VAULT_PATH", vault_value)
+        set_env_value("OBSIDIAN_VAULT_PATH", vault_value)
         set_env_value("CODEX_CMD", codex_value)
         set_env_value("QWEN_CMD", qwen_value)
         set_env_value("OSAURUS_NAME", display_value)

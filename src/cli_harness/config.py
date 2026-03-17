@@ -11,17 +11,20 @@ DEFAULT_OBSIDIAN_VAULT_PATH = Path.home() / "Documents" / "vault-faux"
 
 def ensure_env():
     if not ENV_PATH.exists():
-        ENV_PATH.write_text("")
+        ENV_PATH.write_text("", encoding="utf-8")
 
 
 def get_env_value(key: str, default: str | None = None) -> str | None:
-    load_dotenv(ENV_PATH)
+    # Always refresh from .env and let persisted values win over stale process vars.
+    load_dotenv(ENV_PATH, override=True)
     return os.getenv(key, default)
 
 
 def set_env_value(key: str, value: str) -> None:
     ensure_env()
     set_key(str(ENV_PATH), key, value)
+    # Keep runtime state in sync so changes apply without app restart.
+    os.environ[key] = value
 
 
 def get_obsidian_vault_path() -> Path:
