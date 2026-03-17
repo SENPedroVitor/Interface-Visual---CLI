@@ -238,25 +238,16 @@ ApplicationWindow {
         walkOutTimer.start()
     }
 
-    function submitPrompt() {
+    function submitPrompt(rawText) {
         if (!window.controller) {
-            return
+            return false
         }
-        let text = promptInput.text.trim()
+        let text = (rawText || "").trim()
         if (text.length === 0) {
-            return
+            return false
         }
         window.controller.sendPrompt(text)
-        promptInput.text = ""
-        promptInput.forceActiveFocus()
-    }
-
-    function pinChatToBottom() {
-        Qt.callLater(function() {
-            if (chatList.count > 0) {
-                chatList.positionViewAtEnd()
-            }
-        })
+        return true
     }
 
     // Timer to trigger walk-in after walk-out completes
@@ -1159,6 +1150,658 @@ ApplicationWindow {
         }
     }
 
+    component ChatHeader: Rectangle {
+        id: chatHeader
+
+        property var controller
+        property var themeObj
+        property int cornerRadius: 14
+        property string displayFont: "Sans Serif"
+        property string bodyFont: "Sans Serif"
+        property real introProgress: 1.0
+        property real windowWidth: 0
+        property bool maximized: false
+
+        signal startMove(var mouse)
+        signal openPreferences()
+        signal cycleMascot()
+        signal minimizeRequested()
+        signal toggleMaximizeRequested()
+        signal closeRequested()
+
+        Layout.fillWidth: true
+        implicitHeight: 54
+        radius: cornerRadius + 4
+        color: themeObj.panel
+        border.width: 1
+        border.color: themeObj.border
+        opacity: 0.62 + (0.38 * introProgress)
+        scale: 0.985 + (0.015 * introProgress)
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 8
+
+            IconBadge {
+                label: "W"
+                fillColor: chatHeader.themeObj.accent
+            }
+
+            ColumnLayout {
+                spacing: 2
+
+                Text {
+                    text: "Waddle"
+                    color: chatHeader.themeObj.textPrimary
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                    font.family: chatHeader.displayFont
+                }
+
+                Text {
+                    text: "Native chat for Codex and Qwen"
+                    color: chatHeader.themeObj.textMuted
+                    font.pixelSize: 10
+                    font.family: chatHeader.bodyFont
+                    visible: chatHeader.windowWidth >= 940
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    hoverEnabled: true
+                    cursorShape: Qt.SizeAllCursor
+                    onPressed: function(mouse) {
+                        chatHeader.startMove(mouse)
+                    }
+                }
+            }
+
+            CapsuleButton {
+                label: "Chat"
+                tag: "•"
+                active: true
+                enabled: false
+                visible: chatHeader.windowWidth >= 1080
+            }
+
+            StatusBadge {
+                label: chatHeader.controller ? chatHeader.controller.statusTitle : "Loading"
+                tone: chatHeader.controller ? chatHeader.controller.bridgeStatus : "idle"
+            }
+
+            CapsuleButton {
+                label: chatHeader.controller ? chatHeader.controller.currentBackendLabel : "CLI"
+                tag: chatHeader.controller && chatHeader.controller.currentBackendLabel === "Codex" ? "C" : "Q"
+                active: true
+                enabled: false
+                visible: chatHeader.windowWidth >= 1000
+            }
+
+            CapsuleButton {
+                label: "Mascot"
+                tag: "~"
+                enabled: true
+                visible: chatHeader.windowWidth >= 920
+                onClicked: chatHeader.cycleMascot()
+            }
+
+            CapsuleButton {
+                label: "Preferences"
+                tag: "⚙"
+                enabled: true
+                onClicked: chatHeader.openPreferences()
+            }
+
+            RowLayout {
+                spacing: 6
+
+                WindowButton {
+                    label: "–"
+                    onClicked: chatHeader.minimizeRequested()
+                }
+
+                WindowButton {
+                    label: chatHeader.maximized ? "❐" : "▢"
+                    onClicked: chatHeader.toggleMaximizeRequested()
+                }
+
+                WindowButton {
+                    label: "×"
+                    baseColor: "#3a1a1f"
+                    hoverColor: "#5a1f27"
+                    pressColor: "#7a2430"
+                    textColor: "#ffe4e6"
+                    borderColor: "#8b1e35"
+                    onClicked: chatHeader.closeRequested()
+                }
+            }
+        }
+    }
+
+    component MessageBubble: Item {
+        id: messageBubble
+
+        required property string role
+        required property string content
+        required property string meta
+        property var themeObj
+        property int cornerRadius: 14
+        property string bodyFont: "Sans Serif"
+        signal copyRequested(string text)
+
+        width: ListView.view ? ListView.view.width : 0
+        implicitHeight: bubbleBox.implicitHeight + 12
+
+        Rectangle {
+            id: bubbleBox
+            width: Math.min(parent.width * 0.76, 760)
+            implicitHeight: bubbleColumn.implicitHeight + 24
+            anchors.right: messageBubble.role === "user" ? parent.right : undefined
+            anchors.left: messageBubble.role === "user" ? undefined : parent.left
+            radius: messageBubble.cornerRadius + 2
+            color: messageBubble.role === "user"
+                ? Qt.lighter(messageBubble.themeObj.panelSoft, 1.08)
+                : messageBubble.role === "system"
+                    ? messageBubble.themeObj.panelSoft
+                    : messageBubble.themeObj.panelInset
+            border.width: 1
+            border.color: messageBubble.role === "user"
+                ? Qt.rgba(messageBubble.themeObj.accent.r, messageBubble.themeObj.accent.g, messageBubble.themeObj.accent.b, 0.42)
+                : messageBubble.role === "system"
+                    ? messageBubble.themeObj.borderStrong
+                    : messageBubble.themeObj.border
+
+            RowLayout {
+                id: bubbleColumn
+                anchors.fill: parent
+                anchors.margins: 14
+                spacing: 10
+
+                IconBadge {
+                    label: messageBubble.role === "user" ? "U" : (messageBubble.role === "system" ? "!" : "A")
+                    fillColor: messageBubble.role === "user" ? messageBubble.themeObj.accentSoft : messageBubble.themeObj.accent
+                    textColor: messageBubble.role === "user" ? "#133046" : messageBubble.themeObj.textPrimary
+                    Layout.alignment: Qt.AlignTop
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Text {
+                        text: messageBubble.role === "user" ? "You" : (messageBubble.meta.length > 0 ? messageBubble.meta : "Agent")
+                        color: messageBubble.themeObj.textMuted
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                        font.family: messageBubble.bodyFont
+                    }
+
+                    Text {
+                        visible: messageBubble.role === "user"
+                        Layout.fillWidth: true
+                        text: messageBubble.content
+                        color: messageBubble.themeObj.textPrimary
+                        font.pixelSize: 13
+                        wrapMode: Text.Wrap
+                        font.family: messageBubble.bodyFont
+                    }
+
+                    TextEdit {
+                        id: messageBody
+                        visible: messageBubble.role !== "user"
+                        Layout.fillWidth: true
+                        text: messageBubble.content
+                        color: messageBubble.themeObj.textPrimary
+                        font.pixelSize: 13
+                        font.family: messageBubble.bodyFont
+                        wrapMode: TextEdit.Wrap
+                        textFormat: TextEdit.RichText
+                        readOnly: true
+                        selectionColor: messageBubble.themeObj.accent
+                        selectedTextColor: "#ffffff"
+                    }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.RightButton
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.RightButton) {
+                        copyMenu.popup()
+                    }
+                }
+            }
+
+            Menu {
+                id: copyMenu
+
+                MenuItem {
+                    text: "Copy text"
+                    onTriggered: {
+                        var plain = messageBubble.role === "user"
+                            ? messageBubble.content
+                            : messageBody.getText(0, messageBody.length)
+                        messageBubble.copyRequested(plain)
+                    }
+                }
+            }
+        }
+    }
+
+    component ChatMessageList: ListView {
+        id: messageList
+
+        property var controller
+        property var themeObj
+        property int cornerRadius: 14
+        property string bodyFont: "Sans Serif"
+        property bool autoFollow: true
+        property int followThreshold: 88
+        signal copyRequested(string text)
+
+        function isNearBottom() {
+            return (contentHeight - (contentY + height)) <= followThreshold
+        }
+
+        function followLatest(force) {
+            if (count <= 0) {
+                return
+            }
+            if (!force && !autoFollow && !isNearBottom()) {
+                return
+            }
+            Qt.callLater(function() {
+                if (count > 0) {
+                    positionViewAtEnd()
+                }
+            })
+        }
+
+        model: controller ? controller.messagesModel : null
+        spacing: 14
+        clip: true
+        visible: count > 1
+        boundsBehavior: Flickable.StopAtBounds
+        add: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 220; easing.type: Easing.OutQuad }
+                NumberAnimation { property: "scale"; from: 0.97; to: 1.0; duration: 220; easing.type: Easing.OutCubic }
+            }
+        }
+
+        delegate: MessageBubble {
+            role: model.role
+            content: model.content
+            meta: model.meta
+            themeObj: messageList.themeObj
+            cornerRadius: messageList.cornerRadius
+            bodyFont: messageList.bodyFont
+            onCopyRequested: messageList.copyRequested(text)
+        }
+
+        ScrollBar.vertical: ScrollBar {
+            policy: ScrollBar.AsNeeded
+        }
+
+        onCountChanged: followLatest(false)
+        onContentHeightChanged: followLatest(false)
+        onMovementEnded: autoFollow = isNearBottom()
+        onFlickEnded: autoFollow = isNearBottom()
+        Component.onCompleted: followLatest(true)
+    }
+
+    component ChatComposer: ColumnLayout {
+        id: chatComposerRoot
+
+        property var controller
+        property var themeObj
+        property int cornerRadius: 14
+        property string bodyFont: "Sans Serif"
+        property string mascotState: "idle"
+        property string mascotUrl: ""
+        property string gameMode: ""
+        property var animationConfig: ({})
+        property var mascotStateResolver
+        property alias promptText: promptInput.text
+        property string composerState: {
+            if (!controller || controller.bridgeStatus === "starting") {
+                return "connecting"
+            }
+            if (controller.bridgeStatus === "error") {
+                return "error"
+            }
+            if (controller.awaitingResponse) {
+                return "sending"
+            }
+            return "ready"
+        }
+
+        signal sendPrompt(string text)
+        signal connectRequested()
+        signal stopRequested()
+        signal quickCommand(string command)
+        signal backendSelected(string key)
+        signal cycleMascot()
+
+        function focusPrompt() {
+            promptInput.forceActiveFocus()
+        }
+
+        function submitCurrentPrompt() {
+            var payload = promptInput.text
+            if (!payload || payload.trim().length === 0) {
+                return
+            }
+            sendPrompt(payload)
+            promptInput.text = ""
+            promptInput.forceActiveFocus()
+        }
+
+        function stateLabel() {
+            if (composerState === "connecting") {
+                return "Connecting..."
+            }
+            if (composerState === "sending") {
+                return "Sending..."
+            }
+            if (composerState === "error") {
+                return "Connection error"
+            }
+            return "Ready"
+        }
+
+        Layout.fillWidth: true
+        Layout.fillHeight: false
+        Layout.minimumHeight: 176
+        Layout.preferredHeight: 176
+        Layout.maximumHeight: 176
+        spacing: 8
+
+        property bool sendPenguinJump: false
+        property bool sendPenguinSpin: false
+
+        Timer {
+            id: sendPenguinTimerLocal
+            interval: chatComposerRoot.animationConfig.sendPenguinReset || 1500
+            running: false
+            repeat: false
+            onTriggered: {
+                chatComposerRoot.sendPenguinJump = false
+                chatComposerRoot.sendPenguinSpin = false
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+
+            BackendSegmentedControl {
+                value: chatComposerRoot.controller ? chatComposerRoot.controller.selectedBackend : "codex"
+                enabled: !!chatComposerRoot.controller
+                onSelected: function(key) {
+                    chatComposerRoot.backendSelected(key)
+                }
+            }
+
+            CapsuleButton {
+                label: chatComposerRoot.controller && chatComposerRoot.controller.bridgeStatus === "ready" ? "Reconnect" : "Connect"
+                tag: ">"
+                primary: chatComposerRoot.controller ? chatComposerRoot.controller.needsReconnect : false
+                sizeTier: "primary"
+                pulse: chatComposerRoot.controller && chatComposerRoot.controller.bridgeStatus !== "ready"
+                enabled: !!chatComposerRoot.controller && chatComposerRoot.controller.bridgeStatus !== "starting"
+                onClicked: chatComposerRoot.connectRequested()
+            }
+
+            CapsuleButton {
+                label: "Stop"
+                tag: "[]"
+                sizeTier: "command"
+                quiet: true
+                enabled: chatComposerRoot.controller && chatComposerRoot.controller.canStop
+                onClicked: chatComposerRoot.stopRequested()
+            }
+
+            CapsuleButton {
+                label: "/model"
+                tag: ""
+                sizeTier: "command"
+                quiet: true
+                enabled: chatComposerRoot.controller && chatComposerRoot.controller.canSend
+                onClicked: chatComposerRoot.quickCommand("/model")
+            }
+
+            CapsuleButton {
+                label: "/reset"
+                tag: ""
+                sizeTier: "command"
+                quiet: true
+                enabled: chatComposerRoot.controller && chatComposerRoot.controller.canSend
+                onClicked: chatComposerRoot.quickCommand("/reset")
+            }
+
+            Item { Layout.fillWidth: true }
+
+            Item {
+                id: miniMascotContainer
+                width: 24
+                height: 24
+                property real bobPhase: 0
+                scale: 1.0 + Math.sin(bobPhase * 6.28318530718) * 0.06
+                rotation: Math.sin((bobPhase * 6.28318530718) + 1.2) * 4
+
+                NumberAnimation on bobPhase {
+                    from: 0
+                    to: 1
+                    duration: 2500
+                    loops: Animation.Infinite
+                    running: true
+                    easing.type: Easing.InOutSine
+                }
+
+                Image {
+                    id: miniMascotImage
+                    anchors.fill: parent
+                    source: chatComposerRoot.mascotStateResolver
+                        ? chatComposerRoot.mascotStateResolver(chatComposerRoot.mascotState)
+                        : chatComposerRoot.mascotUrl
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    visible: source.toString().length > 0
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "🐧"
+                    font.pixelSize: 16
+                    visible: !miniMascotImage.visible
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: !!chatComposerRoot.controller
+                    onClicked: chatComposerRoot.cycleMascot()
+                }
+            }
+
+            Text {
+                text: "Press Enter to send · " + chatComposerRoot.stateLabel()
+                color: chatComposerRoot.composerState === "error"
+                    ? "#fda4af"
+                    : chatComposerRoot.themeObj.textMuted
+                font.pixelSize: 9
+                font.family: chatComposerRoot.bodyFont
+            }
+        }
+
+        Rectangle {
+            id: promptBox
+            Layout.fillWidth: true
+            Layout.fillHeight: false
+            Layout.minimumHeight: 108
+            Layout.preferredHeight: 138
+            radius: chatComposerRoot.cornerRadius + 4
+            color: chatComposerRoot.themeObj.panelInset
+            border.width: 1
+            border.color: chatComposerRoot.composerState === "error"
+                ? "#ef4444"
+                : chatComposerRoot.composerState === "connecting"
+                    ? "#f2c778"
+                    : promptInput.activeFocus
+                        ? chatComposerRoot.themeObj.borderStrong
+                        : chatComposerRoot.themeObj.border
+            property real focusGlow: promptInput.activeFocus ? 1.0 : 0.0
+            scale: promptInput.activeFocus ? 1.004 : 1.0
+
+            Behavior on border.color {
+                ColorAnimation { duration: 140 }
+            }
+
+            Behavior on scale {
+                NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+            }
+
+            Behavior on focusGlow {
+                NumberAnimation { duration: 160; easing.type: Easing.OutQuad }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: Qt.rgba(
+                    chatComposerRoot.themeObj.accent.r,
+                    chatComposerRoot.themeObj.accent.g,
+                    chatComposerRoot.themeObj.accent.b,
+                    0.06 * promptBox.focusGlow
+                )
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 8
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 8
+
+                    TextArea {
+                        id: promptInput
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        wrapMode: TextEdit.Wrap
+                        placeholderText: chatComposerRoot.controller ? chatComposerRoot.controller.composerPlaceholder : "Start the conversation..."
+                        placeholderTextColor: chatComposerRoot.themeObj.textMuted
+                        color: chatComposerRoot.themeObj.textPrimary
+                        selectionColor: chatComposerRoot.themeObj.accentSoft
+                        font.pixelSize: 14
+                        font.family: chatComposerRoot.bodyFont
+                        padding: 0
+                        enabled: chatComposerRoot.controller && chatComposerRoot.controller.canSend
+
+                        background: Rectangle { color: "transparent" }
+
+                        Keys.onPressed: function(event) {
+                            if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                                    && !(event.modifiers & Qt.ShiftModifier)) {
+                                event.accepted = true
+                                chatComposerRoot.submitCurrentPrompt()
+                            }
+                        }
+
+                        Component.onCompleted: forceActiveFocus()
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: chatComposerRoot.controller ? chatComposerRoot.controller.statusDescription : "Loading controller..."
+                        color: chatComposerRoot.themeObj.textMuted
+                        font.pixelSize: 9
+                        elide: Text.ElideRight
+                        font.family: chatComposerRoot.bodyFont
+                    }
+                }
+
+                CapsuleButton {
+                    id: sendButton
+                    label: "Send"
+                    tag: ">"
+                    primary: true
+                    enabled: chatComposerRoot.controller && chatComposerRoot.controller.canSend
+                    onClicked: {
+                        chatComposerRoot.sendPenguinJump = true
+                        chatComposerRoot.sendPenguinSpin = true
+                        sendPenguinTimerLocal.restart()
+                        chatComposerRoot.submitCurrentPrompt()
+                    }
+                    Layout.alignment: Qt.AlignBottom
+
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.topMargin: -8
+                        width: 20
+                        height: 20
+                        color: "transparent"
+                        visible: sendButton.enabled
+
+                        Image {
+                            id: sendPenguinImage
+                            anchors.centerIn: parent
+                            width: 16
+                            height: 16
+                            source: {
+                                var basePath = chatComposerRoot.mascotUrl.substring(0, chatComposerRoot.mascotUrl.lastIndexOf("/") + 1)
+                                if (chatComposerRoot.gameMode === "gamer") return basePath + "waddle_8bit_gamer.svg"
+                                if (chatComposerRoot.gameMode === "powerup") return basePath + "waddle_8bit_powerup.svg"
+                                if (chatComposerRoot.gameMode === "pacman") return basePath + "waddle_8bit_pacman.svg"
+                                if (chatComposerRoot.gameMode === "gameover") return basePath + "waddle_8bit_gameover.svg"
+                                return basePath + "waddle_8bit.svg"
+                            }
+                            fillMode: Image.PreserveAspectFit
+                            smooth: false
+
+                            NumberAnimation on y {
+                                from: -2
+                                to: 2
+                                duration: 400
+                                loops: Animation.Infinite
+                                easing.type: Easing.InOutSine
+                                running: sendButton.enabled && !chatComposerRoot.sendPenguinJump
+                            }
+
+                            NumberAnimation on y {
+                                from: 0
+                                to: chatComposerRoot.animationConfig.sendPenguinJumpHeight || -12
+                                duration: 200
+                                easing.type: Easing.OutQuad
+                                running: chatComposerRoot.sendPenguinJump
+                            }
+
+                            NumberAnimation on rotation {
+                                from: 0
+                                to: 360
+                                duration: 500
+                                easing.type: Easing.OutQuad
+                                running: chatComposerRoot.sendPenguinSpin
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     background: Rectangle {
         gradient: Gradient {
             GradientStop { position: 0.0; color: theme.bgTop }
@@ -1481,130 +2124,33 @@ ApplicationWindow {
         width: Math.min(parent.width - 28, 980)
         spacing: 10
 
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 54
-            radius: cornerRadius + 4
-            color: theme.panel
-            border.width: 1
-            border.color: theme.border
-            opacity: 0.62 + (0.38 * window.introProgress)
-            scale: 0.985 + (0.015 * window.introProgress)
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 8
-
-                IconBadge {
-                    label: "W"
-                    fillColor: theme.accent
-                }
-
-                ColumnLayout {
-                    spacing: 2
-
-                    Text {
-                        text: "Waddle"
-                        color: theme.textPrimary
-                        font.pixelSize: 15
-                        font.weight: Font.DemiBold
-                        font.family: window.displayFont
-                    }
-
-                    Text {
-                        text: "Native chat for Codex and Qwen"
-                        color: theme.textMuted
-                        font.pixelSize: 10
-                        font.family: window.bodyFont
-                        visible: window.width >= 940
-                    }
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton
-                        hoverEnabled: true
-                        cursorShape: Qt.SizeAllCursor
-                        onPressed: (mouse) => window.startSystemMove(mouse)
-                    }
-                }
-
-                CapsuleButton {
-                    label: "Chat"
-                    tag: "•"
-                    active: true
-                    enabled: false
-                    visible: window.width >= 1080
-                }
-
-                StatusBadge {
-                    label: window.controller ? window.controller.statusTitle : "Loading"
-                    tone: window.controller ? window.controller.bridgeStatus : "idle"
-                }
-
-                CapsuleButton {
-                    label: window.controller ? window.controller.currentBackendLabel : "CLI"
-                    tag: window.controller && window.controller.currentBackendLabel === "Codex" ? "C" : "Q"
-                    active: true
-                    enabled: false
-                    visible: window.width >= 1000
-                }
-
-                CapsuleButton {
-                    label: "Mascot"
-                    tag: "~"
-                    enabled: true
-                    visible: window.width >= 920
-                    onClicked: {
-                        // Cycle through mascot variants
-                        if (window.controller) {
-                            window.controller.cycleMascot()
-                        }
-                    }
-                }
-
-                CapsuleButton {
-                    label: "Preferences"
-                    tag: "⚙"
-                    enabled: true
-                    onClicked: preferencesDialog.open()
-                }
-
-                RowLayout {
-                    spacing: 6
-
-                    WindowButton {
-                        label: "–"
-                        onClicked: window.showMinimized()
-                    }
-
-                    WindowButton {
-                        label: window.visibility === Window.Maximized ? "❐" : "▢"
-                        onClicked: {
-                            if (window.visibility === Window.Maximized) {
-                                window.showNormal()
-                            } else {
-                                window.showMaximized()
-                            }
-                        }
-                    }
-
-                    WindowButton {
-                        label: "×"
-                        baseColor: "#3a1a1f"
-                        hoverColor: "#5a1f27"
-                        pressColor: "#7a2430"
-                        textColor: "#ffe4e6"
-                        borderColor: "#8b1e35"
-                        onClicked: window.close()
-                    }
+        ChatHeader {
+            controller: window.controller
+            themeObj: theme
+            cornerRadius: window.cornerRadius
+            displayFont: window.displayFont
+            bodyFont: window.bodyFont
+            introProgress: window.introProgress
+            windowWidth: window.width
+            maximized: window.visibility === Window.Maximized
+            onStartMove: function(mouse) {
+                window.startSystemMove(mouse)
+            }
+            onOpenPreferences: preferencesDialog.open()
+            onCycleMascot: {
+                if (window.controller) {
+                    window.controller.cycleMascot()
                 }
             }
+            onMinimizeRequested: window.showMinimized()
+            onToggleMaximizeRequested: {
+                if (window.visibility === Window.Maximized) {
+                    window.showNormal()
+                } else {
+                    window.showMaximized()
+                }
+            }
+            onCloseRequested: window.close()
         }
 
         Rectangle {
@@ -2063,8 +2609,8 @@ ApplicationWindow {
                                         title: modelData.title
                                         subtitle: modelData.subtitle
                                         onClicked: {
-                                            promptInput.text = modelData.prompt
-                                            promptInput.forceActiveFocus()
+                                            chatComposer.promptText = modelData.prompt
+                                            chatComposer.focusPrompt()
                                         }
                                     }
                                 }
@@ -2072,488 +2618,60 @@ ApplicationWindow {
                         }
                     }
 
-                    ListView {
+                    ChatMessageList {
                         id: chatList
                         anchors.fill: parent
-                        model: window.controller ? window.controller.messagesModel : null
-                        spacing: 14
-                        clip: true
-                        visible: count > 1
-                        boundsBehavior: Flickable.StopAtBounds
-                        add: Transition {
-                            ParallelAnimation {
-                                NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 220; easing.type: Easing.OutQuad }
-                                NumberAnimation { property: "scale"; from: 0.97; to: 1.0; duration: 220; easing.type: Easing.OutCubic }
+                        controller: window.controller
+                        themeObj: theme
+                        cornerRadius: window.cornerRadius
+                        bodyFont: window.bodyFont
+                        onCopyRequested: function(text) {
+                            try {
+                                Qt.application.clipboard().text = text
+                            } catch (err) {
+                                console.log("clipboard copy failed: " + err)
                             }
                         }
-
-                        delegate: Item {
-                            required property string role
-                            required property string content
-                            required property string meta
-
-                            width: chatList.width
-                            implicitHeight: bubbleBox.implicitHeight + 12
-
-                            opacity: 1
-                            Rectangle {
-                                id: bubbleBox
-                                width: Math.min(chatList.width * 0.76, 760)
-                                implicitHeight: bubbleColumn.implicitHeight + 24
-                                anchors.right: role === "user" ? parent.right : undefined
-                                anchors.left: role === "user" ? undefined : parent.left
-                                radius: cornerRadius + 2
-                                color: role === "user"
-                                    ? Qt.lighter(theme.panelSoft, 1.08)
-                                    : role === "system"
-                                        ? theme.panelSoft
-                                        : theme.panelInset
-                                border.width: 1
-                                border.color: role === "user"
-                                    ? Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.42)
-                                    : role === "system"
-                                        ? theme.borderStrong
-                                        : theme.border
-
-                                RowLayout {
-                                    id: bubbleColumn
-                                    anchors.fill: parent
-                                    anchors.margins: 14
-                                    spacing: 10
-
-                                    IconBadge {
-                                        label: role === "user" ? "U" : (role === "system" ? "!" : "A")
-                                        fillColor: role === "user" ? theme.accentSoft : theme.accent
-                                        textColor: role === "user" ? "#133046" : theme.textPrimary
-                                        Layout.alignment: Qt.AlignTop
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-
-                                        Text {
-                                            text: role === "user" ? "You" : (meta.length > 0 ? meta : "Agent")
-                                            color: theme.textMuted
-                                            font.pixelSize: 11
-                                            font.weight: Font.Medium
-                                            font.family: window.bodyFont
-                                        }
-
-                                        // User messages: plain Text
-                                        Text {
-                                            visible: role === "user"
-                                            Layout.fillWidth: true
-                                            text: content
-                                            color: theme.textPrimary
-                                            font.pixelSize: 13
-                                            wrapMode: Text.Wrap
-                                            font.family: window.bodyFont
-                                        }
-
-                                        // AI/System messages: Rich Text with Markdown support
-                                        TextEdit {
-                                            id: messageBody
-                                            visible: role !== "user"
-                                            Layout.fillWidth: true
-                                            text: content
-                                            color: theme.textPrimary
-                                            font.pixelSize: 13
-                                            font.family: window.bodyFont
-                                            wrapMode: TextEdit.Wrap
-                                            textFormat: TextEdit.RichText
-                                            readOnly: true
-                                            selectionColor: theme.accent
-                                            selectedTextColor: "#ffffff"
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                acceptedButtons: Qt.RightButton
-                                                onClicked: function(mouse) {
-                                                    if (mouse.button === Qt.RightButton) {
-                                                        copyMenu.popup()
-                                                    }
-                                                }
-                                            }
-
-                                                Menu {
-                                                    id: copyMenu
-
-                                                    MenuItem {
-                                                        text: "Copy text"
-                                                        onTriggered: {
-                                                            try {
-                                                                Qt.application.clipboard().text = messageBody.text
-                                                            } catch (err) {
-                                                                console.log("clipboard copy failed: " + err)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                            }
-                        }
-
-                        ScrollBar.vertical: ScrollBar {
-                            policy: ScrollBar.AsNeeded
-                        }
-
-                        onCountChanged: window.pinChatToBottom()
-                        onContentHeightChanged: window.pinChatToBottom()
                     }
                 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: false
-                    Layout.minimumHeight: 176
-                    Layout.preferredHeight: 176
-                    Layout.maximumHeight: 176
-                    spacing: 8
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-
-                        BackendSegmentedControl {
-                            value: window.controller ? window.controller.selectedBackend : "codex"
-                            enabled: !!window.controller
-                            onSelected: function(key) {
-                                if (window.controller) {
-                                    window.controller.selectedBackend = key
-                                }
-                            }
-                        }
-
-                        CapsuleButton {
-                            label: window.controller && window.controller.bridgeStatus === "ready" ? "Reconnect" : "Connect"
-                            tag: ">"
-                            primary: window.controller ? window.controller.needsReconnect : false
-                            sizeTier: "primary"
-                            pulse: window.controller && window.controller.bridgeStatus !== "ready"
-                            enabled: !!window.controller && window.controller.bridgeStatus !== "starting"
-                            onClicked: window.controller.connectBackend()
-                        }
-
-                        CapsuleButton {
-                            label: "Stop"
-                            tag: "[]"
-                            sizeTier: "command"
-                            quiet: true
-                            enabled: window.controller && window.controller.canStop
-                            onClicked: window.controller.stopSession()
-                        }
-
-                        CapsuleButton {
-                            label: "/model"
-                            tag: ""
-                            sizeTier: "command"
-                            quiet: true
-                            enabled: window.controller && window.controller.canSend
-                            onClicked: window.controller.sendQuickCommand("/model")
-                        }
-
-                        CapsuleButton {
-                            label: "/reset"
-                            tag: ""
-                            sizeTier: "command"
-                            quiet: true
-                            enabled: window.controller && window.controller.canSend
-                            onClicked: window.controller.sendQuickCommand("/reset")
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                        }
-
-                        Item {
-                            id: miniMascotContainer
-                            width: 24
-                            height: 24
-                            property real bobPhase: 0
-                            scale: 1.0 + Math.sin(bobPhase * 6.28318530718) * 0.06
-                            rotation: Math.sin((bobPhase * 6.28318530718) + 1.2) * 4
-
-                            NumberAnimation on bobPhase {
-                                from: 0
-                                to: 1
-                                duration: 2500
-                                loops: Animation.Infinite
-                                running: true
-                                easing.type: Easing.InOutSine
-                            }
-
-                            Image {
-                                id: miniMascotImage
-                                anchors.fill: parent
-                                source: getMascotUrlForState(mascotState)
-                                fillMode: Image.PreserveAspectFit
-                                smooth: true
-                                visible: source.toString().length > 0
-
-                                // Mini scale animation based on state
-                                states: [
-                                    State {
-                                        name: "idle"
-                                        when: mascotState === "idle"
-                                        PropertyChanges { target: miniMascotImage; scale: 1.0 }
-                                    },
-                                    State {
-                                        name: "thinking"
-                                        when: mascotState === "thinking"
-                                        PropertyChanges { target: miniMascotImage; scale: 1.1 }
-                                    },
-                                    State {
-                                        name: "streaming"
-                                        when: mascotState === "streaming"
-                                        PropertyChanges { target: miniMascotImage; scale: 1.0 }
-                                    },
-                                    State {
-                                        name: "success"
-                                        when: mascotState === "success"
-                                        PropertyChanges { target: miniMascotImage; scale: 1.15 }
-                                    },
-                                    State {
-                                        name: "error"
-                                        when: mascotState === "error"
-                                        PropertyChanges { target: miniMascotImage; scale: 0.9 }
-                                    }
-                                ]
-
-                                Behavior on scale {
-                                    NumberAnimation { duration: 180; easing.type: Easing.OutBack }
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "🐧"
-                                font.pixelSize: 16
-                                visible: !miniMascotImage.visible
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                enabled: !!window.controller
-                                onClicked: window.controller.cycleMascot()
-                            }
-                        }
-
-                        Text {
-                            text: "Press Enter to send"
-                            color: theme.textMuted
-                            font.pixelSize: 9
-                            font.family: window.bodyFont
+                ChatComposer {
+                    id: chatComposer
+                    controller: window.controller
+                    themeObj: theme
+                    cornerRadius: window.cornerRadius
+                    bodyFont: window.bodyFont
+                    mascotState: window.mascotState
+                    mascotUrl: mascotUrl
+                    gameMode: window.gameMode
+                    animationConfig: window.animationConfig
+                    mascotStateResolver: window.getMascotUrlForState
+                    onSendPrompt: function(text) {
+                        window.submitPrompt(text)
+                    }
+                    onConnectRequested: {
+                        if (window.controller) {
+                            window.controller.connectBackend()
                         }
                     }
-
-                    Rectangle {
-                        id: promptBox
-                        Layout.fillWidth: true
-                        Layout.fillHeight: false
-                        Layout.minimumHeight: 108
-                        Layout.preferredHeight: 138
-                        radius: cornerRadius + 4
-                        color: theme.panelInset
-                        border.width: 1
-                        border.color: promptInput.activeFocus ? theme.borderStrong : theme.border
-                        property real focusGlow: promptInput.activeFocus ? 1.0 : 0.0
-                        scale: promptInput.activeFocus ? 1.004 : 1.0
-
-                        Behavior on border.color {
-                            ColorAnimation { duration: 140 }
+                    onStopRequested: {
+                        if (window.controller) {
+                            window.controller.stopSession()
                         }
-
-                        Behavior on scale {
-                            NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+                    }
+                    onQuickCommand: function(command) {
+                        if (window.controller) {
+                            window.controller.sendQuickCommand(command)
                         }
-
-                        Behavior on focusGlow {
-                            NumberAnimation { duration: 160; easing.type: Easing.OutQuad }
+                    }
+                    onBackendSelected: function(key) {
+                        if (window.controller) {
+                            window.controller.selectedBackend = key
                         }
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: parent.radius
-                            color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.06 * promptBox.focusGlow)
-                        }
-
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: -1
-                            radius: parent.radius + 1
-                            color: "transparent"
-                            border.width: 1
-                            border.color: Qt.rgba(theme.accentSoft.r, theme.accentSoft.g, theme.accentSoft.b, 0.65)
-                            opacity: 0.45 * promptBox.focusGlow
-                        }
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 8
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 8
-
-                                TextArea {
-                                    id: promptInput
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    wrapMode: TextEdit.Wrap
-                                    placeholderText: window.controller ? window.controller.composerPlaceholder : "Start the conversation..."
-                                    placeholderTextColor: theme.textMuted
-                                    color: theme.textPrimary
-                                    selectionColor: theme.accentSoft
-                                    font.pixelSize: 14
-                                    font.family: window.bodyFont
-                                    padding: 0
-                                    enabled: window.controller && window.controller.canSend
-
-                                    background: Rectangle {
-                                        color: "transparent"
-                                    }
-
-                                    Keys.onPressed: function(event) {
-                                        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                                                && !(event.modifiers & Qt.ShiftModifier)) {
-                                            event.accepted = true
-                                            window.submitPrompt()
-                                        }
-                                    }
-
-                                    Component.onCompleted: forceActiveFocus()
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: window.controller ? window.controller.statusDescription : "Loading controller..."
-                                    color: theme.textMuted
-                                    font.pixelSize: 9
-                                    elide: Text.ElideRight
-                                    font.family: window.bodyFont
-                                }
-                            }
-
-                            CapsuleButton {
-                                id: sendButton
-                                label: "Send"
-                                tag: ">"
-                                primary: true
-                                enabled: window.controller && window.controller.canSend
-                                onClicked: {
-                                    // Trigger penguin reaction
-                                    sendPenguinJump = true
-                                    sendPenguinSpin = true
-                                    sendPenguinTimer.restart()
-                                    window.submitPrompt()
-                                }
-                                Layout.alignment: Qt.AlignBottom
-                                
-                                // Mini penguin on the button!
-                                Rectangle {
-                                    id: sendPenguinContainer
-                                    anchors.top: parent.top
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.topMargin: -8
-                                    width: 20
-                                    height: 20
-                                    color: "transparent"
-                                    visible: sendButton.enabled
-                                    
-                                    // Mini penguin pixel art
-                                    Image {
-                                        id: sendPenguinImage
-                                        anchors.centerIn: parent
-                                        width: 16
-                                        height: 16
-                                        source: {
-                                            var basePath = mascotUrl.substring(0, mascotUrl.lastIndexOf("/") + 1)
-                                            if (gameMode === "gamer") return basePath + "waddle_8bit_gamer.svg"
-                                            if (gameMode === "powerup") return basePath + "waddle_8bit_powerup.svg"
-                                            if (gameMode === "pacman") return basePath + "waddle_8bit_pacman.svg"
-                                            if (gameMode === "gameover") return basePath + "waddle_8bit_gameover.svg"
-                                            return basePath + "waddle_8bit.svg"
-                                        }
-                                        fillMode: Image.PreserveAspectFit
-                                        smooth: false
-                                        
-                                        // Bobbing animation (idle)
-                                        NumberAnimation on y {
-                                            id: sendPenguinBob
-                                            from: -2
-                                            to: 2
-                                            duration: 400
-                                            loops: Animation.Infinite
-                                            easing.type: Easing.InOutSine
-                                            running: sendButton.enabled && !sendPenguinJump
-                                        }
-                                        
-                                        // Jump animation on send
-                                        NumberAnimation on y {
-                                            id: sendPenguinJumpAnim
-                                            from: 0
-                                            to: animationConfig.sendPenguinJumpHeight
-                                            duration: 200
-                                            easing.type: Easing.OutQuad
-                                            running: sendPenguinJump
-                                        }
-
-                                        // Spin animation on send
-                                        NumberAnimation on rotation {
-                                            id: sendPenguinSpinAnim
-                                            from: 0
-                                            to: 360
-                                            duration: 500
-                                            easing.type: Easing.OutQuad
-                                            running: sendPenguinSpin
-                                        }
-
-                                        // Scale when jumping
-                                        NumberAnimation on scale {
-                                            id: sendPenguinScaleAnim
-                                            from: 1.0
-                                            to: animationConfig.sendPenguinScale
-                                            duration: 150
-                                            easing.type: Easing.OutQuad
-                                            running: sendPenguinJump
-                                        }
-                                        
-                                        // Particle effect when sending
-                                        Rectangle {
-                                            anchors.centerIn: parent
-                                            width: 24
-                                            height: 24
-                                            color: "transparent"
-                                            border.width: 2
-                                            border.color: theme.accent
-                                            radius: 12
-                                            opacity: sendPenguinJump ? 0.8 : 0
-                                            visible: sendPenguinJump
-                                            
-                                            NumberAnimation on opacity {
-                                                from: 0.8
-                                                to: 0
-                                                duration: 400
-                                                easing.type: Easing.OutQuad
-                                                running: sendPenguinJump
-                                            }
-                                            NumberAnimation on scale {
-                                                from: 0.5
-                                                to: 1.5
-                                                duration: 400
-                                                easing.type: Easing.OutQuad
-                                                running: sendPenguinJump
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                    }
+                    onCycleMascot: {
+                        if (window.controller) {
+                            window.controller.cycleMascot()
                         }
                     }
                 }

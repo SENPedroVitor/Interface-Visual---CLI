@@ -453,6 +453,7 @@ class NativeChatController(QObject):
     composerPlaceholderChanged = Signal()
     canSendChanged = Signal()
     canStopChanged = Signal()
+    awaitingResponseChanged = Signal()
     needsReconnectChanged = Signal()
     settingsChanged = Signal()
     missingCliNameChanged = Signal()
@@ -549,6 +550,10 @@ class NativeChatController(QObject):
     def canStop(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
 
+    @Property(bool, notify=awaitingResponseChanged)
+    def awaitingResponse(self) -> bool:
+        return self._awaiting_response
+
     @Property(str, notify=greetingChanged)
     def greeting(self) -> str:
         title, _subtitle = self._current_greeting_pair()
@@ -639,7 +644,7 @@ class NativeChatController(QObject):
         self._set_needs_reconnect(False)
         self._pending_output = ""
         self._last_prompt = ""
-        self._awaiting_response = False
+        self._set_awaiting_response(False)
         self._response_timeout_timer.stop()
 
         command = resolve_backend_command(self._selected_backend)
@@ -817,7 +822,7 @@ class NativeChatController(QObject):
 
         try:
             os.write(self._master_fd, (prompt + "\n").encode("utf-8"))
-            self._awaiting_response = True
+            self._set_awaiting_response(True)
             self._response_timeout_timer.start()
         except OSError as exc:
             self._set_bridge_status("error")
@@ -1009,7 +1014,7 @@ class NativeChatController(QObject):
 
         return_code = self._proc.poll()
         self._flush_pending_output()
-        self._awaiting_response = False
+        self._set_awaiting_response(False)
         self._response_timeout_timer.stop()
         self._finalize_history()
         self._teardown_process()
@@ -1058,7 +1063,7 @@ class NativeChatController(QObject):
 
         self._proc = None
         self._pending_output = ""
-        self._awaiting_response = False
+        self._set_awaiting_response(False)
         self._response_timeout_timer.stop()
         self.canStopChanged.emit()
 
@@ -1086,6 +1091,12 @@ class NativeChatController(QObject):
             return
         self._needs_reconnect = value
         self.needsReconnectChanged.emit()
+
+    def _set_awaiting_response(self, value: bool) -> None:
+        if value == self._awaiting_response:
+            return
+        self._awaiting_response = value
+        self.awaitingResponseChanged.emit()
 
     def _set_missing_cli_name(self, value: str) -> None:
         if value == self._missing_cli_name:
@@ -1163,7 +1174,7 @@ class NativeChatController(QObject):
             payload = "".join(fragments).rstrip() + "\n"
             self._messages_model.append_to_last_ai(payload)
             self._messages_model.set_last_ai_meta(self.currentBackendLabel)
-            self._awaiting_response = False
+            self._set_awaiting_response(False)
             self._response_timeout_timer.stop()
             return
 
@@ -1174,7 +1185,7 @@ class NativeChatController(QObject):
             if partial:
                 self._messages_model.append_to_last_ai(partial)
                 self._messages_model.set_last_ai_meta(self.currentBackendLabel)
-                self._awaiting_response = False
+                self._set_awaiting_response(False)
                 self._response_timeout_timer.stop()
 
     def _flush_pending_output(self) -> None:
@@ -1187,13 +1198,13 @@ class NativeChatController(QObject):
         if cleaned:
             self._messages_model.append_to_last_ai(cleaned)
             self._messages_model.set_last_ai_meta(self.currentBackendLabel)
-            self._awaiting_response = False
+            self._set_awaiting_response(False)
             self._response_timeout_timer.stop()
 
     def _handle_response_timeout(self) -> None:
         if not self._awaiting_response or self._bridge_status != "ready":
             return
-        self._awaiting_response = False
+        self._set_awaiting_response(False)
         self._messages_model.add_message(
             "system",
             (
