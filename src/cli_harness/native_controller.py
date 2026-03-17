@@ -10,6 +10,7 @@ import subprocess
 import termios
 from datetime import datetime
 from typing import Any
+from pathlib import Path
 
 from PySide6.QtCore import (
     QAbstractListModel,
@@ -23,8 +24,98 @@ from PySide6.QtCore import (
     Slot,
 )
 
+
 from .backend_commands import resolve_backend_command
+from .config import ENV_PATH, get_env_value, get_obsidian_vault_path, set_env_value
 from .history import HistoryStore
+from dotenv import load_dotenv
+
+# Load project .env explicitly so launcher/cwd do not affect command resolution.
+load_dotenv(dotenv_path=ENV_PATH)
+
+
+def markdown_to_html(text: str) -> str:
+    """
+    Convert basic Markdown to HTML for QML TextEdit rich text rendering.
+    Handles code blocks, inline code, bold, italic, and lists.
+    """
+    if not text:
+        return text
+
+    html = text
+
+    # Escape HTML special chars first (but preserve existing HTML)
+    html = html.replace("&", "&amp;")
+    html = html.replace("<", "&lt;")
+    html = html.replace(">", "&gt;")
+
+    # Code blocks (```language ... ```)
+    # Convert to formatted blocks with copy button
+    def replace_code_block(match):
+        lang = match.group(1) or ""
+        code = match.group(2)
+        # Escape any remaining HTML in code
+        code_escaped = code.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        lang_label = f"<div style='background:#2d1f4e;color:#c4b5fd;padding:4px 8px;font-size:11px;font-weight:bold;border:1px solid #6d28d9;border-bottom:none;display:flex;justify-content:space-between;align-items:center;'><span>{lang}</span></div>" if lang else ""
+        return f"<div style='background:#1e1b3a;border:1px solid #4c1d95;border-radius:0;margin:8px 0;overflow:hidden;'><pre style='margin:0;padding:8px;background:#0f172a;color:#e2e8f0;font-family:\"JetBrains Mono\",\"Consolas\",\"Monospace\";font-size:13px;white-space:pre-wrap;word-wrap:break-word;'><code>{code_escaped}</code></pre>{lang_label}</div>"
+
+    html = re.sub(r'```(\w*)\n(.*?)```', replace_code_block, html, flags=re.DOTALL)
+
+    # Inline code (`code`)
+    html = re.sub(r'`([^`]+)`', r'<span style="background:#2d1f4e;color:#e2e8f0;padding:2px 6px;border-radius:0;font-family:\"JetBrains Mono\",\"Monospace\";font-size:12px;">\1</span>', html)
+
+    # Bold (**text** or __text__)
+    html = re.sub(r'\*\*([^*]+)\*\*', r'<span style="font-weight:bold;">\1</span>', html)
+    html = re.sub(r'__([^_]+)__', r'<span style="font-weight:bold;">\1</span>', html)
+
+    # Italic (*text* or _text_)
+    html = re.sub(r'\*([^*]+)\*', r'<span style="font-style:italic;">\1</span>', html)
+    html = re.sub(r'_([^_]+)_', r'<span style="font-style:italic;">\1</span>', html)
+
+    # Headers
+    html = re.sub(r'^### (.+)$', r'<span style="font-size:16px;font-weight:bold;color:#f8fbff;">\1</span>', html, flags=re.MULTILINE)
+    html = re.sub(r'^## (.+)$', r'<span style="font-size:18px;font-weight:bold;color:#f8fbff;">\1</span>', html, flags=re.MULTILINE)
+    html = re.sub(r'^# (.+)$', r'<span style="font-size:20px;font-weight:bold;color:#f8fbff;">\1</span>', html, flags=re.MULTILINE)
+
+    # Line breaks (preserve paragraphs)
+    lines = html.split('\n')
+    processed_lines = []
+    in_list = False
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+
+        # Unordered lists (- item, * item, • item)
+        list_match = re.match(r'^[-*•]\s+(.+)$', stripped)
+        if list_match:
+            if not in_list:
+                processed_lines.append('<div style="margin:8px 0;">')
+                in_list = True
+            item_content = list_match.group(1)
+            processed_lines.append(f'<div style="padding-left:16px;">• {item_content}</div>')
+        else:
+            if in_list:
+                processed_lines.append('</div>')
+                in_list = False
+
+            # Empty lines become paragraph breaks
+            if not stripped:
+                processed_lines.append('<br/>')
+            else:
+                processed_lines.append(line)
+
+    if in_list:
+        processed_lines.append('</div>')
+
+    html = '\n'.join(processed_lines)
+
+    # Convert newlines to <br/> for non-block content
+    html = html.replace('\n', '<br/>')
+
+    # Clean up multiple <br/>
+    html = re.sub(r'(<br/>){3,}', '<br/><br/>', html)
+
+    return html
 
 
 ANSI_ESCAPE_RE = re.compile(
@@ -47,78 +138,105 @@ UI_NOISE_PREFIXES = (
     "It is recommended to run",
     "Tip: New",
     "/model to change",
+    # Qwen-specific noise
+    "Press Escape",
+    "Shift+Tab",
+    "ctrl+",
+    "Ctrl+",
+    "Auto-update",
+    "Checking for",
+    "npm warn",
+    "npm notice",
 )
+
+QWEN_TUI_NOISE_RE = re.compile(
+    r"""
+    (?:
+        \x1B\[[\d;]*[A-Za-z]   # CSI sequences (cursor, erase, etc.)
+      | \x1B\][^\x07]*\x07      # OSC sequences
+      | \x1B[@-_][0-9;]*[A-Za-z]
+      | [\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]  # other control chars
+    )
+    """,
+    re.VERBOSE,
+)
+
+# Lines that look like Qwen's TUI chrome (borders, key hints, status bars)
+QWEN_CHROME_RE = re.compile(
+    r"^[\s│┃╔╗╚╝═╠╣╦╩╬─┼╭╮╰╯·•◆◇▶▸]+$"
+)
+BRAILLE_SPINNER_RE = re.compile(r"^[\u2800-\u28ff\s]+$")
 
 INTERNAL_TRACE_PREFIXES = (
     "Explored",
     "Read ",
     "Searching",
     "Opening",
-    "Vou ",
+    "I will ",
     "The user ",
     "I should ",
 )
 
 GREETING_VARIANTS: dict[str, list[tuple[str, str]]] = {
     "morning": [
-        ("Bom dia, {name}", "Vamos abrir o dia com alguma coisa util."),
-        ("Bom dia, {name}", "Se tiver algo travado, vamos destravar cedo."),
-        ("Comeco de dia, {name}", "Boa hora para organizar as prioridades."),
-        ("Manha boa, {name}", "Dá para sair com bastante coisa resolvida."),
-        ("Bom dia, {name}", "Se quiser, a gente começa pelo mais dificil."),
-        ("Modo foco, {name}", "Vamos aproveitar a manha enquanto ela rende."),
-        ("Bom dia, {name}", "Hora de colocar as ideias em ordem."),
-        ("Partiu resolver, {name}", "A manha costuma ser a melhor janela."),
-        ("Bom dia, {name}", "Se tiver bagunçado, a gente estrutura."),
-        ("Primeira rodada do dia, {name}", "Vamos fazer isso andar."),
+        ("Good morning, {name}", "Let's start the day with something useful."),
+        ("Good morning, {name}", "If something is stuck, let's unblock it early."),
+        ("Start of day, {name}", "A good time to organize priorities."),
+        ("Morning mode, {name}", "We can get a lot done right now."),
+        ("Good morning, {name}", "If you want, we can start with the hardest part."),
+        ("Focus mode, {name}", "Let's use the morning while it has momentum."),
+        ("Good morning, {name}", "Time to put ideas in order."),
+        ("Let's solve it, {name}", "Morning is usually the best window."),
+        ("Good morning, {name}", "If it's messy, we'll structure it."),
+        ("First round of the day, {name}", "Let's move this forward."),
     ],
     "afternoon": [
-        ("Boa tarde, {name}", "Se tiver pendencia, agora e uma boa hora para destravar."),
-        ("Boa tarde, {name}", "Vamos pegar o que ficou aberto e fechar direito."),
-        ("Turno da tarde, {name}", "Ainda dá para render bastante."),
-        ("Boa tarde, {name}", "Se quiser, a gente retoma do ponto mais importante."),
-        ("Hora de ajustar a rota, {name}", "Vamos deixar o resto do dia mais leve."),
-        ("Boa tarde, {name}", "Dá para transformar essa pilha em proximos passos."),
-        ("Seguimos, {name}", "A tarde ainda salva bastante coisa."),
-        ("Boa tarde, {name}", "Vamos direto no que mais importa."),
-        ("Tarde de trabalho, {name}", "Se tiver ruido, eu organizo contigo."),
-        ("Boa tarde, {name}", "Vamos fazer progresso sem complicar."),
+        ("Good afternoon, {name}", "If there's a pending item, now is a good time to unblock it."),
+        ("Good afternoon, {name}", "Let's close what was left open."),
+        ("Afternoon shift, {name}", "There's still time to produce a lot."),
+        ("Good afternoon, {name}", "If you want, we can resume from the most important point."),
+        ("Time to adjust course, {name}", "Let's make the rest of the day lighter."),
+        ("Good afternoon, {name}", "We can turn this pile into clear next steps."),
+        ("Let's keep going, {name}", "The afternoon can still save a lot."),
+        ("Good afternoon, {name}", "Let's go straight to what matters most."),
+        ("Work block, {name}", "If there is noise, I'll help organize it."),
+        ("Good afternoon, {name}", "Let's make progress without overcomplicating."),
     ],
     "coffee": [
-        ("Hora do cafe, {name}", "Uma rodada boa agora ja salva o resto da tarde."),
-        ("Pausa estrategica, {name}", "Café e organizacao costumam combinar bem."),
-        ("Cafe da tarde, {name}", "Vamos resolver isso antes de esfriar."),
-        ("Hora do cafe, {name}", "Boa janela para limpar pendencias curtas."),
-        ("Ritmo de cafe, {name}", "Se quiser, a gente fecha isso rapidinho."),
-        ("Café na mesa, {name}", "Bora transformar isso em algo objetivo."),
-        ("Hora boa para focar, {name}", "Um passo certo agora vale por varios depois."),
-        ("Cafe e clareza, {name}", "Vamos simplificar o que estiver embolado."),
-        ("Voltando pro eixo, {name}", "Hora boa para uma resposta limpa."),
-        ("Hora do cafe, {name}", "Dá para sair daqui com isso encaminhado."),
+        ("Coffee break, {name}", "A good round now saves the rest of the afternoon."),
+        ("Strategic pause, {name}", "Coffee and organization usually pair well."),
+        ("Afternoon coffee, {name}", "Let's solve this before it gets cold."),
+        ("Coffee time, {name}", "A good window to clear short pending tasks."),
+        ("Coffee pace, {name}", "If you want, we can wrap this up quickly."),
+        ("Coffee on the desk, {name}", "Let's turn this into something objective."),
+        ("Good focus window, {name}", "One right step now saves many later."),
+        ("Coffee and clarity, {name}", "Let's simplify whatever is tangled."),
+        ("Back on track, {name}", "A good time for a clean answer."),
+        ("Coffee time, {name}", "We can leave this in a good state now."),
     ],
     "evening": [
-        ("Boa noite, {name}", "Dá para fechar isso com calma e clareza."),
-        ("Boa noite, {name}", "Se quiser, a gente resolve sem pressa."),
-        ("Noite produtiva, {name}", "Vamos deixar isso redondo antes de encerrar."),
-        ("Boa noite, {name}", "Hora boa para lapidar o que ficou pendente."),
-        ("Seguimos a noite, {name}", "Se tiver ruido, eu ajudo a simplificar."),
-        ("Boa noite, {name}", "Vamos organizar a ultima rodada do dia."),
-        ("Clima de fechamento, {name}", "Dá para sair com isso melhor do que entrou."),
-        ("Boa noite, {name}", "Se quiser, vamos direto ao ponto."),
-        ("Noite de foco, {name}", "Vamos resolver isso sem dispersao."),
-        ("Boa noite, {name}", "Ainda dá para produzir algo bem feito."),
+        ("Good evening, {name}", "We can close this calmly and clearly."),
+        ("Good evening, {name}", "If you want, we can solve this without rushing."),
+        ("Productive evening, {name}", "Let's tighten this up before we finish."),
+        ("Good evening, {name}", "A good time to refine what's still pending."),
+        ("Evening run, {name}", "If there is noise, I can help simplify."),
+        ("Good evening, {name}", "Let's organize the last round of the day."),
+        ("Wrap-up mode, {name}", "We can leave this better than we found it."),
+        ("Good evening, {name}", "If you want, let's go straight to the point."),
+        ("Focus night, {name}", "Let's solve this without distraction."),
+        ("Good evening, {name}", "There's still time to produce quality output."),
     ],
     "late_night": [
-        ("Noite longa, {name}", "Se ainda estiver por aqui, vamos resolver sem complicar."),
-        ("Virando a noite, {name}", "Vamos manter isso simples e objetivo."),
-        ("Ainda acordado, {name}", "Então bora fechar isso direito."),
-        ("Hora silenciosa, {name}", "Boa para pensar com menos ruido."),
-        ("Noite funda, {name}", "Se for para fazer, vamos fazer limpo."),
-        ("Ultima rodada, {name}", "Vamos deixar isso em um estado bom."),
-        ("Noite de concentracao, {name}", "Se quiser, eu vou direto no essencial."),
-        ("Ainda no teclado, {name}", "Vamos destravar isso com calma."),
-        ("Sem enrolacao, {name}", "Hora de resolver e encerrar."),
-        ("Noite longa, {name}", "Eu seguro o contexto, voce decide o ritmo."),
+        ("Late night, {name}", "If you're still here, let's solve this cleanly."),
+        ("Night shift, {name}", "Let's keep this simple and objective."),
+        ("Still awake, {name}", "Let's close this properly."),
+        ("Quiet hours, {name}", "Good time to think with less noise."),
+        ("Deep night, {name}", "If we do it, let's do it cleanly."),
+        ("Final round, {name}", "Let's leave this in a good state."),
+        ("Concentration mode, {name}", "If you want, I'll go straight to essentials."),
+        ("Still at the keyboard, {name}", "Let's unblock this calmly."),
+        ("No detours, {name}", "Time to solve and wrap up."),
+        ("Late night, {name}", "I'll hold the context, you set the pace."),
     ],
 }
 
@@ -149,6 +267,38 @@ def is_ui_noise_line(text: str) -> bool:
         return True
 
     return stripped.startswith(UI_NOISE_PREFIXES)
+
+
+def is_backend_chrome_line(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return False
+
+    lower = stripped.lower()
+    if BRAILLE_SPINNER_RE.match(stripped):
+        return True
+    if stripped in {"10;?", "2;"}:
+        return True
+    if stripped.startswith("Reconnecting..."):
+        return True
+    if stripped.startswith("Initializing..."):
+        return True
+    if stripped.startswith("Connecting to MCP servers"):
+        return True
+    if re.match(r"^\d+;qwen\b", lower):
+        return True
+    if re.match(r"^\d+;[a-z0-9._-]+$", lower):
+        return True
+    if "type your message or @path/to/file" in lower:
+        return True
+    if stripped.startswith("? for shortcuts"):
+        return True
+    if re.match(r"^\d+;.*for shortcuts", lower):
+        return True
+    if re.match(r"^\d+;[^\s]{0,16}$", stripped):
+        return True
+
+    return False
 
 
 def resolve_display_name() -> str:
@@ -220,6 +370,9 @@ class MessageListModel(QAbstractListModel):
     def add_message(self, role: str, content: str, meta: str) -> None:
         if not content:
             return
+        # Convert markdown to HTML for AI messages
+        if role == "ai":
+            content = markdown_to_html(content)
         self.beginInsertRows(QModelIndex(), len(self._items), len(self._items))
         self._items.append({"role": role, "content": content, "meta": meta})
         self.endInsertRows()
@@ -230,7 +383,9 @@ class MessageListModel(QAbstractListModel):
             return
 
         last_index = len(self._items) - 1
-        self._items[last_index]["content"] += content
+        # Convert markdown to HTML for AI messages
+        html_content = markdown_to_html(content)
+        self._items[last_index]["content"] += html_content
         model_index = self.index(last_index, 0)
         self.dataChanged.emit(model_index, model_index, [self.ContentRole])
 
@@ -251,12 +406,19 @@ class NativeChatController(QObject):
     composerPlaceholderChanged = Signal()
     canSendChanged = Signal()
     canStopChanged = Signal()
+    needsReconnectChanged = Signal()
+    settingsChanged = Signal()
+    missingCliNameChanged = Signal()
     messagesModelChanged = Signal()
+    mascotUrlChanged = Signal()
+    mascotStateChanged = Signal()
+    walkAnimationTriggered = Signal()  # Trigger walk animation (out then in)
 
     def __init__(self) -> None:
         super().__init__()
-        self._selected_backend = "codex"
+        self._selected_backend = self._load_last_backend()
         self._bridge_status = "idle"
+        self._needs_reconnect = False
         self._messages_model = MessageListModel()
         self._proc: subprocess.Popen | None = None
         self._master_fd: int | None = None
@@ -269,7 +431,33 @@ class NativeChatController(QObject):
         self._command_label: str | None = None
         self._pending_output = ""
         self._last_prompt = ""
+        self._awaiting_response = False
         self._display_name = resolve_display_name()
+        self._missing_cli_name = ""
+        # History event buffer for debounced SQLite writes
+        self._history_buffer: list[tuple[str, str]] = []  # (direction, content)
+        self._history_flush_timer = QTimer(self)
+        self._history_flush_timer.setInterval(2500)  # flush every 2.5s
+        self._history_flush_timer.setSingleShot(False)
+        self._history_flush_timer.timeout.connect(self._flush_history_buffer)
+        self._history_flush_timer.start()
+        # Mascot variant tracking
+        self._mascot_index = 0
+        self._mascot_url = ""
+        # Mascot emotional state tracking
+        self._mascot_state = "idle"  # idle, thinking, typing, error, success, streaming
+        self._mascot_state_timer = QTimer(self)
+        self._mascot_state_timer.setInterval(300)
+        self._mascot_state_timer.timeout.connect(self._update_mascot_state)
+        self._mascot_state_timer.start()
+        # Response streaming tracking
+        self._last_message_count = 0
+        self._streaming_since = 0
+        # Detect silent sessions where CLI never returns any assistant output.
+        self._response_timeout_timer = QTimer(self)
+        self._response_timeout_timer.setInterval(20000)
+        self._response_timeout_timer.setSingleShot(True)
+        self._response_timeout_timer.timeout.connect(self._handle_response_timeout)
 
     @Property(QObject, notify=messagesModelChanged)
     def messagesModel(self) -> MessageListModel:
@@ -288,6 +476,8 @@ class NativeChatController(QObject):
         self._messages_model.clear()
         self._selected_backend = value
         self._set_bridge_status("idle")
+        self._set_needs_reconnect(False)
+        self._save_last_backend(value)
         self.selectedBackendChanged.emit()
         self.currentBackendLabelChanged.emit()
         self.composerPlaceholderChanged.emit()
@@ -302,7 +492,11 @@ class NativeChatController(QObject):
 
     @Property(bool, notify=canSendChanged)
     def canSend(self) -> bool:
-        return self._bridge_status != "starting"
+        return self._bridge_status in ("ready", "idle")
+
+    @Property(bool, notify=needsReconnectChanged)
+    def needsReconnect(self) -> bool:
+        return self._needs_reconnect
 
     @Property(bool, notify=canStopChanged)
     def canStop(self) -> bool:
@@ -320,79 +514,155 @@ class NativeChatController(QObject):
 
     @Property(str, notify=composerPlaceholderChanged)
     def composerPlaceholder(self) -> str:
-        return f"Comece a conversa com {self.currentBackendLabel}..."
+        return f"Start the conversation with {self.currentBackendLabel}..."
+
+    @Property(str, notify=settingsChanged)
+    def obsidianVaultPath(self) -> str:
+        return str(get_obsidian_vault_path())
+
+    @Property(str, notify=settingsChanged)
+    def codexCommand(self) -> str:
+        return get_env_value("CODEX_CMD", "codex") or "codex"
+
+    @Property(str, notify=settingsChanged)
+    def qwenCommand(self) -> str:
+        return get_env_value("QWEN_CMD", "qwen") or "qwen"
+
+    @Property(str, notify=settingsChanged)
+    def displayName(self) -> str:
+        return get_env_value("OSAURUS_NAME", "") or ""
+
+    @Property(str, notify=missingCliNameChanged)
+    def missingCliName(self) -> str:
+        return self._missing_cli_name
 
     @Property(str, notify=bridgeStatusChanged)
     def statusTitle(self) -> str:
         if self._bridge_status == "ready":
-            return "Sessao ativa"
+            return "Session active"
         if self._bridge_status == "starting":
-            return "Conectando"
+            return "Connecting"
         if self._bridge_status == "error":
-            return "Falha na conexao"
-        return "Pronto para iniciar"
+            return "Connection failed"
+        return "Ready to start"
 
     @Property(str, notify=bridgeStatusChanged)
     def statusDescription(self) -> str:
         if self._bridge_status == "ready":
-            return "O CLI selecionado esta conectado e pronto para responder."
+            return "The selected CLI is connected and ready to respond."
         if self._bridge_status == "starting":
-            return "Abrindo uma sessao persistente para o agente."
+            return "Opening a persistent session for the agent."
         if self._bridge_status == "error":
-            return "Nao foi possivel iniciar ou manter a sessao do agente."
-        return "Escolha um CLI e comece a conversa pelo campo de prompt."
+            return "Could not start or keep the agent session running."
+        return "Choose a CLI and start from the prompt box."
+
+    @Property(str, notify=mascotUrlChanged)
+    def mascotUrl(self) -> str:
+        return self._mascot_url
+
+    @mascotUrl.setter
+    def mascotUrl(self, value: str) -> None:
+        if value == self._mascot_url:
+            return
+        self._mascot_url = value
+        self.mascotUrlChanged.emit()
+
+    @Property(str, notify=mascotStateChanged)
+    def mascotState(self) -> str:
+        return self._mascot_state
+
+    @mascotState.setter
+    def mascotState(self, value: str) -> None:
+        if value == self._mascot_state:
+            return
+        self._mascot_state = value
+        self.mascotStateChanged.emit()
 
     @Slot()
     def connectBackend(self) -> None:
         if self._proc and self._proc.poll() is None:
             self._messages_model.add_message(
                 "system",
-                f"Reiniciando a sessao de {self.currentBackendLabel}.",
-                "Sistema",
+                f"Restarting the {self.currentBackendLabel} session.",
+                "System",
             )
             self.stop_session(announce=False)
 
         self._set_bridge_status("starting")
+        self._set_needs_reconnect(False)
         self._pending_output = ""
         self._last_prompt = ""
+        self._awaiting_response = False
+        self._response_timeout_timer.stop()
 
         command = resolve_backend_command(self._selected_backend)
         self._command_label = command
 
         # Get full PATH from user's shell environment
-        import subprocess as sp
         try:
-            shell_path = sp.check_output(
+            shell_path = subprocess.check_output(
                 ["bash", "-ic", "echo $PATH"],
-                stderr=sp.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 timeout=5,
-                text=True
+                text=True,
             ).strip()
         except Exception:
             shell_path = ""
 
-        # Build extended PATH
-        env = os.environ.copy()
-        current_path = env.get("PATH", "")
-        extra_paths = [
-            shell_path,
-            "/home/faux/.npm-global/bin",
-            "/home/faux/.nvm/versions/node/v20.20.0/bin",
-            "/home/faux/.local/bin",
+        # Build clean PATH (avoid codex arg0 leftovers).
+        # Paths are constructed dynamically so the app works on any machine.
+        home = Path.home()
+        base_paths = [
+            str(home / ".npm-global" / "bin"),
+            str(home / ".local" / "bin"),
+            "/usr/local/sbin",
+            "/usr/local/bin",
+            "/usr/sbin",
+            "/usr/bin",
+            "/sbin",
+            "/bin",
         ]
-        env["PATH"] = ":".join(p for p in extra_paths if p)
+        # Also probe common NVM layout without hardcoding a node version
+        nvm_bin = home / ".nvm" / "versions" / "node"
+        if nvm_bin.is_dir():
+            # Pick the most recent node version available
+            node_versions = sorted(nvm_bin.iterdir(), reverse=True)
+            if node_versions:
+                base_paths.insert(0, str(node_versions[0] / "bin"))
+
+        env = os.environ.copy()
+        extra_paths = [shell_path] + base_paths
+        env["PATH"] = ":".join(p for p in extra_paths if p and ".codex/tmp/arg0" not in p)
+        env.setdefault("TERM", "xterm-256color")
+        env.setdefault("COLORTERM", "truecolor")
+        arg0_tmpdir = Path.home() / ".cache" / "codex-arg0"
+        arg0_tmpdir.mkdir(parents=True, exist_ok=True)
+        env["ARG0_TMPDIR"] = str(arg0_tmpdir)
+
+        workspace_path = get_obsidian_vault_path()
+        if not workspace_path.is_dir():
+            self._set_bridge_status("error")
+            self._messages_model.add_message(
+                "system",
+                f"Vault directory not found: {workspace_path}",
+                "System",
+            )
+            return
+        env["OBSIDIAN_VAULT_PATH"] = str(workspace_path)
 
         # Check if command exists
         cmd_name = shlex.split(command)[0]
         cmd_path = shutil.which(cmd_name, path=env["PATH"])
         if not cmd_path:
+            self._set_missing_cli_name(cmd_name)
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Comando '{cmd_name}' nao encontrado no PATH.",
-                "Sistema",
+                f"Command '{cmd_name}' not found in PATH.",
+                "System",
             )
             return
+        self._set_missing_cli_name("")
 
         master_fd = None
         slave_fd = None
@@ -408,7 +678,7 @@ class NativeChatController(QObject):
                 stdin=slave_fd,
                 stdout=slave_fd,
                 stderr=slave_fd,
-                cwd=os.getcwd(),
+                cwd=str(workspace_path),
                 close_fds=True,
                 env=env,
             )
@@ -422,11 +692,13 @@ class NativeChatController(QObject):
                     self._selected_backend, command
                 )
 
+            self._save_last_backend(self._selected_backend)
+            self._set_missing_cli_name("")
             self._set_bridge_status("ready")
             self._messages_model.add_message(
                 "system",
-                f"Conectado a {self.currentBackendLabel}. Envie seu primeiro prompt.",
-                "Sistema",
+                f"Connected to {self.currentBackendLabel} in vault {workspace_path}. Send your first prompt.",
+                "System",
             )
         except FileNotFoundError as exc:
             if slave_fd is not None:
@@ -442,8 +714,8 @@ class NativeChatController(QObject):
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Comando nao encontrado: {cmd_name}",
-                "Sistema",
+                f"Command not found: {cmd_name}",
+                "System",
             )
             self._teardown_process()
         except Exception as exc:
@@ -460,8 +732,8 @@ class NativeChatController(QObject):
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Nao foi possivel iniciar {self.currentBackendLabel}: {exc}",
-                "Sistema",
+                f"Could not start {self.currentBackendLabel}: {exc}",
+                "System",
             )
             self._teardown_process()
 
@@ -478,19 +750,23 @@ class NativeChatController(QObject):
             self._set_bridge_status("error")
             return
 
-        self._messages_model.add_message("user", prompt, "Voce")
+        self._messages_model.add_message("user", prompt, "You")
         self._last_prompt = prompt
         if self._history and self._session_id is not None:
+            # User prompts go directly — we want them committed before the response
             self._history.log_event(self._session_id, "in", prompt + "\n")
+            self._flush_history_buffer()
 
         try:
             os.write(self._master_fd, (prompt + "\n").encode("utf-8"))
+            self._awaiting_response = True
+            self._response_timeout_timer.start()
         except OSError as exc:
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Falha ao enviar mensagem para {self.currentBackendLabel}: {exc}",
-                "Sistema",
+                f"Failed to send message to {self.currentBackendLabel}: {exc}",
+                "System",
             )
 
     @Slot(str)
@@ -503,6 +779,97 @@ class NativeChatController(QObject):
     def stopSession(self) -> None:
         self.stop_session()
 
+    @Slot()
+    def cycleMascot(self) -> None:
+        """Cycle through available mascot variants for the current time period."""
+        from .native_app import get_mascot_variants, get_time_period, get_asset_path
+        from datetime import datetime
+
+        hour = datetime.now().hour
+        period = get_time_period(hour)
+        variants = get_mascot_variants().get(period, [])
+
+        if not variants:
+            return
+
+        # Move to next variant
+        self._mascot_index = (self._mascot_index + 1) % len(variants)
+        mascot_file = variants[self._mascot_index]
+
+        mascot_path = get_asset_path(mascot_file)
+        if mascot_path.exists():
+            self.mascotUrl = mascot_path.as_uri()
+
+    def _update_mascot_state(self) -> None:
+        """
+        Update mascot emotional state based on app state and activity.
+        
+        State mapping:
+        - idle: App is idle, waiting for user input
+        - thinking: User just sent a prompt, waiting for CLI to respond
+        - streaming: Receiving response from CLI
+        - typing: User is actively typing (detected via text changes)
+        - error: Backend connection failed
+        - success: Just completed a successful response
+        """
+        current_msg_count = self._messages_model.rowCount()
+        
+        # Error state takes priority
+        if self._bridge_status == "error":
+            if self._mascot_state != "error":
+                self.mascotState = "error"
+            return
+        
+        # Starting/connecting state
+        if self._bridge_status == "starting":
+            if self._mascot_state != "thinking":
+                self.mascotState = "thinking"
+            return
+        
+        # Check if we're actively streaming a response
+        if self._awaiting_response and current_msg_count > self._last_message_count:
+            # New message arrived while awaiting response = streaming
+            self._last_message_count = current_msg_count
+            self._streaming_since = 0
+            if self._mascot_state != "streaming":
+                self.mascotState = "streaming"
+            return
+        
+        # Check if streaming has been ongoing (response still coming)
+        if self._awaiting_response:
+            # Still waiting for response, stay in streaming or thinking
+            if self._mascot_state not in ("streaming", "thinking"):
+                self.mascotState = "thinking"
+            return
+        
+        # Response just completed (transition from streaming to success briefly)
+        if self._mascot_state == "streaming" and not self._awaiting_response:
+            # Just finished streaming - show success briefly
+            if self._streaming_since == 0:
+                self._streaming_since = 1  # Mark that we've noted completion
+            if self._mascot_state != "success":
+                self.mascotState = "success"
+            return
+        
+        # Success state should timeout back to idle after a short delay
+        if self._mascot_state == "success":
+            # Success is shown briefly, then back to idle
+            # This is handled by the timer - after a few cycles, go to idle
+            if self._streaming_since > 3:  # ~1 second
+                self._streaming_since = 0
+                if self._mascot_state != "idle":
+                    self.mascotState = "idle"
+            else:
+                self._streaming_since += 1
+            return
+        
+        # Default: idle state
+        if self._mascot_state != "idle":
+            self.mascotState = "idle"
+        
+        # Update message count for next comparison
+        self._last_message_count = current_msg_count
+
     def stop_session(self, announce: bool = True) -> None:
         if self._proc and self._proc.poll() is None:
             try:
@@ -513,13 +880,16 @@ class NativeChatController(QObject):
         if announce and (self._proc is not None or self._bridge_status == "ready"):
             self._messages_model.add_message(
                 "system",
-                f"Sessao de {self.currentBackendLabel} encerrada.",
-                "Sistema",
+                f"{self.currentBackendLabel} session closed.",
+                "System",
             )
 
         self._finalize_history()
         self._teardown_process()
         self._set_bridge_status("idle")
+        
+        # Trigger walk animation when session ends
+        self.walkAnimationTriggered.emit()
 
     def _bind_notifier(self) -> None:
         if self._master_fd is None:
@@ -551,8 +921,9 @@ class NativeChatController(QObject):
         if not text.strip():
             return
 
+        # Buffer history writes instead of committing on every chunk
         if self._history and self._session_id is not None:
-            self._history.log_event(self._session_id, "out", text)
+            self._history_buffer.append(("out", text))
 
         self._append_backend_output(text)
 
@@ -569,6 +940,8 @@ class NativeChatController(QObject):
 
         return_code = self._proc.poll()
         self._flush_pending_output()
+        self._awaiting_response = False
+        self._response_timeout_timer.stop()
         self._finalize_history()
         self._teardown_process()
 
@@ -579,14 +952,23 @@ class NativeChatController(QObject):
         self._set_bridge_status("error")
         self._messages_model.add_message(
             "system",
-            f"{self.currentBackendLabel} encerrou a sessao com codigo {return_code}.",
-            "Sistema",
+            f"{self.currentBackendLabel} exited the session with code {return_code}.",
+            "System",
         )
 
     def _finalize_history(self) -> None:
+        self._flush_history_buffer()
         if self._history and self._session_id is not None:
             self._history.end_session(self._session_id)
         self._session_id = None
+
+    def _flush_history_buffer(self) -> None:
+        if not self._history_buffer or not self._history or self._session_id is None:
+            self._history_buffer.clear()
+            return
+        for direction, content in self._history_buffer:
+            self._history.log_event(self._session_id, direction, content)
+        self._history_buffer.clear()
 
     def _teardown_process(self) -> None:
         if self._notifier is not None:
@@ -605,6 +987,8 @@ class NativeChatController(QObject):
 
         self._proc = None
         self._pending_output = ""
+        self._awaiting_response = False
+        self._response_timeout_timer.stop()
         self.canStopChanged.emit()
 
     def _set_bridge_status(self, value: str) -> None:
@@ -614,6 +998,71 @@ class NativeChatController(QObject):
         self.bridgeStatusChanged.emit()
         self.canSendChanged.emit()
         self.canStopChanged.emit()
+        if value == "error":
+            self._set_needs_reconnect(True)
+            self.mascotState = "error"
+        elif value in ("starting",):
+            self._set_needs_reconnect(False)
+            self.mascotState = "thinking"
+        elif value == "idle":
+            self._set_needs_reconnect(False)
+            self.mascotState = "idle"
+        elif value == "ready":
+            self._set_needs_reconnect(False)
+
+    def _set_needs_reconnect(self, value: bool) -> None:
+        if value == self._needs_reconnect:
+            return
+        self._needs_reconnect = value
+        self.needsReconnectChanged.emit()
+
+    def _set_missing_cli_name(self, value: str) -> None:
+        if value == self._missing_cli_name:
+            return
+        self._missing_cli_name = value
+        self.missingCliNameChanged.emit()
+
+    @Slot(str, str, str, str)
+    def saveSettings(
+        self,
+        obsidian_vault_path: str,
+        codex_command: str,
+        qwen_command: str,
+        display_name: str,
+    ) -> None:
+        vault_value = obsidian_vault_path.strip()
+        codex_value = codex_command.strip() or "codex"
+        qwen_value = qwen_command.strip() or "qwen"
+        display_value = display_name.strip()
+
+        if vault_value:
+            set_env_value("OBSIDIAN_VAULT_PATH", vault_value)
+        set_env_value("CODEX_CMD", codex_value)
+        set_env_value("QWEN_CMD", qwen_value)
+        set_env_value("OSAURUS_NAME", display_value)
+
+        self._display_name = resolve_display_name()
+        self.settingsChanged.emit()
+        self.greetingChanged.emit()
+        self.composerPlaceholderChanged.emit()
+
+        self._messages_model.add_message(
+            "system",
+            "Preferences updated. New sessions will use this configuration.",
+            "System",
+        )
+
+    @staticmethod
+    def _load_last_backend() -> str:
+        value = (get_env_value("WADDLE_LAST_BACKEND") or "").strip()
+        return value if value in ("codex", "qwen") else "codex"
+
+    @staticmethod
+    def _save_last_backend(backend: str) -> None:
+        try:
+            set_env_value("WADDLE_LAST_BACKEND", backend)
+        except Exception:
+            pass
 
     def _current_greeting_pair(self) -> tuple[str, str]:
         now = datetime.now()
@@ -644,6 +1093,8 @@ class NativeChatController(QObject):
             payload = "".join(fragments).rstrip() + "\n"
             self._messages_model.append_to_last_ai(payload)
             self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+            self._awaiting_response = False
+            self._response_timeout_timer.stop()
             return
 
         # Flush long partial fragments to keep visible streaming alive.
@@ -653,6 +1104,8 @@ class NativeChatController(QObject):
             if partial:
                 self._messages_model.append_to_last_ai(partial)
                 self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+                self._awaiting_response = False
+                self._response_timeout_timer.stop()
 
     def _flush_pending_output(self) -> None:
         if not self._pending_output.strip():
@@ -664,11 +1117,32 @@ class NativeChatController(QObject):
         if cleaned:
             self._messages_model.append_to_last_ai(cleaned)
             self._messages_model.set_last_ai_meta(self.currentBackendLabel)
+            self._awaiting_response = False
+            self._response_timeout_timer.stop()
+
+    def _handle_response_timeout(self) -> None:
+        if not self._awaiting_response or self._bridge_status != "ready":
+            return
+        self._awaiting_response = False
+        self._messages_model.add_message(
+            "system",
+            (
+                "No CLI response after 20s. Check backend login/network and the command in "
+                "Preferences, then use Reconnect."
+            ),
+            "System",
+        )
 
     def _clean_backend_line(self, line: str) -> str | None:
+        if self._selected_backend == "qwen":
+            return self._clean_qwen_line(line)
+
         stripped = line.strip()
         if not stripped:
             return ""
+
+        if is_backend_chrome_line(stripped):
+            return None
 
         if is_ui_noise_line(stripped):
             return None
@@ -690,6 +1164,36 @@ class NativeChatController(QObject):
             return None
 
         return bulletless
+
+    def _clean_qwen_line(self, line: str) -> str | None:
+        """Filter Qwen TUI chrome while preserving actual agent responses."""
+        # Remove any residual terminal sequences beyond basic ANSI
+        cleaned = QWEN_TUI_NOISE_RE.sub("", line)
+        stripped = cleaned.strip()
+
+        if not stripped:
+            return ""
+
+        if is_backend_chrome_line(stripped):
+            return None
+
+        # Pure TUI chrome (borders, separators, key-hint bars)
+        if QWEN_CHROME_RE.match(stripped):
+            return None
+
+        if is_ui_noise_line(stripped):
+            return None
+
+        if self._looks_like_prompt_echo(stripped):
+            return None
+
+        bulletless = BULLET_MARKER_RE.sub("", stripped)
+        if bulletless.startswith(INTERNAL_TRACE_PREFIXES):
+            return None
+        if bulletless in {"~", ">_", ">", "›", "%", "$"}:
+            return None
+
+        return stripped
 
     def _looks_like_prompt_echo(self, text: str) -> bool:
         if not self._last_prompt:

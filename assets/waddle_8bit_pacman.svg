@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!-- 8-bit Penguin - Pac-Man Style! -->
+  
+  <!-- Headphones band -->
+  <rect x="6" y="3" width="2" height="3" fill="#475569"/>
+  <rect x="24" y="3" width="2" height="3" fill="#475569"/>
+  <rect x="8" y="2" width="16" height="2" fill="#475569"/>
+  
+  <!-- Headphones ears -->
+  <rect x="6" y="6" width="2" height="4" fill="#64748b"/>
+  <rect x="24" y="6" width="2" height="4" fill="#64748b"/>
+  
+  <!-- Head - Pac-Man yellow! -->
+  <rect x="8" y="4" width="16" height="2" fill="#fbbf24"/>
+  <rect x="7" y="6" width="18" height="2" fill="#fbbf24"/>
+  
+  <!-- Eyes - Pac-Man style (just slit) -->
+  <rect x="9" y="9" width="1" height="1" fill="#1e293b"/>
+  <rect x="20" y="9" width="1" height="1" fill="#1e293b"/>
+  
+  <!-- Beak - open wide like Pac-Man -->
+  <rect x="12" y="11" width="6" height="3" fill="#f59e0b"/>
+  <rect x="13" y="12" width="4" height="1" fill="#1e293b"/>  <!-- Mouth line -->
+  
+  <!-- Body - yellow too! -->
+  <rect x="6" y="12" width="2" height="8" fill="#fbbf24"/>
+  <rect x="24" y="12" width="2" height="8" fill="#fbbf24"/>
+  
+  <!-- Belly - lighter yellow -->
+  <rect x="10" y="15" width="12" height="7" fill="#fef3c7"/>
+  <rect x="8" y="16" width="16" height="5" fill="#fef3c7"/>
+  
+  <!-- Wings - eating motion -->
+  <rect x="3" y="13" width="3" height="5" fill="#fbbf24"/>
+  <rect x="26" y="13" width="3" height="5" fill="#fbbf24"/>
+  
+  <!-- Body bottom -->
+  <rect x="7" y="20" width="18" height="4" fill="#fbbf24"/>
+  <rect x="9" y="22" width="14" height="2" fill="#fbbf24"/>
+  
+  <!-- Feet -->
+  <rect x="7" y="24" width="5" height="3" fill="#f59e0b"/>
+  <rect x="20" y="24" width="5" height="3" fill="#f59e0b"/>
+  <rect x="6" y="26" width="7" height="2" fill="#f59e0b"/>
+  <rect x="19" y="26" width="7" height="2" fill="#f59e0b"/>
+  
+  <!-- Pac-Man pellets -->
+  <rect x="2" y="10" width="1" height="1" fill="#60a5fa"/>
+  <rect x="3" y="11" width="1" height="1" fill="#60a5fa"/>
+  <rect x="1" y="12" width="1" height="1" fill="#60a5fa"/>
+  <rect x="29" y="10" width="1" height="1" fill="#ef4444"/>  <!-- Ghost! -->
+  <rect x="28" y="11" width="1" height="1" fill="#ef4444"/>
+</svg>
