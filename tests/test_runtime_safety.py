@@ -3,7 +3,12 @@ from __future__ import annotations
 import os
 
 from cli_harness import config
-from cli_harness.native_controller import markdown_to_html, split_command_parts
+from cli_harness.native_controller import (
+    markdown_to_html,
+    parse_response_timeout_seconds,
+    resolve_session_state,
+    split_command_parts,
+)
 
 
 def test_set_env_value_updates_runtime_state(tmp_path, monkeypatch) -> None:
@@ -41,3 +46,20 @@ def test_empty_obsidian_path_falls_back_to_default(tmp_path, monkeypatch) -> Non
 
     config.set_env_value("OBSIDIAN_VAULT_PATH", "")
     assert config.get_obsidian_vault_path() == config.DEFAULT_OBSIDIAN_VAULT_PATH
+
+
+def test_parse_response_timeout_seconds_clamps_and_defaults() -> None:
+    assert parse_response_timeout_seconds(None) == 20
+    assert parse_response_timeout_seconds("") == 20
+    assert parse_response_timeout_seconds("abc") == 20
+    assert parse_response_timeout_seconds("2") == 5
+    assert parse_response_timeout_seconds("30") == 30
+    assert parse_response_timeout_seconds("999") == 180
+
+
+def test_resolve_session_state_maps_streaming_explicitly() -> None:
+    assert resolve_session_state("idle", False) == "idle"
+    assert resolve_session_state("starting", False) == "starting"
+    assert resolve_session_state("ready", False) == "ready"
+    assert resolve_session_state("ready", True) == "streaming"
+    assert resolve_session_state("error", False) == "error"

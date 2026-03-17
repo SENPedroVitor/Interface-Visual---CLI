@@ -1472,13 +1472,13 @@ ApplicationWindow {
         property var mascotStateResolver
         property alias promptText: promptInput.text
         property string composerState: {
-            if (!controller || controller.bridgeStatus === "starting") {
+            if (!controller || controller.sessionState === "starting") {
                 return "connecting"
             }
-            if (controller.bridgeStatus === "error") {
+            if (controller.sessionState === "error") {
                 return "error"
             }
-            if (controller.awaitingResponse) {
+            if (controller.sessionState === "streaming") {
                 return "sending"
             }
             return "ready"
@@ -1870,6 +1870,7 @@ ApplicationWindow {
                 codexCommandInput.text = window.controller.codexCommand
                 qwenCommandInput.text = window.controller.qwenCommand
                 displayNameInput.text = window.controller.displayName
+                responseTimeoutInput.text = String(window.controller.responseTimeoutSeconds)
             }
         }
 
@@ -1904,7 +1905,7 @@ ApplicationWindow {
                         }
 
                         Text {
-                            text: "Configure vault, commands, and display name."
+                            text: "Configure vault, commands, display name, and timeout."
                             color: theme.textSecondary
                             font.pixelSize: 12
                             font.family: window.bodyFont
@@ -2056,6 +2057,39 @@ ApplicationWindow {
                     }
                 }
 
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Layout.leftMargin: 18
+                    Layout.rightMargin: 18
+
+                    Text {
+                        text: "Response timeout (seconds)"
+                        color: "#e9effd"
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
+                        font.family: window.bodyFont
+                    }
+
+                    TextField {
+                        id: responseTimeoutInput
+                        Layout.fillWidth: true
+                        placeholderText: "20"
+                        color: theme.textPrimary
+                        font.pixelSize: 14
+                        font.family: window.bodyFont
+                        selectedTextColor: "#ffffff"
+                        selectionColor: theme.accent
+                        inputMethodHints: Qt.ImhDigitsOnly
+                        background: Rectangle {
+                            color: theme.panelInset
+                            border.width: 1
+                            border.color: theme.border
+                            radius: cornerRadius * 0.65
+                        }
+                    }
+                }
+
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.leftMargin: 18
@@ -2071,7 +2105,7 @@ ApplicationWindow {
                         anchors.fill: parent
                         anchors.margins: 12
                         wrapMode: Text.WordWrap
-                        text: "Preferences are saved in the .env file. New sessions use the updated configuration. If a session is active, reconnect to apply new commands."
+                        text: "Preferences are saved in the .env file. Timeout is clamped to 5-180 seconds. If a session is active, reconnect to apply new commands."
                         color: theme.textSecondary
                         font.pixelSize: 12
                         font.family: window.bodyFont
@@ -2106,7 +2140,8 @@ ApplicationWindow {
                                 vaultPathInput.text,
                                 codexCommandInput.text,
                                 qwenCommandInput.text,
-                                displayNameInput.text
+                                displayNameInput.text,
+                                responseTimeoutInput.text
                             )
                             preferencesDialog.close()
                         }

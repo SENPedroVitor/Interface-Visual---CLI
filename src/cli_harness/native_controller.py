@@ -165,6 +165,47 @@ def split_command_parts(command: str) -> list[str] | None:
     return parts or None
 
 
+DEFAULT_RESPONSE_TIMEOUT_SECONDS = 20
+MIN_RESPONSE_TIMEOUT_SECONDS = 5
+MAX_RESPONSE_TIMEOUT_SECONDS = 180
+DEFAULT_CONNECT_RETRY_ATTEMPTS = 2
+
+SESSION_STATE_TRANSITIONS: dict[str, set[str]] = {
+    "idle": {"starting"},
+    "starting": {"idle", "ready", "error"},
+    "ready": {"idle", "error", "streaming"},
+    "streaming": {"idle", "error", "ready"},
+    "error": {"idle", "starting"},
+}
+
+
+def parse_response_timeout_seconds(
+    value: str | None,
+    *,
+    default_seconds: int = DEFAULT_RESPONSE_TIMEOUT_SECONDS,
+) -> int:
+    raw = (value or "").strip()
+    if not raw:
+        return default_seconds
+    try:
+        parsed = int(float(raw))
+    except ValueError:
+        return default_seconds
+    return max(MIN_RESPONSE_TIMEOUT_SECONDS, min(MAX_RESPONSE_TIMEOUT_SECONDS, parsed))
+
+
+def resolve_session_state(bridge_status: str, awaiting_response: bool) -> str:
+    if bridge_status == "starting":
+        return "starting"
+    if bridge_status == "error":
+        return "error"
+    if bridge_status == "ready" and awaiting_response:
+        return "streaming"
+    if bridge_status == "ready":
+        return "ready"
+    return "idle"
+
+
 ANSI_ESCAPE_RE = re.compile(
     r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?(?:\x07|\x1B\\))"
 )
@@ -448,6 +489,7 @@ class MessageListModel(QAbstractListModel):
 class NativeChatController(QObject):
     selectedBackendChanged = Signal()
     bridgeStatusChanged = Signal()
+    sessionStateChanged = Signal()
     greetingChanged = Signal()
     currentBackendLabelChanged = Signal()
     composerPlaceholderChanged = Signal()
@@ -466,6 +508,7 @@ class NativeChatController(QObject):
         super().__init__()
         self._selected_backend = self._load_last_backend()
         self._bridge_status = "idle"
+        self._session_state = "idle"
         self._needs_reconnect = False
         self._messages_model = MessageListModel()
         self._proc: subprocess.Popen | None = None
@@ -503,7 +546,9 @@ class NativeChatController(QObject):
         self._streaming_since = 0
         # Detect silent sessions where CLI never returns any assistant output.
         self._response_timeout_timer = QTimer(self)
-        self._response_timeout_timer.setInterval(20000)
+        self._response_timeout_seconds = self._load_response_timeout_seconds()
+        self._connect_retry_attempts = DEFAULT_CONNECT_RETRY_ATTEMPTS
+        self._response_timeout_timer.setInterval(self._response_timeout_seconds * 1000)
         self._response_timeout_timer.setSingleShot(True)
         self._response_timeout_timer.timeout.connect(self._handle_response_timeout)
 
@@ -538,9 +583,13 @@ class NativeChatController(QObject):
     def bridgeStatus(self) -> str:
         return self._bridge_status
 
+    @Property(str, notify=sessionStateChanged)
+    def sessionState(self) -> str:
+        return self._session_state
+
     @Property(bool, notify=canSendChanged)
     def canSend(self) -> bool:
-        return self._bridge_status in ("ready", "idle")
+        return self._session_state in ("ready", "idle")
 
     @Property(bool, notify=needsReconnectChanged)
     def needsReconnect(self) -> bool:
@@ -584,12 +633,18 @@ class NativeChatController(QObject):
     def displayName(self) -> str:
         return get_env_value("OSAURUS_NAME", "") or ""
 
+    @Property(int, notify=settingsChanged)
+    def responseTimeoutSeconds(self) -> int:
+        return self._response_timeout_seconds
+
     @Property(str, notify=missingCliNameChanged)
     def missingCliName(self) -> str:
         return self._missing_cli_name
 
-    @Property(str, notify=bridgeStatusChanged)
+    @Property(str, notify=sessionStateChanged)
     def statusTitle(self) -> str:
+        if self._session_state == "streaming":
+            return "Receiving response"
         if self._bridge_status == "ready":
             return "Session active"
         if self._bridge_status == "starting":
@@ -598,8 +653,10 @@ class NativeChatController(QObject):
             return "Connection failed"
         return "Ready to start"
 
-    @Property(str, notify=bridgeStatusChanged)
+    @Property(str, notify=sessionStateChanged)
     def statusDescription(self) -> str:
+        if self._session_state == "streaming":
+            return "The backend is processing your last prompt."
         if self._bridge_status == "ready":
             return "The selected CLI is connected and ready to respond."
         if self._bridge_status == "starting":
@@ -696,7 +753,10 @@ class NativeChatController(QObject):
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Vault directory not found: {workspace_path}",
+                (
+                    f"Vault/workspace directory not found: {workspace_path}\n\n"
+                    "Open Preferences, set a valid path, then use Reconnect."
+                ),
                 "System",
             )
             return
@@ -708,7 +768,10 @@ class NativeChatController(QObject):
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Invalid command configured for {self.currentBackendLabel}: {command!r}",
+                (
+                    f"Invalid command configured for {self.currentBackendLabel}: {command!r}\n\n"
+                    "Set a valid command in Preferences. Example: codex --version"
+                ),
                 "System",
             )
             return
@@ -721,21 +784,72 @@ class NativeChatController(QObject):
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Command '{cmd_name}' not found in PATH.",
+                (
+                    f"Command '{cmd_name}' not found in PATH.\n\n"
+                    "Install the CLI or set a full command path in Preferences, then use Reconnect."
+                ),
                 "System",
             )
             return
         self._set_missing_cli_name("")
+        startup_error: Exception | None = None
+        attempts = max(1, self._connect_retry_attempts)
+        for attempt in range(1, attempts + 1):
+            try:
+                self._start_backend_process(command_parts, workspace_path, env)
+                if self._history:
+                    self._session_id = self._history.start_session(
+                        self._selected_backend, command
+                    )
+                self._save_last_backend(self._selected_backend)
+                self._set_missing_cli_name("")
+                self._set_bridge_status("ready")
+                self._messages_model.add_message(
+                    "system",
+                    f"Connected to {self.currentBackendLabel} in vault {workspace_path}. Send your first prompt.",
+                    "System",
+                )
+                if attempt > 1:
+                    self._messages_model.add_message(
+                        "system",
+                        f"Recovered after retry ({attempt}/{attempts}).",
+                        "System",
+                    )
+                return
+            except Exception as exc:
+                startup_error = exc
+                self._teardown_process()
+                if attempt < attempts:
+                    self._messages_model.add_message(
+                        "system",
+                        (
+                            f"Connection attempt {attempt}/{attempts} failed ({exc}). "
+                            "Retrying automatically..."
+                        ),
+                        "System",
+                    )
 
+        self._set_bridge_status("error")
+        self._messages_model.add_message(
+            "system",
+            (
+                f"Could not start {self.currentBackendLabel} after {attempts} attempt(s): "
+                f"{startup_error or 'unknown startup error'}\n\n"
+                "Verify login/network, confirm command in Preferences, then use Reconnect."
+            ),
+            "System",
+        )
+
+    def _start_backend_process(
+        self, command_parts: list[str], workspace_path: Path, env: dict[str, str]
+    ) -> None:
         master_fd = None
         slave_fd = None
-
         try:
             master_fd, slave_fd = pty.openpty()
             attrs = termios.tcgetattr(slave_fd)
             attrs[3] &= ~termios.ECHO
             termios.tcsetattr(slave_fd, termios.TCSANOW, attrs)
-
             self._proc = subprocess.Popen(
                 command_parts,
                 stdin=slave_fd,
@@ -749,21 +863,7 @@ class NativeChatController(QObject):
             self._master_fd = master_fd
             self._bind_notifier()
             self._poll_timer.start()
-
-            if self._history:
-                self._session_id = self._history.start_session(
-                    self._selected_backend, command
-                )
-
-            self._save_last_backend(self._selected_backend)
-            self._set_missing_cli_name("")
-            self._set_bridge_status("ready")
-            self._messages_model.add_message(
-                "system",
-                f"Connected to {self.currentBackendLabel} in vault {workspace_path}. Send your first prompt.",
-                "System",
-            )
-        except FileNotFoundError as exc:
+        except Exception:
             if slave_fd is not None:
                 try:
                     os.close(slave_fd)
@@ -774,31 +874,7 @@ class NativeChatController(QObject):
                     os.close(master_fd)
                 except OSError:
                     pass
-            self._set_bridge_status("error")
-            self._messages_model.add_message(
-                "system",
-                f"Command not found: {cmd_name}",
-                "System",
-            )
-            self._teardown_process()
-        except Exception as exc:
-            if slave_fd is not None:
-                try:
-                    os.close(slave_fd)
-                except OSError:
-                    pass
-            if master_fd is not None:
-                try:
-                    os.close(master_fd)
-                except OSError:
-                    pass
-            self._set_bridge_status("error")
-            self._messages_model.add_message(
-                "system",
-                f"Could not start {self.currentBackendLabel}: {exc}",
-                "System",
-            )
-            self._teardown_process()
+            raise
 
     @Slot(str)
     def sendPrompt(self, text: str) -> None:
@@ -828,7 +904,10 @@ class NativeChatController(QObject):
             self._set_bridge_status("error")
             self._messages_model.add_message(
                 "system",
-                f"Failed to send message to {self.currentBackendLabel}: {exc}",
+                (
+                    f"Failed to send message to {self.currentBackendLabel}: {exc}\n\n"
+                    "Use Reconnect and try again."
+                ),
                 "System",
             )
 
@@ -1026,7 +1105,10 @@ class NativeChatController(QObject):
         self._set_bridge_status("error")
         self._messages_model.add_message(
             "system",
-            f"{self.currentBackendLabel} exited the session with code {return_code}.",
+            (
+                f"{self.currentBackendLabel} exited the session with code {return_code}.\n\n"
+                "Check backend login/network and command settings, then use Reconnect."
+            ),
             "System",
         )
 
@@ -1069,8 +1151,10 @@ class NativeChatController(QObject):
 
     def _set_bridge_status(self, value: str) -> None:
         if value == self._bridge_status:
+            self._sync_session_state()
             return
         self._bridge_status = value
+        self._sync_session_state()
         self.bridgeStatusChanged.emit()
         self.canSendChanged.emit()
         self.canStopChanged.emit()
@@ -1096,6 +1180,7 @@ class NativeChatController(QObject):
         if value == self._awaiting_response:
             return
         self._awaiting_response = value
+        self._sync_session_state()
         self.awaitingResponseChanged.emit()
 
     def _set_missing_cli_name(self, value: str) -> None:
@@ -1104,23 +1189,57 @@ class NativeChatController(QObject):
         self._missing_cli_name = value
         self.missingCliNameChanged.emit()
 
-    @Slot(str, str, str, str)
+    def _sync_session_state(self) -> None:
+        self._set_session_state(resolve_session_state(self._bridge_status, self._awaiting_response))
+
+    def _set_session_state(self, value: str) -> None:
+        if value == self._session_state:
+            return
+        allowed = SESSION_STATE_TRANSITIONS.get(self._session_state, set())
+        if value != "idle" and value not in allowed:
+            return
+        self._session_state = value
+        self.sessionStateChanged.emit()
+        self.canSendChanged.emit()
+
+    @staticmethod
+    def _load_response_timeout_seconds() -> int:
+        seconds_raw = get_env_value("WADDLE_RESPONSE_TIMEOUT_SECONDS", "")
+        if (seconds_raw or "").strip():
+            return parse_response_timeout_seconds(seconds_raw)
+
+        legacy_ms = (get_env_value("WADDLE_RESPONSE_TIMEOUT_MS", "") or "").strip()
+        if legacy_ms:
+            try:
+                ms = int(float(legacy_ms))
+                return parse_response_timeout_seconds(str(round(ms / 1000)))
+            except ValueError:
+                return DEFAULT_RESPONSE_TIMEOUT_SECONDS
+        return DEFAULT_RESPONSE_TIMEOUT_SECONDS
+
+    @Slot(str, str, str, str, str)
     def saveSettings(
         self,
         obsidian_vault_path: str,
         codex_command: str,
         qwen_command: str,
         display_name: str,
+        response_timeout_seconds: str,
     ) -> None:
         vault_value = obsidian_vault_path.strip()
         codex_value = codex_command.strip() or "codex"
         qwen_value = qwen_command.strip() or "qwen"
         display_value = display_name.strip()
+        timeout_value = parse_response_timeout_seconds(response_timeout_seconds)
 
         set_env_value("OBSIDIAN_VAULT_PATH", vault_value)
         set_env_value("CODEX_CMD", codex_value)
         set_env_value("QWEN_CMD", qwen_value)
         set_env_value("OSAURUS_NAME", display_value)
+        set_env_value("WADDLE_RESPONSE_TIMEOUT_SECONDS", str(timeout_value))
+
+        self._response_timeout_seconds = timeout_value
+        self._response_timeout_timer.setInterval(timeout_value * 1000)
 
         self._display_name = resolve_display_name()
         self.settingsChanged.emit()
@@ -1129,7 +1248,10 @@ class NativeChatController(QObject):
 
         self._messages_model.add_message(
             "system",
-            "Preferences updated. New sessions will use this configuration.",
+            (
+                "Preferences updated. New sessions will use this configuration. "
+                f"Response timeout: {self._response_timeout_seconds}s."
+            ),
             "System",
         )
 
@@ -1208,8 +1330,9 @@ class NativeChatController(QObject):
         self._messages_model.add_message(
             "system",
             (
-                "No CLI response after 20s. Check backend login/network and the command in "
-                "Preferences, then use Reconnect."
+                f"No CLI response after {self._response_timeout_seconds}s.\n\n"
+                "Check backend login/network and command settings in Preferences, "
+                "then use Reconnect."
             ),
             "System",
         )
