@@ -1,0 +1,18 @@
+[Unit]
+Description=Vault Catalogo Site (Obsidian)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/faux/Documents/vault-catalogo-site
+EnvironmentFile=-/home/faux/.config/vault-catalogo-site.env
+Environment=PORT=4173
+Environment=HOST=127.0.0.1
+Environment=VAULT_PATH=/home/faux/Documents/vault-faux
+ExecStart=/home/faux/Documents/vault-catalogo-site/scripts/start-service.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

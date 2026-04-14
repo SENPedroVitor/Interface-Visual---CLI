@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Catalogo Faux</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-layer"></div>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="kicker">Obsidian como banco</p>
+        <h1>Catalogo Pessoal</h1>
+        <p class="subtitle">
+          Tudo que voce esta assistindo, lendo, jogando e ouvindo em um unico painel.
+        </p>
+      </header>
+
+      <section class="composer" id="composerSection">
+        <div class="composer-title-row">
+          <h2>Adicionar novo item</h2>
+          <p id="providerInfo" class="composer-muted"></p>
+        </div>
+
+        <div class="composer-grid">
+          <div class="control-group">
+            <label for="addCategory">Tema</label>
+            <select id="addCategory">
+              <option value="filmes">Filmes</option>
+              <option value="series">Series</option>
+              <option value="livros">Livros</option>
+              <option value="games">Games</option>
+              <option value="musicas">Musicas</option>
+              <option value="outros">Outros</option>
+            </select>
+          </div>
+
+          <div class="control-group control-group-grow">
+            <label for="metadataQuery">Busca automatica (titulo ou ID)</label>
+            <div class="inline-row">
+              <input id="metadataQuery" type="text" placeholder="Ex: The Big Short ou tt1596363" />
+              <button id="metadataSearchBtn" type="button" class="action-btn">Buscar</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label for="metadataResults">Resultados</label>
+            <div class="inline-row">
+              <select id="metadataResults"></select>
+              <button id="applyMetadataBtn" type="button" class="action-btn action-btn-dark">Aplicar</button>
+            </div>
+          </div>
+
+          <div class="control-group control-group-grow">
+            <label for="addTitle">Titulo</label>
+            <input id="addTitle" type="text" placeholder="Titulo do item" />
+          </div>
+
+          <div class="control-group">
+            <label for="addCreator">Criador(a) / Autor(a)</label>
+            <input id="addCreator" type="text" placeholder="Nome" />
+          </div>
+
+          <div class="control-group">
+            <label for="addYear">Ano</label>
+            <input id="addYear" type="text" placeholder="2026" />
+          </div>
+
+          <div class="control-group control-group-grow">
+            <label for="addGenres">Generos (separados por virgula)</label>
+            <input id="addGenres" type="text" placeholder="Drama, Thriller" />
+          </div>
+
+          <div class="control-group control-group-grow">
+            <label for="addTags">Tags (separadas por virgula)</label>
+            <input id="addTags" type="text" placeholder="favorito, oscar" />
+          </div>
+
+          <div class="control-group">
+            <label for="addStatus">Status</label>
+            <select id="addStatus"></select>
+          </div>
+
+          <div class="control-group">
+            <label for="addRating">Nota (0-10)</label>
+            <input id="addRating" type="number" min="0" max="10" step="0.1" />
+          </div>
+
+          <div class="control-group">
+            <label for="addDate">Data</label>
+            <input id="addDate" type="date" />
+          </div>
+
+          <div class="control-group control-group-grow">
+            <label for="addSourceId">ID da fonte (IMDb/ISBN/etc)</label>
+            <input id="addSourceId" type="text" placeholder="tt1596363" />
+          </div>
+
+          <div class="control-group control-group-grow">
+            <label for="addSourceUrl">URL da fonte</label>
+            <input id="addSourceUrl" type="url" placeholder="https://..." />
+          </div>
+
+          <div class="control-group control-group-grow">
+            <label for="addImageUrl">URL da capa (opcional)</label>
+            <input id="addImageUrl" type="url" placeholder="https://.../capa.jpg" />
+          </div>
+
+          <div class="control-group control-group-full">
+            <label for="addNotes">Resumo / notas</label>
+            <textarea id="addNotes" rows="4" placeholder="Seu resumo, sinopse ou comentario"></textarea>
+          </div>
+        </div>
+
+        <div class="composer-footer">
+          <button id="saveItemBtn" type="button" class="primary-btn">Salvar no Obsidian</button>
+          <p id="addMessage" class="composer-message"></p>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="control-group control-group-large">
+          <label for="searchInput">Busca</label>
+          <input id="searchInput" type="search" placeholder="Titulo, genero, tag ou nota..." />
+        </div>
+
+        <div class="control-group">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter"></select>
+        </div>
+
+        <div class="control-group">
+          <label for="sortSelect">Ordenacao</label>
+          <select id="sortSelect">
+            <option value="rating_desc">Maior nota</option>
+            <option value="rating_asc">Menor nota</option>
+            <option value="date_desc">Mais recente</option>
+            <option value="year_desc">Ano mais novo</option>
+            <option value="title_asc">Titulo A-Z</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="chips" id="categoryChips"></section>
+
+      <section class="summary" id="summary"></section>
+
+      <section class="grid" id="catalogGrid"></section>
+    </main>
+
+    <script src="./data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
