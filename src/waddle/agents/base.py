@@ -21,6 +21,8 @@ class AgentStatus(str, Enum):
     IDLE = "idle"
     WORKING = "working"
     WAITING = "waiting"
+    THINKING = "thinking"
+    BLOCKED = "blocked"
     STOPPED = "stopped"
 
 

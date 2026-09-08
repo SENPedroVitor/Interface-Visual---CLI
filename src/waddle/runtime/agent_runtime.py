@@ -47,6 +47,9 @@ class AgentRuntime:
         # Wire database persistence to event bus
         self._setup_event_persistence()
 
+        # Reflect real task-dependency blocking onto agent status
+        self._setup_agent_state_wiring()
+
         # Register default agents (Manager + Worker)
         self._setup_default_agents()
 
@@ -107,6 +110,28 @@ class AgentRuntime:
                 print(f"[AgentRuntime] Persistence error: {err}")
 
         self.event_bus.subscribe("*", on_any_event)
+
+    def _setup_agent_state_wiring(self) -> None:
+        """Reflect the task manager's real dependency-blocking onto the
+        assigned agent's status, so the mascot's motion honestly shows when
+        an agent is stuck waiting on another task rather than sitting idle."""
+
+        async def on_task_created(event: Event) -> None:
+            task = event.data.get("task", {})
+            if task.get("status") != "blocked":
+                return
+            agent = self.agents.get(task.get("assigned_agent") or "")
+            if agent:
+                await agent.set_status(AgentStatus.BLOCKED)
+
+        async def on_task_unblocked(event: Event) -> None:
+            task = event.data.get("task", {})
+            agent = self.agents.get(task.get("assigned_agent") or "")
+            if agent and agent.status == AgentStatus.BLOCKED:
+                await agent.set_status(AgentStatus.IDLE)
+
+        self.event_bus.subscribe("task.created", on_task_created)
+        self.event_bus.subscribe("task.unblocked", on_task_unblocked)
 
     def register_agent(self, agent: Agent) -> None:
         self.agents[agent.name] = agent

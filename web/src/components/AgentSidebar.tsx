@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Agent } from '../types';
-import { WaddleAvatar, AgentState } from './WaddleAvatar';
+import { WaddleAvatar } from './WaddleAvatar';
+import { agentStateFromStatus } from '../utils/agentState';
+import { agentVisual } from '../utils/agentVisuals';
 
 export interface AgentSidebarProps {
   agents: Agent[];
@@ -11,23 +13,8 @@ export interface AgentSidebarProps {
   isKillSwitchActive: boolean;
   systemStatus: 'active' | 'stopped';
   agentPreviews: Record<string, string>;
-}
-
-// Agent accent colours — maps to Grok Bot xAI colour palette
-const AGENT_COLORS: Record<string, string> = {
-  Quinta:  '#9159FE',
-  Manager: '#9159FE',
-  Atlas:   '#3b82f6',
-  Nero:    '#22c55e',
-  Worker:  '#22c55e',
-  Iris:    '#f97316',
-};
-
-function agentStateFromStatus(status: string): AgentState {
-  if (status === 'working')  return 'working';
-  if (status === 'waiting')  return 'thinking';
-  if (status === 'stopped')  return 'stopped';
-  return 'idle';
+  isDarkTheme: boolean;
+  onToggleTheme: () => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
@@ -36,6 +23,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   onSelectAgent,
   onOpenDeveloperMode,
   agentPreviews,
+  isDarkTheme,
+  onToggleTheme,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -51,7 +40,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
       {/* Brand logo + New button */}
       <div className="sidebar-topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <WaddleAvatar color="#18181b" size={22} showPresence={false} />
+          <WaddleAvatar color="#18181b" size={22} showPresence={false} plain />
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Waddle</span>
         </div>
         <button className="btn-new-agent" title="Novo agente">
@@ -81,7 +70,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
       <nav className="sidebar-agents">
         {filtered.map((agent) => {
           const isActive = selectedAgentId === agent.id;
-          const agentColor = AGENT_COLORS[agent.name] || '#9159FE';
+          const visual = agentVisual(agent.name);
           const avatarState = agentStateFromStatus(agent.status);
           const preview = agentPreviews[agent.id] ||
             (agent.status === 'working' ? 'Trabalhando...' :
@@ -95,9 +84,13 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
             >
               {/* Minimalist circular penguin avatar with motion states */}
               <WaddleAvatar
-                color={agentColor}
+                color={visual.color}
                 state={avatarState}
                 size={36}
+                marking={visual.marking}
+                clickAnim={visual.clickAnim}
+                trackMouse
+                interactive
               />
 
               <div className="agent-list-info">
@@ -116,12 +109,29 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
 
       {/* Footer */}
       <div className="sidebar-footer">
+        <button
+          className={`sidebar-footer-btn theme-toggle-btn ${isDarkTheme ? 'is-dark' : ''}`}
+          onClick={onToggleTheme}
+          title={isDarkTheme ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+        >
+          <span className="theme-toggle-icon">
+            <svg className="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="4.5" />
+              <path d="M12 2.5v2.5M12 19v2.5M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2.5 12H5M19 12h2.5M4.2 19.8L6 18M18 6l1.8-1.8" strokeLinecap="round" />
+            </svg>
+            <svg className="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M20.5 14.2A8.5 8.5 0 019.8 3.5a8.5 8.5 0 1010.7 10.7z" strokeLinejoin="round" />
+            </svg>
+          </span>
+          {isDarkTheme ? 'Modo escuro' : 'Modo claro'}
+        </button>
+
         <button className="sidebar-footer-btn" onClick={onOpenDeveloperMode}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <circle cx="12" cy="12" r="3" />
             <path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" strokeLinecap="round" />
           </svg>
-          Plugins
+          Desenvolvedor
         </button>
 
         <div className="sidebar-footer-btn" style={{ cursor: 'default' }}>

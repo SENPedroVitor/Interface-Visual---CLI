@@ -109,20 +109,27 @@ class ManagerAgent(Agent):
             )
             tasks_created.append(task)
         else:
-            # Default task delegated to Nero
-            task = await self.task_manager.create_task(
-                title=f"Processar: {objective[:50]}",
-                description=objective,
-                assigned_agent="Nero",
-                input_data={"objective": objective, "params": params},
+            # No task-shaped keyword matched — this reads as a plain
+            # question/chat message, so Quinta replies directly instead of
+            # spawning a worker task with nothing concrete to execute.
+            # NOTE: there is no LLM plugged in yet (see docs/Waddle_Agent_OS_Plano.md
+            # scope) — this is a placeholder acknowledgement, not a real answer.
+            await self.send_message(
+                to_agent="System",
+                msg_type="answer",
+                content=(
+                    f'Recebi sua mensagem: "{objective}". Ainda não tenho um '
+                    "modelo de linguagem real plugado para responder de "
+                    "verdade — esta é uma resposta de teste."
+                ),
             )
-            tasks_created.append(task)
 
-        await self.send_message(
-            to_agent="System",
-            msg_type="status_update",
-            content=f"Created {len(tasks_created)} subtasks for objective.",
-        )
+        if tasks_created:
+            await self.send_message(
+                to_agent="System",
+                msg_type="status_update",
+                content=f"Created {len(tasks_created)} subtasks for objective.",
+            )
         await self.set_status(AgentStatus.IDLE)
         return tasks_created
 

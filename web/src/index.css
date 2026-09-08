@@ -3,7 +3,7 @@
    Light mode, ultra-clean, macOS-native feel
    ===================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
 :root {
   /* Palette */
@@ -44,6 +44,28 @@
   --nero-color:     #3b82f6;   /* blue */
   --iris-color:     #f97316;   /* orange */
 
+  /* Adaptive neutral surfaces (swap raw --gray-* in a handful of spots so they don't strand a light patch in dark mode) */
+  --surface-neutral:        var(--gray-100);
+  --surface-neutral-strong: var(--gray-200);
+  --text-neutral:           var(--gray-500);
+
+  /* Glass / hairline / shadow tokens (theme-aware; light values below are byte-identical to the literals they replace) */
+  --glass-85:           rgba(255, 255, 255, 0.85);
+  --glass-88:           rgba(255, 255, 255, 0.88);
+  --glass-94:           rgba(255, 255, 255, 0.94);
+  --hairline:           rgba(0, 0, 0, 0.06);
+  --veil-soft:          rgba(0, 0, 0, 0.04);
+  --border-strong:      rgba(0, 0, 0, 0.08);
+  --border-hover:       rgba(0, 0, 0, 0.16);
+  --border-input-glass: rgba(0, 0, 0, 0.12);
+  --shadow-soft:        rgba(0, 0, 0, 0.03);
+  --shadow-strong:      rgba(0, 0, 0, 0.15);
+  --shadow-drawer:      rgba(0, 0, 0, 0.10);
+  --overlay-scrim:      rgba(0, 0, 0, 0.22);
+
+  /* Time-of-day ambient tint — subtle, composes with light/dark, not a theme swap */
+  --daypart-tint: transparent;
+
   /* Radii */
   --radius-sm:    6px;
   --radius-md:    10px;
@@ -52,13 +74,116 @@
   --radius-full:  9999px;
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 
   /* Apple Motion & Physics Timing */
   --ease-spring:        cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring-snappy: cubic-bezier(0.2, 0.9, 0.3, 1.2);
   --ease-apple-subtle:  cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* =====================================================================
+   DARK MODE — deep indigo-charcoal, not a flat/generic black.
+   Follows system preference by default; an explicit toggle (data-theme)
+   always wins over the system setting, in both directions.
+   ===================================================================== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-app:                 #17161d;
+    --bg-sidebar:              #1c1b24;
+    --bg-main:                 #1c1b24;
+    --bg-input:                #232230;
+    --bg-hover:                #262530;
+    --bg-selected:             #2d2b38;
+    --bg-bubble-user:          #372f57;
+    --bg-bubble-agent:         #232230;
+
+    --border:                  rgba(255, 255, 255, 0.08);
+    --border-input:            rgba(255, 255, 255, 0.14);
+
+    --text-primary:            #efeef5;
+    --text-secondary:          #a5a2b3;
+    --text-muted:              #716e80;
+
+    --surface-neutral:         #2a2836;
+    --surface-neutral-strong:  #3a3847;
+    --text-neutral:            #b8b5c4;
+
+    --glass-85:           rgba(22, 21, 28, 0.82);
+    --glass-88:           rgba(24, 23, 30, 0.86);
+    --glass-94:           rgba(20, 19, 25, 0.92);
+    --hairline:           rgba(255, 255, 255, 0.08);
+    --veil-soft:          rgba(255, 255, 255, 0.06);
+    --border-strong:      rgba(255, 255, 255, 0.12);
+    --border-hover:       rgba(255, 255, 255, 0.22);
+    --border-input-glass: rgba(255, 255, 255, 0.14);
+    --shadow-soft:        rgba(0, 0, 0, 0.35);
+    --shadow-strong:      rgba(0, 0, 0, 0.5);
+    --shadow-drawer:      rgba(0, 0, 0, 0.55);
+    --overlay-scrim:      rgba(0, 0, 0, 0.55);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg-app:                 #17161d;
+  --bg-sidebar:              #1c1b24;
+  --bg-main:                 #1c1b24;
+  --bg-input:                #232230;
+  --bg-hover:                #262530;
+  --bg-selected:             #2d2b38;
+  --bg-bubble-user:          #372f57;
+  --bg-bubble-agent:         #232230;
+
+  --border:                  rgba(255, 255, 255, 0.08);
+  --border-input:            rgba(255, 255, 255, 0.14);
+
+  --text-primary:            #efeef5;
+  --text-secondary:          #a5a2b3;
+  --text-muted:              #716e80;
+
+  --surface-neutral:         #2a2836;
+  --surface-neutral-strong:  #3a3847;
+  --text-neutral:            #b8b5c4;
+
+  --glass-85:           rgba(22, 21, 28, 0.82);
+  --glass-88:           rgba(24, 23, 30, 0.86);
+  --glass-94:           rgba(20, 19, 25, 0.92);
+  --hairline:           rgba(255, 255, 255, 0.08);
+  --veil-soft:          rgba(255, 255, 255, 0.06);
+  --border-strong:      rgba(255, 255, 255, 0.12);
+  --border-hover:       rgba(255, 255, 255, 0.22);
+  --border-input-glass: rgba(255, 255, 255, 0.14);
+  --shadow-soft:        rgba(0, 0, 0, 0.35);
+  --shadow-strong:      rgba(0, 0, 0, 0.5);
+  --shadow-drawer:      rgba(0, 0, 0, 0.55);
+  --overlay-scrim:      rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="dark"] .empty-title {
+  background: linear-gradient(180deg, #f5f4fa 0%, #c9c6d6 100%);
+  -webkit-background-clip: text;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .empty-title {
+    background: linear-gradient(180deg, #f5f4fa 0%, #c9c6d6 100%);
+    -webkit-background-clip: text;
+  }
+}
+
+/* Time-of-day ambient tint (midday stays neutral — no override needed) */
+:root[data-daypart="morning"] { --daypart-tint: rgba(255, 195, 140, 0.26); }
+:root[data-daypart="evening"] { --daypart-tint: rgba(255, 130, 80, 0.26); }
+:root[data-daypart="night"]   { --daypart-tint: rgba(90, 110, 220, 0.20); }
+
+:root[data-theme="dark"][data-daypart="morning"] { --daypart-tint: rgba(255, 190, 140, 0.13); }
+:root[data-theme="dark"][data-daypart="evening"] { --daypart-tint: rgba(255, 120, 70, 0.14); }
+:root[data-theme="dark"][data-daypart="night"]   { --daypart-tint: rgba(100, 120, 230, 0.16); }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-daypart="morning"] { --daypart-tint: rgba(255, 190, 140, 0.13); }
+  :root:not([data-theme="light"])[data-daypart="evening"] { --daypart-tint: rgba(255, 120, 70, 0.14); }
+  :root:not([data-theme="light"])[data-daypart="night"]   { --daypart-tint: rgba(100, 120, 230, 0.16); }
 }
 
 /* ── Reset ────────────────────────────────────────────────────────── */
@@ -92,8 +217,8 @@ button, input, textarea {
 /* ── Scrollbar ───────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+::-webkit-scrollbar-thumb { background: var(--surface-neutral-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 /* =====================================================================
    APP SHELL
@@ -103,7 +228,8 @@ button, input, textarea {
   display: flex;
   height: 100vh;
   width: 100vw;
-  background: var(--white);
+  background-color: var(--bg-app);
+  background-image: radial-gradient(ellipse 160% 90% at 50% -20%, var(--daypart-tint), transparent 70%);
   overflow: hidden;
 }
 
@@ -130,10 +256,6 @@ button, input, textarea {
   padding: 14px 16px 12px;
   gap: 8px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .btn-new-agent {
@@ -150,10 +272,12 @@ button, input, textarea {
   transition: all 0.2s var(--ease-spring);
 }
 
+/* Neumorphic — a quiet lift, not a scale pop. Secondary utility buttons
+   shouldn't compete for attention with the primary send action. */
 .btn-new-agent:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-  transform: scale(1.05);
+  transform: translateY(-2px);
 }
 
 .btn-new-agent:active {
@@ -203,7 +327,7 @@ button, input, textarea {
 .search-input::placeholder { color: var(--text-muted); }
 
 .search-input:focus {
-  background: var(--gray-150);
+  background: var(--bg-selected);
 }
 
 /* Agent list */
@@ -225,12 +349,21 @@ button, input, textarea {
   border: none;
   text-align: left;
   color: inherit;
-  transition: background 0.1s;
+  transition: background 0.15s, transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-spring);
   position: relative;
 }
 
+/* Profile row gets its own "floating island" lift — distinct from the flat
+   background-only hover every other button in the app uses. */
 .agent-list-item:hover {
   background: var(--bg-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--hairline);
+}
+
+.agent-list-item:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .agent-list-item.active {
@@ -257,7 +390,7 @@ button, input, textarea {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid var(--white);
+  border: 2px solid var(--bg-sidebar);
 }
 
 .presence-ring.idle     { background: var(--gray-300, #b0b0b0); }
@@ -345,6 +478,42 @@ button, input, textarea {
   flex-shrink: 0;
 }
 
+/* Theme toggle */
+.theme-toggle-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.theme-toggle-icon svg {
+  position: absolute;
+  inset: 0;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.35s var(--ease-spring), opacity 0.25s ease;
+}
+
+.theme-toggle-icon svg.icon-sun {
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.theme-toggle-btn.is-dark .theme-toggle-icon svg.icon-sun {
+  transform: rotate(-70deg) scale(0.4);
+  opacity: 0;
+}
+
+.theme-toggle-icon svg.icon-moon {
+  transform: rotate(70deg) scale(0.4);
+  opacity: 0;
+}
+
+.theme-toggle-btn.is-dark .theme-toggle-icon svg.icon-moon {
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
 .user-avatar-sm {
   width: 24px;
   height: 24px;
@@ -357,13 +526,13 @@ button, input, textarea {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--gray-200);
+  background: var(--surface-neutral-strong);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  color: var(--gray-500);
+  color: var(--text-neutral);
   font-weight: 600;
 }
 
@@ -377,7 +546,7 @@ button, input, textarea {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: var(--white);
+  background: var(--bg-main);
 }
 
 /* Panel header with Apple frosted glass & sticky support */
@@ -386,10 +555,10 @@ button, input, textarea {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--hairline);
   flex-shrink: 0;
   height: 52px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--glass-85);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   position: sticky;
@@ -441,11 +610,11 @@ button, input, textarea {
 .panel-icon-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-  transform: scale(1.05);
+  transform: translateY(-2px);
 }
 
 .panel-icon-btn:active {
-  transform: scale(0.94);
+  transform: translateY(0);
 }
 
 .panel-icon-btn svg {
@@ -499,17 +668,6 @@ button, input, textarea {
   justify-content: center;
 }
 
-.empty-avatar-hero::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  width: 96px;
-  height: 14px;
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.09) 0%, rgba(0, 0, 0, 0) 70%);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
 .empty-title {
   font-size: 28px;
   font-weight: 700;
@@ -525,8 +683,8 @@ button, input, textarea {
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-secondary);
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--veil-soft);
+  border: 1px solid var(--hairline);
   padding: 3px 12px;
   border-radius: 999px;
   margin-bottom: 14px;
@@ -551,10 +709,10 @@ button, input, textarea {
 }
 
 .quick-action-btn {
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--glass-88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   padding: 12px 18px;
   font-size: 13.5px;
@@ -562,19 +720,19 @@ button, input, textarea {
   cursor: pointer;
   text-align: left;
   transition: all 0.25s var(--ease-spring);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 3px var(--shadow-soft);
 }
 
 .quick-action-btn:hover {
-  background: var(--white);
-  border-color: rgba(0, 0, 0, 0.16);
+  background: var(--bg-main);
+  border-color: var(--border-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6px 18px var(--hairline);
 }
 
 .quick-action-btn:active {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 4px var(--shadow-soft);
 }
 
 /* Date separator */
@@ -631,6 +789,28 @@ button, input, textarea {
   font-size: 14px;
   line-height: 1.55;
   position: relative;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Text-reveal: new agent replies materialize word by word instead of
+   popping in all at once. Only applied to messages that just arrived
+   (ConversationView gates this via the `animate` prop), never on
+   history that was already on screen. */
+.reveal-word {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(2px);
+  transform: translateY(4px);
+  animation: revealWordIn 0.38s var(--ease-apple-subtle) forwards;
+}
+
+@keyframes revealWordIn {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
 }
 
 .agent-msg .msg-bubble {
@@ -661,7 +841,7 @@ button, input, textarea {
 .msg-sender-name.iris   { color: var(--iris-color); }
 .msg-sender-name.system { color: var(--text-muted); }
 
-/* Typing / thinking indicator */
+/* Typing indicator — classic WhatsApp/iMessage-style three dots */
 .typing-indicator {
   display: flex;
   align-items: center;
@@ -691,7 +871,7 @@ button, input, textarea {
 /* Context activity card (inline specialist activity) */
 .activity-inline {
   align-self: flex-start;
-  background: var(--white);
+  background: var(--bg-main);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 9px 13px;
@@ -718,6 +898,18 @@ button, input, textarea {
   animation: pulseDot 1.8s ease-in-out infinite;
 }
 
+/* Real completion/failure state (from tool.completed / tool.failed) stops pulsing — it's history now */
+.activity-dot.done {
+  background: #22c55e;
+  opacity: 0.55;
+  animation: none;
+}
+
+.activity-dot.failed {
+  background: #ef4444;
+  animation: none;
+}
+
 @keyframes pulseDot {
   0%, 100% { opacity: 0.6; transform: scale(1); }
   50%       { opacity: 1;   transform: scale(1.3); }
@@ -728,10 +920,47 @@ button, input, textarea {
   color: var(--text-primary);
 }
 
+.activity-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.activity-code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--surface-neutral);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-primary);
+}
+
+/* Soft shimmer sweep across the label while the tool call is genuinely
+   still running — stops the instant tool.completed/tool.failed arrives. */
+.activity-inline-body.is-running {
+  background-image: linear-gradient(
+    90deg,
+    var(--text-primary) 0%,
+    var(--text-primary) 40%,
+    var(--text-muted) 50%,
+    var(--text-primary) 60%,
+    var(--text-primary) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: activityShimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes activityShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* Artifact card */
 .artifact-card {
   margin: 4px 20px;
-  background: var(--white);
+  background: var(--bg-main);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -756,7 +985,7 @@ button, input, textarea {
 .artifact-icon-box {
   width: 34px;
   height: 34px;
-  background: var(--gray-100);
+  background: var(--surface-neutral);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -788,12 +1017,20 @@ button, input, textarea {
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.1s;
+  transition: all 0.2s var(--ease-spring);
 }
 
+/* Tag/chip lift — small and quick, matching its size */
 .btn-artifact-toggle:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px var(--hairline);
+}
+
+.btn-artifact-toggle:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .artifact-content-pre {
@@ -804,7 +1041,7 @@ button, input, textarea {
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
-  background: var(--gray-50);
+  background: var(--surface-neutral);
   max-height: 240px;
   overflow-y: auto;
 }
@@ -825,29 +1062,45 @@ button, input, textarea {
    ===================================================================== */
 
 .composer-area {
+  position: relative;
   flex-shrink: 0;
   padding: 12px 20px 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Peeks up over the composer's edge when you start typing, eyes following
+   along — tucked out of sight (translated down, faded, non-interactive)
+   the rest of the time. */
+.composer-peek {
+  position: absolute;
+  left: 28px;
+  bottom: 100%;
+  transform: translateY(18px) scale(0.72);
+  transform-origin: bottom center;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.4s var(--ease-spring), opacity 0.25s ease;
+}
+
+.composer-peek.is-typing {
+  transform: translateY(4px) scale(1);
+  opacity: 1;
 }
 
 .composer-box {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--white);
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: var(--bg-main);
+  border: 1px solid var(--border-input-glass);
   border-radius: var(--radius-xl);
   padding: 8px 10px 8px 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px var(--shadow-soft);
   transition: all 0.25s var(--ease-spring);
 }
 
 .composer-box:focus-within {
   border-color: rgba(145, 89, 254, 0.45);
-  box-shadow: 0 0 0 3px rgba(145, 89, 254, 0.12), 0 4px 14px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 0 3px rgba(145, 89, 254, 0.12), 0 4px 14px var(--hairline);
 }
 
 .btn-composer-attach {
@@ -868,11 +1121,11 @@ button, input, textarea {
 .btn-composer-attach:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-  transform: scale(1.06);
+  transform: translateY(-2px);
 }
 
 .btn-composer-attach:active {
-  transform: scale(0.94);
+  transform: translateY(0);
 }
 
 .btn-composer-attach svg {
@@ -936,18 +1189,22 @@ button, input, textarea {
   color: var(--white);
 }
 
+/* Primary action gets its own "3D depth press" — lifts with a real shadow
+   on hover, presses flush down on click, instead of the plain scale every
+   other icon button uses. */
 .btn-composer-send:hover:not(:disabled) {
   background: var(--gray-900);
-  transform: scale(1.06);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px var(--shadow-strong);
 }
 
 .btn-composer-send:active:not(:disabled) {
-  transform: scale(0.94);
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
 .btn-composer-send:disabled {
-  background: var(--gray-200);
+  background: var(--surface-neutral-strong);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -961,11 +1218,11 @@ button, input, textarea {
 .dev-drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--overlay-scrim);
   z-index: 100;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  animation: appleFadeIn 0.25s var(--ease-apple-subtle) both;
+  animation: appleFadeIn 0.35s var(--ease-apple-subtle) both;
 }
 
 @keyframes appleFadeIn {
@@ -979,23 +1236,32 @@ button, input, textarea {
   right: 0;
   bottom: 0;
   width: 440px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--glass-94);
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  border-left: 1px solid var(--border-strong);
   z-index: 101;
   display: flex;
   flex-direction: column;
-  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.1);
-  animation: appleDrawerSlideIn 0.35s var(--ease-spring) both;
+  box-shadow: -12px 0 40px var(--shadow-drawer);
+  animation: appleDrawerSlideIn 0.5s var(--ease-spring-snappy) both;
 }
 
+/* Slide + scale + fade together, with a snappy spring overshoot — reads
+   clearly as a panel springing open, not a quick flat slide that can be
+   missed entirely. */
 @keyframes appleDrawerSlideIn {
   from {
-    transform: translateX(100%);
+    transform: translateX(70px) scale(0.94);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(-6px) scale(1.01);
+    opacity: 1;
   }
   to {
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
+    opacity: 1;
   }
 }
 
@@ -1057,7 +1323,7 @@ button, input, textarea {
   align-items: center;
   gap: 10px;
   padding: 9px 0;
-  border-bottom: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--surface-neutral);
 }
 
 .dev-task-status {
@@ -1069,7 +1335,7 @@ button, input, textarea {
 
 .dev-task-status.running  { background: #dcfce7; color: #166534; }
 .dev-task-status.pending  { background: #fef9c3; color: #713f12; }
-.dev-task-status.completed{ background: var(--gray-100); color: var(--gray-500); }
+.dev-task-status.completed{ background: var(--surface-neutral); color: var(--text-neutral); }
 .dev-task-status.failed   { background: #fee2e2; color: #991b1b; }
 
 .dev-task-title {
@@ -1083,7 +1349,7 @@ button, input, textarea {
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--surface-neutral);
 }
 
 .dev-tool-name {
@@ -1106,7 +1372,7 @@ button, input, textarea {
 
 .dev-event-row {
   padding: 7px 0;
-  border-bottom: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--surface-neutral);
 }
 
 .dev-event-type {
@@ -1140,14 +1406,22 @@ button, input, textarea {
   font-weight: 500;
   color: #dc2626;
   cursor: pointer;
-  transition: all 0.1s;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
   width: 100%;
   text-align: center;
 }
 
+/* A destructive action reads as serious, not playful — deepen the warning
+   color and add a firm glow instead of bouncing like every other button. */
 .btn-kill-switch:hover {
   background: #fee2e2;
   border-color: #f87171;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.btn-kill-switch:active {
+  background: #fecaca;
+  box-shadow: none;
 }
 
 /* =====================================================================
@@ -1181,5 +1455,18 @@ button, input, textarea {
   .waddle-presence-dot {
     animation: none !important;
     transform: none !important;
+  }
+  .reveal-word {
+    animation: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  .activity-inline-body.is-running {
+    animation: none !important;
+    background-image: none !important;
+    -webkit-background-clip: initial !important;
+    background-clip: initial !important;
+    color: var(--text-primary) !important;
   }
 }

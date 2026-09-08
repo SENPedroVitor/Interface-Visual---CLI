@@ -27,7 +27,7 @@ class WorkerAgent(Agent):
 
     async def execute_task(self, task: Task) -> Any:
         self.current_task_id = task.id
-        await self.set_status(AgentStatus.WORKING)
+        await self.set_status(AgentStatus.THINKING)
 
         await self.send_message(
             to_agent="Manager",
@@ -41,6 +41,7 @@ class WorkerAgent(Agent):
         try:
             # Check if task specifies tool calls in input_data
             tool_calls = task.input_data.get("tool_calls", [])
+            await self.set_status(AgentStatus.WORKING)
             if tool_calls:
                 for call in tool_calls:
                     tool_name = call.get("tool")

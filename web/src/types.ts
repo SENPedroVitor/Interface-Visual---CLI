@@ -3,7 +3,7 @@ export interface Agent {
   name: string;
   role: string;
   description: string;
-  status: 'idle' | 'working' | 'waiting' | 'stopped';
+  status: 'idle' | 'working' | 'waiting' | 'thinking' | 'blocked' | 'stopped';
   current_task_id?: string | null;
 }
 
