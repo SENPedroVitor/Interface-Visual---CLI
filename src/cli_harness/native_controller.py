@@ -2,27 +2,65 @@ from __future__ import annotations
 
 import html
 import os
-import pty
+try:
+    import pty
+    import termios
+except ImportError:
+    pty = None  # type: ignore
+    termios = None  # type: ignore
 import re
 import shlex
 import shutil
 import subprocess
-import termios
 from datetime import datetime
 from typing import Any
 from pathlib import Path
 
-from PySide6.QtCore import (
-    QAbstractListModel,
-    QModelIndex,
-    QObject,
-    Property,
-    QSocketNotifier,
-    Qt,
-    QTimer,
-    Signal,
-    Slot,
-)
+try:
+    from PySide6.QtCore import (
+        QAbstractListModel,
+        QModelIndex,
+        QObject,
+        Property,
+        QSocketNotifier,
+        Qt,
+        QTimer,
+        Signal,
+        Slot,
+    )
+except ImportError:
+    class QObject:  # type: ignore
+        def __init__(self, *args, **kwargs): pass
+    class QAbstractListModel(QObject):  # type: ignore
+        pass
+    class QModelIndex:  # type: ignore
+        pass
+    class Qt:  # type: ignore
+        class ItemDataRole:
+            UserRole = 256
+            DisplayRole = 0
+        DisplayRole = 0
+        UserRole = 256
+    class QSocketNotifier:  # type: ignore
+        Read = 0
+    class QTimer:  # type: ignore
+        @staticmethod
+        def singleShot(*args, **kwargs): pass
+    def Property(*args, **kwargs):  # type: ignore
+        def decorator(f):
+            class _Prop:
+                def __init__(self, fn): self.fn = fn
+                def setter(self, fn): return self
+                def notify(self, fn): return self
+                def __call__(self, *a, **k): return self.fn(*a, **k)
+            return _Prop(f)
+        return decorator
+    def Signal(*args, **kwargs):  # type: ignore
+        class _Sig:
+            def emit(self, *a, **kw): pass
+        return _Sig()
+    def Slot(*args, **kwargs):  # type: ignore
+        return lambda f: f
 
 
 from .backend_commands import resolve_backend_command

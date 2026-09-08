@@ -1,14 +1,18 @@
-from __future__ import annotations
-
 import os
+import unittest
 
-from PySide6.QtCore import QUrl, qInstallMessageHandler
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+try:
+    from PySide6.QtCore import QUrl, qInstallMessageHandler
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtQml import QQmlApplicationEngine
+    HAS_PYSIDE6 = True
+except ImportError:
+    HAS_PYSIDE6 = False
 
 from cli_harness.native_app import get_qml_path
 
 
+@unittest.skipUnless(HAS_PYSIDE6, "PySide6 not installed")
 def test_qml_loads_without_missing_cli_typeerror() -> None:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     app = QGuiApplication.instance() or QGuiApplication([])

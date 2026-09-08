@@ -6,3 +6,7 @@ build/
 *.pyc
 00-contexto-do-projeto.md
 .pytest_cache/
+node_modules/
+web/node_modules/
+web/dist/
+.agents/

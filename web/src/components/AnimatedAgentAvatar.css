@@ -1,0 +1,291 @@
+/* ─────────────────────────────────────────────────────────────
+   GROK-STYLE ANIMATED AGENT AVATAR (Waddle Agent OS)
+   Luminescent Counter-Rotating Orbital Rings & State-Driven Core
+───────────────────────────────────────────────────────────── */
+
+.grok-avatar-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Sizing Tokens */
+.grok-avatar-wrapper.size-xs { width: 28px; height: 28px; }
+.grok-avatar-wrapper.size-sm { width: 38px; height: 38px; }
+.grok-avatar-wrapper.size-md { width: 48px; height: 48px; }
+.grok-avatar-wrapper.size-lg { width: 72px; height: 72px; }
+.grok-avatar-wrapper.size-xl { width: 96px; height: 96px; }
+
+/* 1. Orbit Tracks & Beams (SVG Layer) */
+.grok-orbit-layer {
+  position: absolute;
+  inset: -15%;
+  width: 130%;
+  height: 130%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.grok-svg-canvas {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.grok-track-static {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.05);
+  stroke-width: 1.2;
+}
+
+.grok-beam-outer {
+  fill: none;
+  stroke: url(#grokOuterGradient);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 68 200;
+  transform-origin: 50px 50px;
+  filter: drop-shadow(0 0 6px rgba(76, 197, 255, 0.7));
+  animation: grokSpinCW 7s linear infinite;
+  transition: stroke 0.3s ease, filter 0.3s ease;
+}
+
+.grok-beam-inner {
+  fill: none;
+  stroke: url(#grokInnerGradient);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 46 180;
+  transform-origin: 50px 50px;
+  filter: drop-shadow(0 0 5px rgba(165, 243, 252, 0.65));
+  animation: grokSpinCCW 5s linear infinite;
+  transition: stroke 0.3s ease, filter 0.3s ease;
+}
+
+/* 2. Core Pod (Central Pod containing mascot or geometric core) */
+.grok-core-pod {
+  position: relative;
+  width: 76%;
+  height: 76%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #182338 0%, #0c121e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    inset 0 0 10px rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(76, 197, 255, 0.15);
+  animation: grokBreathe 4.5s ease-in-out infinite;
+  z-index: 2;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.grok-ambient-aura {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(76, 197, 255, 0.25) 0%, transparent 75%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.grok-core-img {
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  z-index: 3;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Fallback / Geometric AI Core if no image */
+.grok-geometric-symbol {
+  width: 50%;
+  height: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grok-gem-spark {
+  width: 10px;
+  height: 10px;
+  background: #4cc5ff;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  box-shadow: 0 0 10px #4cc5ff;
+  animation: grokGemPulse 2s ease-in-out infinite;
+}
+
+/* Sonar Ripple Rings for Streaming / Responding */
+.grok-sonar-ring {
+  position: absolute;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(76, 197, 255, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   STATES: IDLE, THINKING, STREAMING, WORKING, STOPPED
+───────────────────────────────────────────────────────────── */
+
+/* IDLE: Calm, serene, steady breathing */
+.grok-avatar-wrapper.state-idle:hover .grok-beam-outer {
+  animation-duration: 3.5s;
+  filter: drop-shadow(0 0 9px rgba(76, 197, 255, 0.9));
+}
+
+.grok-avatar-wrapper.state-idle:hover .grok-beam-inner {
+  animation-duration: 2.5s;
+}
+
+.grok-avatar-wrapper.state-idle:hover .grok-core-img {
+  transform: scale(1.12);
+}
+
+/* THINKING: High-speed orbital spin, intense energy glow */
+.grok-avatar-wrapper.state-thinking .grok-beam-outer {
+  animation: grokSpinCW 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  stroke: #38bdf8;
+  stroke-width: 3;
+  stroke-dasharray: 85 180;
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.95));
+}
+
+.grok-avatar-wrapper.state-thinking .grok-beam-inner {
+  animation: grokSpinCCW 0.85s linear infinite;
+  stroke: #ffffff;
+  stroke-width: 2.4;
+  stroke-dasharray: 60 160;
+  filter: drop-shadow(0 0 9px #ffffff);
+}
+
+.grok-avatar-wrapper.state-thinking .grok-core-pod {
+  animation: grokThinkingPulse 1s ease-in-out infinite;
+  border-color: rgba(76, 197, 255, 0.5);
+}
+
+.grok-avatar-wrapper.state-thinking .grok-ambient-aura {
+  background: radial-gradient(circle, rgba(76, 197, 255, 0.5) 0%, transparent 80%);
+}
+
+/* STREAMING / WORKING: Active generative pulse, emitting sonar waves */
+.grok-avatar-wrapper.state-streaming .grok-sonar-ring.ring-1,
+.grok-avatar-wrapper.state-working .grok-sonar-ring.ring-1 {
+  animation: grokSonarWave 2s cubic-bezier(0.1, 0.7, 0.3, 1) infinite;
+}
+
+.grok-avatar-wrapper.state-streaming .grok-sonar-ring.ring-2,
+.grok-avatar-wrapper.state-working .grok-sonar-ring.ring-2 {
+  animation: grokSonarWave 2s cubic-bezier(0.1, 0.7, 0.3, 1) infinite;
+  animation-delay: 0.9s;
+}
+
+.grok-avatar-wrapper.state-streaming .grok-beam-outer,
+.grok-avatar-wrapper.state-working .grok-beam-outer {
+  animation-duration: 2.2s;
+  stroke-width: 2.6;
+}
+
+.grok-avatar-wrapper.state-streaming .grok-beam-inner,
+.grok-avatar-wrapper.state-working .grok-beam-inner {
+  animation-duration: 1.6s;
+}
+
+/* STOPPED: Red/Muted pause */
+.grok-avatar-wrapper.state-stopped .grok-beam-outer {
+  animation-play-state: paused;
+  stroke: rgba(248, 113, 113, 0.4);
+  filter: none;
+}
+
+.grok-avatar-wrapper.state-stopped .grok-beam-inner {
+  animation-play-state: paused;
+  stroke: rgba(248, 113, 113, 0.25);
+  filter: none;
+}
+
+.grok-avatar-wrapper.state-stopped .grok-core-pod {
+  animation: none;
+  border-color: rgba(248, 113, 113, 0.3);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.1);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   KEYFRAMES
+───────────────────────────────────────────────────────────── */
+
+@keyframes grokSpinCW {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes grokSpinCCW {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes grokBreathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      inset 0 0 10px rgba(0, 0, 0, 0.6),
+      0 0 12px rgba(76, 197, 255, 0.12);
+  }
+  50% {
+    transform: scale(1.035);
+    box-shadow: 
+      inset 0 0 8px rgba(0, 0, 0, 0.5),
+      0 0 20px rgba(76, 197, 255, 0.32);
+  }
+}
+
+@keyframes grokThinkingPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.07);
+    filter: brightness(1.25);
+    box-shadow: 
+      inset 0 0 8px rgba(0, 0, 0, 0.4),
+      0 0 24px rgba(76, 197, 255, 0.5);
+  }
+}
+
+@keyframes grokSonarWave {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+    border-color: rgba(76, 197, 255, 0.7);
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+    border-color: rgba(165, 243, 252, 0);
+  }
+}
+
+@keyframes grokGemPulse {
+  0%, 100% {
+    transform: rotate(45deg) scale(1);
+    box-shadow: 0 0 8px #4cc5ff;
+  }
+  50% {
+    transform: rotate(45deg) scale(1.2);
+    box-shadow: 0 0 16px #a5f3fc, 0 0 24px #4cc5ff;
+  }
+}

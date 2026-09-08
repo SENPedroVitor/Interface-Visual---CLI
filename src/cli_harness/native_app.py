@@ -5,9 +5,16 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, QResource, qInstallMessageHandler
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+try:
+    from PySide6.QtCore import QUrl, QResource, qInstallMessageHandler
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtQml import QQmlApplicationEngine
+except ImportError:
+    QUrl = None  # type: ignore
+    QResource = None  # type: ignore
+    qInstallMessageHandler = None  # type: ignore
+    QGuiApplication = None  # type: ignore
+    QQmlApplicationEngine = None  # type: ignore
 
 from .config import get_obsidian_vault_path
 from .native_controller import NativeChatController
@@ -23,39 +30,14 @@ def get_asset_path(name: str) -> Path:
 
 def get_mascot_variants() -> dict[str, list[str]]:
     """
-    Returns a dictionary mapping time periods to lists of mascot variants.
-    Each period has multiple pose variants for variety.
+    Returns a dictionary mapping time periods to lists of modern mascot variants.
     """
     return {
-        "morning": [
-            "waddle_morning.svg",           # Coffee cup, excited pose
-            "waddle_8bit.svg",              # Classic 8-bit
-            "waddle_8bit_happy.svg",        # 8-bit happy
-            "waddle_8bit_coding.svg",       # 8-bit coding
-        ],
-        "afternoon": [
-            "waddle_afternoon.svg",         # Headphones, relaxed
-            "waddle_8bit.svg",              # Classic 8-bit
-            "waddle_8bit_coding.svg",       # 8-bit coding
-            "waddle_8bit_thinking.svg",     # 8-bit thinking
-        ],
-        "coffee": [
-            "waddle_8bit_coffee.svg",       # ☕ Coffee time! (main)
-            "waddle_8bit.svg",              # Classic 8-bit
-            "waddle_8bit_happy.svg",        # 8-bit happy
-            "waddle_8bit_coding.svg",       # 8-bit coding
-        ],
-        "evening": [
-            "waddle_afternoon.svg",         # Headphones variant
-            "waddle_8bit.svg",              # Classic 8-bit
-            "waddle_8bit_happy.svg",        # 8-bit happy
-            "waddle_8bit_thinking.svg",     # 8-bit thinking
-        ],
-        "night": [
-            "waddle_night.svg",             # Sleeping with night cap
-            "waddle_8bit.svg",              # Classic 8-bit
-            "waddle_8bit_tired.svg",        # 8-bit tired/sleepy
-        ],
+        "morning": ["waddle.svg", "waddle_success.svg"],
+        "afternoon": ["waddle.svg", "waddle_thinking.svg"],
+        "coffee": ["waddle.svg", "waddle_typing.svg"],
+        "evening": ["waddle.svg", "waddle_success.svg"],
+        "night": ["waddle.svg", "waddle_blink.svg"],
     }
 
 
@@ -66,7 +48,7 @@ def get_time_period(hour: int) -> str:
     elif hour < 15:
         return "afternoon"
     elif hour < 18:
-        return "coffee"  # Coffee break time!
+        return "coffee"
     elif hour < 22:
         return "evening"
     else:
@@ -76,20 +58,12 @@ def get_time_period(hour: int) -> str:
 def select_mascot_file(hour: int | None = None, use_random: bool = True) -> str:
     """
     Select a mascot file based on time of day and optionally random variant.
-    
-    Args:
-        hour: Hour of the day (0-23). If None, uses current hour.
-        use_random: If True, randomly selects from available variants for the period.
-                   If False, uses the first (primary) variant.
-    
-    Returns:
-        The filename of the selected mascot SVG.
     """
     if hour is None:
         hour = datetime.now().hour
     
     period = get_time_period(hour)
-    variants = get_mascot_variants()[period]
+    variants = get_mascot_variants().get(period, ["waddle.svg"])
     
     if use_random and len(variants) > 1:
         return random.choice(variants)

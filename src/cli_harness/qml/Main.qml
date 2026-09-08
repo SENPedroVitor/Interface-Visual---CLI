@@ -119,14 +119,14 @@ ApplicationWindow {
         if (gameMascot !== "") return gameMascot
         
         if (!controller) return mascotUrl
-        // Map emotional states to SVG files
+        // Map emotional states to modern SVG files
         var stateMap = {
             "idle": "",  // Use default time-based mascot
-            "thinking": "waddle_8bit_thinking.svg",
-            "typing": "waddle_8bit_typing.svg",
-            "error": "waddle_8bit_error.svg",
-            "success": "waddle_8bit_success.svg",
-            "streaming": "waddle_8bit_streaming.svg"
+            "thinking": "waddle_thinking.svg",
+            "typing": "waddle_typing.svg",
+            "error": "waddle_error.svg",
+            "success": "waddle_success.svg",
+            "streaming": "waddle_typing.svg"
         }
         var stateFile = stateMap[state]
         if (stateFile && stateFile !== "") {
@@ -143,9 +143,9 @@ ApplicationWindow {
         
         var basePath = mascotUrl.substring(0, mascotUrl.lastIndexOf("/") + 1)
         if (mascotBlinkFrame === 2) {
-            return basePath + "waddle_8bit_blink.svg"  // Closed
+            return basePath + "waddle_blink.svg"  // Closed
         } else if (mascotBlinkFrame === 1) {
-            return basePath + "waddle_8bit_blink_half.svg"  // Half-closed
+            return basePath + "waddle_blink_half.svg"  // Half-closed
         }
         return getMascotUrlForState(mascotState)  // Open - use state image
     }
@@ -208,10 +208,10 @@ ApplicationWindow {
     }
 
     function getGameModeMascot() {
-        if (gameMode === "gamer") return mascotUrlBase + "waddle_8bit_gamer.svg"
-        if (gameMode === "powerup") return mascotUrlBase + "waddle_8bit_powerup.svg"
-        if (gameMode === "pacman") return mascotUrlBase + "waddle_8bit_pacman.svg"
-        if (gameMode === "gameover") return mascotUrlBase + "waddle_8bit_gameover.svg"
+        if (gameMode === "gamer") return mascotUrlBase + "waddle_success.svg"
+        if (gameMode === "powerup") return mascotUrlBase + "waddle_success.svg"
+        if (gameMode === "pacman") return mascotUrlBase + "waddle_thinking.svg"
+        if (gameMode === "gameover") return mascotUrlBase + "waddle_error.svg"
         return ""
     }
     function startWalkOut() {
@@ -1829,14 +1829,14 @@ ApplicationWindow {
                             height: 16
                             source: {
                                 var basePath = chatComposerRoot.mascotUrl.substring(0, chatComposerRoot.mascotUrl.lastIndexOf("/") + 1)
-                                if (chatComposerRoot.gameMode === "gamer") return basePath + "waddle_8bit_gamer.svg"
-                                if (chatComposerRoot.gameMode === "powerup") return basePath + "waddle_8bit_powerup.svg"
-                                if (chatComposerRoot.gameMode === "pacman") return basePath + "waddle_8bit_pacman.svg"
-                                if (chatComposerRoot.gameMode === "gameover") return basePath + "waddle_8bit_gameover.svg"
-                                return basePath + "waddle_8bit.svg"
+                                if (chatComposerRoot.gameMode === "gamer") return basePath + "waddle_success.svg"
+                                if (chatComposerRoot.gameMode === "powerup") return basePath + "waddle_success.svg"
+                                if (chatComposerRoot.gameMode === "pacman") return basePath + "waddle_thinking.svg"
+                                if (chatComposerRoot.gameMode === "gameover") return basePath + "waddle_error.svg"
+                                return basePath + "waddle.svg"
                             }
                             fillMode: Image.PreserveAspectFit
-                            smooth: false
+                            smooth: true
 
                             NumberAnimation on y {
                                 from: -2

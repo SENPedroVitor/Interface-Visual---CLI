@@ -1,12 +1,12 @@
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <g transform="rotate(3, 50, 50) translate(1, 0)">
   <circle cx="50" cy="50" r="44" fill="#1e1e1e" />
   <circle cx="50" cy="50" r="43.5" fill="none" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
   <path d="M 21.5 70 Q 50 48.5 78.5 70 A 35.5 35.5 0 0 1 21.5 70 Z" fill="#ffffff" />
   <polygon points="43,51.5 57,51.5 50,63.5" fill="#ff7a18" />
+  <g transform="scale(1, 0.75)" style="transform-origin: 50px 42px;">
     <circle cx="36.5" cy="42" r="6.5" fill="#ffffff" />
-    <circle cx="36.5" cy="42" r="3.3" fill="#1e1e1e" />
+    <circle cx="36.5" cy="42" r="2.8" fill="#1e1e1e" />
     <circle cx="63.5" cy="42" r="6.5" fill="#ffffff" />
-    <circle cx="63.5" cy="42" r="3.3" fill="#1e1e1e" />
+    <circle cx="63.5" cy="42" r="2.8" fill="#1e1e1e" />
   </g>
 </svg>
