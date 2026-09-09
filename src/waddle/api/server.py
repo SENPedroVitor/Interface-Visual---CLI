@@ -61,6 +61,40 @@ class AgentRequest(BaseModel):
     role: str
     description: str = Field(default='', max_length=240)
     provider_id: str = Field(default='ollama', max_length=24)
+    soul: Optional[str] = None
+    skills: Optional[list[str]] = None
+    memory: Optional[list[dict[str, Any]]] = None
+    avatar_config: Optional[dict[str, Any]] = None
+    model_config: Optional[dict[str, Any]] = None
+
+
+class AgentUpdateRequest(BaseModel):
+    role: Optional[str] = None
+    description: Optional[str] = None
+    provider_id: Optional[str] = None
+    soul: Optional[str] = None
+    skills: Optional[list[str]] = None
+    memory: Optional[list[dict[str, Any]]] = None
+    avatar_config: Optional[dict[str, Any]] = None
+    model_config: Optional[dict[str, Any]] = None
+
+
+class GroupRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    description: str = Field(default='', max_length=240)
+    members: list[str] = Field(default_factory=list)
+    avatar_icon: str = Field(default='users', max_length=32)
+
+
+class GroupUpdateRequest(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=64)
+    description: Optional[str] = Field(default=None, max_length=240)
+    members: Optional[list[str]] = None
+    avatar_icon: Optional[str] = Field(default=None, max_length=32)
+
+
+class BackupImportRequest(BaseModel):
+    data: dict[str, Any]
 
 
 class RoutineRequest(BaseModel):
@@ -73,7 +107,17 @@ class RoutineRequest(BaseModel):
 @app.post('/api/agents', status_code=201)
 async def create_agent(req: AgentRequest) -> dict[str, Any]:
     try:
-        agent = runtime.create_agent(req.name, req.role, req.description, req.provider_id)
+        agent = runtime.create_agent(
+            name=req.name,
+            role=req.role,
+            description=req.description,
+            provider_id=req.provider_id,
+            soul=req.soul or "",
+            skills=req.skills,
+            memory=req.memory,
+            avatar_config=req.avatar_config,
+            model_config=req.model_config,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await global_event_bus.emit('agent.created', {'agent': agent}, source=agent['name'])
@@ -81,13 +125,99 @@ async def create_agent(req: AgentRequest) -> dict[str, Any]:
 
 
 @app.patch('/api/agents/{agent_name}')
-async def update_agent(agent_name: str, req: AgentRequest) -> dict[str, Any]:
+async def update_agent(agent_name: str, req: AgentUpdateRequest) -> dict[str, Any]:
     try:
-        agent = runtime.update_agent(agent_name, req.role, req.description, req.provider_id)
+        data = req.model_dump(exclude_unset=True)
+        # Check if basic update or full update
+        if any(k in data for k in ("soul", "skills", "memory", "avatar_config", "model_config")):
+            agent = runtime.update_agent_details(agent_name, data)
+        else:
+            role = data.get("role") or (runtime.get_agent(agent_name).role if runtime.get_agent(agent_name) else "Executor")
+            desc = data.get("description", "")
+            prov = data.get("provider_id", "ollama")
+            agent = runtime.update_agent(agent_name, role, desc, prov)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await global_event_bus.emit('agent.updated', {'agent': agent}, source=agent['name'])
     return agent
+
+
+@app.get('/api/agents/{agent_name}/details')
+async def get_agent_details(agent_name: str) -> dict[str, Any]:
+    try:
+        return runtime.get_agent_details(agent_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.patch('/api/agents/{agent_name}/details')
+async def update_agent_details_endpoint(agent_name: str, req: AgentUpdateRequest) -> dict[str, Any]:
+    try:
+        data = req.model_dump(exclude_unset=True)
+        updated = runtime.update_agent_details(agent_name, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await global_event_bus.emit('agent.updated', {'agent': updated}, source=agent_name)
+    return updated
+
+
+@app.get("/api/providers/{provider_id}/models")
+async def get_provider_models(provider_id: str) -> dict[str, Any]:
+    models = provider_registry.list_provider_models(provider_id)
+    return {"provider_id": provider_id, "models": models}
+
+
+@app.get("/api/groups")
+async def get_groups() -> list[dict[str, Any]]:
+    return runtime.list_groups()
+
+
+@app.post("/api/groups", status_code=201)
+async def create_group(req: GroupRequest) -> dict[str, Any]:
+    group = runtime.create_group(
+        name=req.name,
+        description=req.description,
+        members=req.members,
+        avatar_icon=req.avatar_icon,
+    )
+    await global_event_bus.emit('group.created', {'group': group}, source="system")
+    return group
+
+
+@app.patch("/api/groups/{group_id}")
+async def update_group(group_id: str, req: GroupUpdateRequest) -> dict[str, Any]:
+    updated = runtime.update_group(
+        group_id=group_id,
+        name=req.name,
+        description=req.description,
+        members=req.members,
+        avatar_icon=req.avatar_icon,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado.")
+    await global_event_bus.emit('group.updated', {'group': updated}, source="system")
+    return updated
+
+
+@app.delete("/api/groups/{group_id}")
+async def delete_group(group_id: str) -> dict[str, Any]:
+    deleted = runtime.delete_group(group_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado.")
+    await global_event_bus.emit('group.deleted', {'group_id': group_id}, source="system")
+    return {"status": "deleted", "group_id": group_id}
+
+
+@app.get("/api/backup/export")
+async def export_backup() -> dict[str, Any]:
+    return runtime.export_backup()
+
+
+@app.post("/api/backup/import")
+async def import_backup(req: BackupImportRequest) -> dict[str, Any]:
+    res = runtime.import_backup(req.data)
+    await global_event_bus.emit('backup.imported', res, source="system")
+    return res
 
 
 @app.get("/api/status")

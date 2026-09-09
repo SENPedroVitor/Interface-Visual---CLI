@@ -100,7 +100,7 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -f "$ICONS_DIR/hicolor" >/dev/null 2>&1 || true
 fi
 
-echo "✓ Installed $APP_NAME"
+echo "[OK] Installed $APP_NAME"
 echo "  Launcher: $LAUNCHER_PATH"
 echo "  Desktop entry: $DESKTOP_PATH"
 echo "  Icons: $ICONS_DIR"

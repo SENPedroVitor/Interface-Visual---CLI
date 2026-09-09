@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { Agent, Task } from '../types';
+import { Agent, Task, GroupSummary } from '../types';
 import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
 import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
+import { VectorIcon, IconPalette } from './Icons';
 
 export interface AgentSidebarProps {
   agents: Agent[];
+  groups?: GroupSummary[];
   tasks: Task[];
   selectedAgentId: string;
+  selectedGroupId?: string;
   onSelectAgent: (id: string) => void;
+  onSelectGroup?: (id: string) => void;
   onOpenDeveloperMode: () => void;
   onKillSwitch: () => void;
   isKillSwitchActive: boolean;
@@ -16,19 +20,24 @@ export interface AgentSidebarProps {
   agentPreviews: Record<string, string>;
   isDarkTheme: boolean;
   onToggleTheme: () => void;
-  onNewAgent: () => void;
+  onOpenActionMenu: (rect: DOMRect) => void;
+  onCustomizeAgent?: (agent: Agent) => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   agents,
+  groups = [],
   tasks,
   selectedAgentId,
+  selectedGroupId,
   onSelectAgent,
+  onSelectGroup,
   onOpenDeveloperMode,
   agentPreviews,
   isDarkTheme,
   onToggleTheme,
-  onNewAgent,
+  onOpenActionMenu,
+  onCustomizeAgent,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -59,7 +68,11 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           <WaddleAvatar color="#18181b" size={22} showPresence={false} plain />
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Waddle</span>
         </div>
-        <button className="btn-new-agent" title="Novo agente" onClick={onNewAgent}>
+        <button
+          className="btn-new-agent"
+          title="Menu de Criação (+)"
+          onClick={(e) => onOpenActionMenu(e.currentTarget.getBoundingClientRect())}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M12 5v14M5 12h14" strokeLinecap="round" />
           </svg>
@@ -83,11 +96,49 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
         </div>
       </div>
 
+      {/* Squads / Groups Section */}
+      {groups.length > 0 && (
+        <div style={{ padding: '4px 12px 8px 12px' }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+            Squads & Equipes
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {groups.map((group) => {
+              const isGroupActive = selectedGroupId === group.id;
+              return (
+                <button
+                  key={group.id}
+                  className={`agent-list-item ${isGroupActive ? 'active' : ''}`}
+                  onClick={() => onSelectGroup?.(group.id)}
+                  style={{ padding: '8px 10px' }}
+                  title={`${group.name} (${group.members.join(', ')})`}
+                >
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc' }}>
+                    <VectorIcon name={group.avatar_icon || 'users'} size={18} />
+                  </div>
+                  <div className="agent-list-info">
+                    <div className="agent-list-row1">
+                      <span className="agent-list-name" style={{ fontSize: '0.85rem' }}>{group.name}</span>
+                      <span style={{ fontSize: '0.68rem', color: '#a855f7', fontWeight: 600 }}>{group.members.length} bots</span>
+                    </div>
+                    <div className="agent-list-row2">
+                      <span className="agent-list-preview" style={{ fontSize: '0.72rem' }}>
+                        {group.description || group.members.join(', ')}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Agent list */}
       <nav className="sidebar-agents">
         {filtered.map((agent) => {
-          const isActive = selectedAgentId === agent.id;
-          const visual = agentVisual(agent.name, agent.role);
+          const isActive = selectedAgentId === agent.id && !selectedGroupId;
+          const visual = agentVisual(agent.name, agent.role, agent);
           const avatarState = agentStateFromStatus(agent.status);
           const preview = previewFor(agent, avatarState);
 
@@ -99,12 +150,14 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
               aria-current={isActive ? 'page' : undefined}
               title={`${agent.name} · ${STATE_LABELS[avatarState]}`}
             >
-              {/* Minimalist circular penguin avatar with motion states */}
+              {/* Minimalist circular penguin avatar with cosmetics and custom images */}
               <WaddleAvatar
                 color={visual.color}
                 state={avatarState}
                 size={36}
                 marking={visual.marking}
+                cosmetics={visual.cosmetics}
+                imageUrl={visual.imageUrl}
                 clickAnim={visual.clickAnim}
                 trackMouse
                 interactive
@@ -114,6 +167,16 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
                 <div className="agent-list-row1">
                   <span className="agent-list-name">{agent.name}</span>
                   {avatarState !== 'idle' && <span className={`agent-state-chip ${avatarState}`}>{STATE_LABELS[avatarState]}</span>}
+                  <span
+                    style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', opacity: 0.6, cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCustomizeAgent?.(agent);
+                    }}
+                    title="Personalizar Bot"
+                  >
+                    <IconPalette size={14} />
+                  </span>
                 </div>
                 <div className="agent-list-row2">
                   <span className="agent-list-preview">{preview}</span>

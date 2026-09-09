@@ -1,4 +1,5 @@
 import React from 'react';
+import { IconPenguin, IconStop } from './Icons';
 
 interface HeaderProps {
   systemStatus: 'active' | 'stopped';
@@ -16,7 +17,9 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="app-header">
       <div className="header-brand">
-        <div className="brand-icon">🐧</div>
+        <div className="brand-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconPenguin size={22} />
+        </div>
         <div className="brand-info">
           <h1>WADDLE AGENT OS</h1>
           <div className="brand-subtitle">Plataforma Multiagente Autônoma Local</div>
@@ -45,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
           disabled={isTriggeringKillSwitch}
           title="Parada de Emergência: cancela todas as tarefas e para agentes"
         >
-          <span>🛑</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}><IconStop size={14} /></span>
           <span>{isTriggeringKillSwitch ? 'PARANDO...' : 'STOP ALL'}</span>
         </button>
       </div>

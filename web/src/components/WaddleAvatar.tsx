@@ -3,29 +3,41 @@ import { registerEye } from '../lib/eyeTracker';
 import './WaddleAvatar.css';
 
 export type AgentState = 'idle' | 'working' | 'thinking' | 'waiting' | 'done' | 'blocked' | 'stopped';
-export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap';
+export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap' | 'tie';
 export type ClickAnim = 'hop' | 'fast' | 'jump2' | 'tilt';
+
+export interface AvatarCosmetics {
+  head?: 'none' | 'luffy_hat' | 'headphones' | 'crown' | string;
+  face?: 'none' | 'zoro_scar' | 'glasses' | 'sunglasses' | string;
+  body?: 'none' | 'tie' | 'bowtie' | string;
+  hand?: 'none' | 'coffee' | string;
+}
+
 export const STATE_LABELS: Record<AgentState, string> = {
   idle: 'Disponível', working: 'Trabalhando', thinking: 'Pensando',
   waiting: 'Aguardando', done: 'Concluído', blocked: 'Precisa de atenção', stopped: 'Parado',
 };
+
 export interface WaddleAvatarProps {
   color?: string; state?: AgentState; size?: number; className?: string;
   showPresence?: boolean; trackMouse?: boolean; interactive?: boolean;
   marking?: MarkingType; clickAnim?: ClickAnim; quote?: string; plain?: boolean;
   gazeX?: number; onClick?: () => void;
+  cosmetics?: AvatarCosmetics;
+  imageUrl?: string;
 }
 const SHAPES = {
   none: { rx: 37, ry: 42, top: 25, waist: 84, gap: 9, tilt: 0 },
   chevron: { rx: 42, ry: 37, top: 29, waist: 80, gap: 10, tilt: 0 },
   tuft: { rx: 35, ry: 40, top: 27, waist: 83, gap: 9, tilt: -3 },
   chinstrap: { rx: 34, ry: 45, top: 23, waist: 87, gap: 9, tilt: 3 },
+  tie: { rx: 36, ry: 41, top: 25, waist: 84, gap: 9, tilt: 0 },
 };
 /** Soft mascot eyes share one gaze, with state expressions taking priority over the cursor. */
 export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
   color = '#1e1e1e', state = 'idle', size = 36, className = '', showPresence = false,
   trackMouse = false, interactive = false, marking = 'none', clickAnim = 'hop',
-  quote, plain = false, gazeX, onClick,
+  quote, plain = false, gazeX, onClick, cosmetics, imageUrl,
 }) => {
   const gazeRef = useRef<SVGGElement>(null);
   const [blink, setBlink] = useState(false);
@@ -74,6 +86,36 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
     }
     onClick?.();
   };
+
+  if (imageUrl) {
+    return (
+      <div
+        className={`waddle-avatar-wrapper ${className}`}
+        data-state={state}
+        data-reaction={jump ? clickAnim : undefined}
+        data-interactive={interactive || undefined}
+        style={{ width: size, height: size, position: 'relative' }}
+        onClick={reactToClick}
+        title={STATE_LABELS[state]}
+      >
+        <img
+          src={imageUrl}
+          alt=""
+          style={{
+            width: size,
+            height: size,
+            borderRadius: '50%',
+            objectFit: 'cover',
+            border: `2px solid ${color || '#38bdf8'}`,
+            display: 'block',
+          }}
+        />
+        {showPresence && state !== 'idle' && <span className="waddle-presence-dot" />}
+        {bubble && quote && <span className="waddle-bubble">{quote}</span>}
+      </div>
+    );
+  }
+
   const gaze = state === 'thinking' ? 'translate(-2 -2)' : state === 'blocked' ? 'translate(0 1.5)' :
     state === 'waiting' ? 'translate(2 0)' : state === 'idle' && gazeX !== undefined ? `translate(${Math.max(-1, Math.min(1, gazeX)) * 2.4} 0)` : undefined;
   const bodyPath = `M${60 - cfg.rx} ${cfg.waist} C${18 + cfg.tilt} ${cfg.top + 42} ${25 + cfg.tilt} ${cfg.top} 60 ${cfg.top} C${95 + cfg.tilt} ${cfg.top} ${102 + cfg.tilt} ${cfg.top + 42} ${60 + cfg.rx} ${cfg.waist} C${88 + cfg.tilt} 105 ${32 + cfg.tilt} 105 ${60 - cfg.rx} ${cfg.waist}Z`;
@@ -114,6 +156,14 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
       </g>
     );
   };
+
+  const hasExplicitCosmetics = Boolean(cosmetics);
+  const headItem = cosmetics?.head ?? (!hasExplicitCosmetics && !plain && marking === 'none' ? 'luffy_hat' : 'none');
+  const faceItem = cosmetics?.face ?? (!hasExplicitCosmetics && !plain && marking === 'chevron' ? 'glasses' : !hasExplicitCosmetics && !plain && marking === 'chinstrap' ? 'zoro_scar' : 'none');
+  const bodyItem = cosmetics?.body ?? (!hasExplicitCosmetics && !plain && marking === 'tie' ? 'tie' : 'none');
+  const handItem = cosmetics?.hand ?? 'none';
+  const legacyTuft = !hasExplicitCosmetics && !plain && marking === 'tuft';
+
   return (
     <div className={`waddle-avatar-wrapper ${className}`} data-state={state}
       data-reaction={jump ? clickAnim : undefined} data-interactive={interactive || undefined}
@@ -137,6 +187,8 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
             <path className="waddle-body-shade" d={bodyPath} fill={`url(#body-glow-${color.replace('#', '')}-${marking})`} />
             <path className="waddle-belly" d={bellyPath} fill={`url(#belly-glow-${color.replace('#', '')}-${marking})`} />
             <path className="waddle-beak" d="M55 57 Q60 54 65 57 L60 63 Z" fill="#f4ae4f" />
+
+            {/* Eyes & Gaze */}
             <g ref={gazeRef} className="waddle-gaze">
               <g transform={gaze} className="waddle-expression" fill={eyeInk} stroke={eyeInk}>
                 {([-1, 1] as const).map(side => {
@@ -147,20 +199,96 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
                 })}
               </g>
             </g>
-            {!plain && marking === 'none' && <g className="waddle-accessory" fill="#f4cb63">
-              <rect x="47" y="12" width="26" height="12" rx="4" />
-              <path d="M38 24 Q60 19 82 24" stroke="#f4cb63" strokeWidth="5" strokeLinecap="round" />
-              <path d="M49 21h22" stroke="#b86f36" strokeWidth="2" strokeLinecap="round" />
-            </g>}
-            {!plain && marking === 'chevron' && <g className="waddle-accessory" fill="none" stroke="rgba(255,250,240,.74)" strokeWidth="3" strokeLinecap="round">
-              <path d="M47 34 Q60 28 73 34" />
-              <path d="M42 39 Q60 31 78 39" strokeWidth="1.8" opacity=".45" />
-            </g>}
-            {!plain && marking === 'tuft' && <g className="waddle-accessory" fill="none" stroke="#fffaf2" strokeWidth="4.5" strokeLinecap="round">
-              <path d="M26 61 C26 13 94 13 94 61" />
-              <path d="M26 57v12M94 57v12" strokeWidth="9" />
-            </g>}
-            {!plain && marking === 'chinstrap' && <path className="waddle-accessory" d="M80 32l-4 10M82 30l3-4" stroke={eyeInk} strokeWidth="2.5" strokeLinecap="round" />}
+
+            {/* Face Cosmetics */}
+            {faceItem === 'zoro_scar' && (
+              <g className="waddle-cosmetic-scar">
+                <path d="M51 34 L54 54" stroke="#991b1b" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="49.5" y1="40" x2="54.5" y2="39" stroke="#7f1d1d" strokeWidth="1.2" strokeLinecap="round" />
+                <line x1="51" y1="47" x2="56" y2="46" stroke="#7f1d1d" strokeWidth="1.2" strokeLinecap="round" />
+              </g>
+            )}
+
+            {faceItem === 'glasses' && (
+              <g className="waddle-cosmetic-glasses">
+                <rect x="46" y="38" width="12" height="12" rx="4" fill="rgba(255,255,255,0.15)" stroke="#38bdf8" strokeWidth="1.8" />
+                <rect x="62" y="38" width="12" height="12" rx="4" fill="rgba(255,255,255,0.15)" stroke="#38bdf8" strokeWidth="1.8" />
+                <path d="M58 43 Q60 41 62 43" fill="none" stroke="#38bdf8" strokeWidth="1.8" />
+                <line x1="46" y1="42" x2="38" y2="40" stroke="#0284c7" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="74" y1="42" x2="82" y2="40" stroke="#0284c7" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="48" y1="40" x2="51" y2="43" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+                <line x1="64" y1="40" x2="67" y2="43" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+              </g>
+            )}
+
+            {faceItem === 'sunglasses' && (
+              <g className="waddle-cosmetic-sunglasses">
+                <path d="M44 39 Q52 39 57 40 Q57 46 55 49 Q48 52 44 48 Z" fill="#09090b" stroke="#27272a" strokeWidth="1" />
+                <path d="M63 40 Q68 39 76 39 Q76 48 72 52 Q65 49 63 46 Z" fill="#09090b" stroke="#27272a" strokeWidth="1" />
+                <line x1="43" y1="40" x2="77" y2="40" stroke="#3f3f46" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="47" y1="42" x2="52" y2="47" stroke="rgba(255,255,255,0.45)" strokeWidth="1.2" strokeLinecap="round" />
+                <line x1="66" y1="42" x2="71" y2="47" stroke="rgba(255,255,255,0.45)" strokeWidth="1.2" strokeLinecap="round" />
+              </g>
+            )}
+
+            {/* Head Cosmetics */}
+            {headItem === 'luffy_hat' && (
+              <g className="waddle-cosmetic-hat">
+                <ellipse cx="60" cy="24" rx="34" ry="9" fill="#facc15" stroke="#ca8a04" strokeWidth="1.2" />
+                <path d="M42 22 C42 8 78 8 78 22 Z" fill="#facc15" stroke="#ca8a04" strokeWidth="1.2" />
+                <path d="M42 21 C50 19 70 19 78 21 L78 24 C70 22 50 22 42 24 Z" fill="#ef4444" />
+                <path d="M48 15 Q60 13 72 15" fill="none" stroke="#eab308" strokeWidth="0.8" opacity="0.6" />
+              </g>
+            )}
+
+            {(headItem === 'headphones' || legacyTuft) && (
+              <g className="waddle-cosmetic-headphones">
+                <path d="M28 54 C28 10 92 10 92 54" fill="none" stroke="#0ea5e9" strokeWidth="4.2" strokeLinecap="round" />
+                <path d="M44 15 C52 13 68 13 76 15" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
+                <rect x="23" y="44" width="9" height="18" rx="4.5" fill="#0284c7" stroke="#38bdf8" strokeWidth="1" />
+                <circle cx="27.5" cy="53" r="2" fill="#38bdf8" />
+                <rect x="88" y="44" width="9" height="18" rx="4.5" fill="#0284c7" stroke="#38bdf8" strokeWidth="1" />
+                <circle cx="92.5" cy="53" r="2" fill="#38bdf8" />
+              </g>
+            )}
+
+            {headItem === 'crown' && (
+              <g className="waddle-cosmetic-crown">
+                <polygon points="42,26 42,14 51,20 60,8 69,20 78,14 78,26" fill="#fbbf24" stroke="#d97706" strokeWidth="1.2" />
+                <rect x="42" y="24" width="36" height="3" fill="#f59e0b" />
+                <circle cx="60" cy="18" r="2.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
+                <circle cx="49" cy="20" r="1.6" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="0.5" />
+                <circle cx="71" cy="20" r="1.6" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="0.5" />
+              </g>
+            )}
+
+            {/* Body Cosmetics */}
+            {bodyItem === 'tie' && (
+              <g className="waddle-cosmetic-tie">
+                <polygon points="56,62 64,62 66,67 60,70 54,67" fill="#b91c1c" />
+                <polygon points="56,69 64,69 66,93 60,99 54,93" fill="#dc2626" />
+                <line x1="56" y1="65" x2="64" y2="65" stroke="#7f1d1d" strokeWidth="1" />
+              </g>
+            )}
+
+            {bodyItem === 'bowtie' && (
+              <g className="waddle-cosmetic-bowtie">
+                <polygon points="60,65 51,60 51,70" fill="#a855f7" stroke="#7e22ce" strokeWidth="0.8" />
+                <polygon points="60,65 69,60 69,70" fill="#a855f7" stroke="#7e22ce" strokeWidth="0.8" />
+                <rect x="58.5" y="63" width="3" height="4" rx="1" fill="#7e22ce" />
+              </g>
+            )}
+
+            {/* Hand Cosmetics */}
+            {handItem === 'coffee' && (
+              <g className="waddle-cosmetic-coffee">
+                <rect x="74" y="72" width="14" height="15" rx="3" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
+                <path d="M88 74 Q94 79 88 84" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" />
+                <ellipse cx="81" cy="74" rx="5" ry="1.5" fill="#78350f" />
+                <path d="M78 69 Q76 66 79 63" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M83 70 Q85 66 82 62" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.2" strokeLinecap="round" />
+              </g>
+            )}
           </g>
         </g>
       </svg>

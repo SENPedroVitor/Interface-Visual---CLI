@@ -15,6 +15,7 @@ from ..tasks.manager import TaskManager
 from ..tools.registry import ToolRegistry, global_tool_registry
 from ..tools.filesystem import register_filesystem_tools
 from ..tools.shell import register_shell_tools
+from ..tools.stocks import register_stock_tools
 from ..agents.base import Agent, AgentStatus
 from ..agents.manager import ManagerAgent
 from ..agents.worker import WorkerAgent
@@ -43,6 +44,7 @@ class AgentRuntime:
         # Register standard default tools
         register_filesystem_tools(self.tool_registry)
         register_shell_tools(self.tool_registry)
+        register_stock_tools(self.tool_registry)
 
         # Wire database persistence to event bus
         self._setup_event_persistence()
@@ -55,20 +57,54 @@ class AgentRuntime:
         for profile in self.database.list_agent_profiles():
             self.register_agent(WorkerAgent(**profile, event_bus=self.event_bus, tool_registry=self.tool_registry))
 
-    def create_agent(self, name: str, role: str, description: str = "", provider_id: str = "ollama") -> dict[str, Any]:
+    def create_agent(
+        self,
+        name: str,
+        role: str,
+        description: str = "",
+        provider_id: str = "ollama",
+        soul: str = "",
+        skills: Optional[list[str]] = None,
+        memory: Optional[list[dict[str, Any]]] = None,
+        avatar_config: Optional[dict[str, Any]] = None,
+        model_config: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         name = name.strip()
         if not name or len(name) > 32 or not all(c.isalnum() or c in ' -_' for c in name):
             raise ValueError('Use um nome de até 32 caracteres, com letras, números ou espaços.')
         if name.casefold() in {n.casefold() for n in self.agents} | {'system', 'sistema', 'user', 'usuário'}:
             raise ValueError('Já existe um agente com esse nome ou o nome é reservado.')
-        if role not in {'Research', 'Developer', 'Reviewer', 'Executor'}:
+        if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor'}:
             raise ValueError('Escolha uma função válida.')
         if provider_id not in {'ollama', 'codex', 'claude'}:
             raise ValueError('Escolha um motor válido.')
-        agent = WorkerAgent(name=name, role=role, description=description.strip(), provider_id=provider_id, event_bus=self.event_bus, tool_registry=self.tool_registry)
+        agent = WorkerAgent(
+            name=name,
+            role=role,
+            description=description.strip(),
+            provider_id=provider_id,
+            soul=soul or "",
+            skills=skills or [],
+            memory=memory or [],
+            avatar_config=avatar_config or {},
+            model_config=model_config or {},
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+        )
         self.database.save_agent(agent.name, agent.role, agent.description, agent.provider_id)
+        if any([soul, skills, memory, avatar_config, model_config]):
+            self.database.update_agent_full(agent.name, {
+                "role": agent.role,
+                "description": agent.description,
+                "provider_id": agent.provider_id,
+                "soul": agent.soul,
+                "skills": agent.skills,
+                "memory": agent.memory,
+                "avatar_config": agent.avatar_config,
+                "model_config": agent.model_config,
+            })
         self.register_agent(agent)
-        return agent.to_dict()
+        return self.get_agent_details(agent.name)
 
     def update_agent(self, name: str, role: str, description: str = "", provider_id: str = "ollama") -> dict[str, Any]:
         agent = self.get_agent(name)
@@ -76,7 +112,7 @@ class AgentRuntime:
             raise ValueError('Agente não encontrado.')
         if name in {'Quinta', 'Manager', 'Worker'}:
             raise ValueError('Esse agente do sistema não pode ser editado por aqui.')
-        if role not in {'Research', 'Developer', 'Reviewer', 'Executor'}:
+        if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor'}:
             raise ValueError('Escolha uma função válida.')
         if provider_id not in {'ollama', 'codex', 'claude'}:
             raise ValueError('Escolha um motor válido.')
@@ -85,6 +121,92 @@ class AgentRuntime:
         agent.provider_id = provider_id
         self.database.update_agent(agent.name, agent.role, agent.description, agent.provider_id)
         return agent.to_dict()
+
+    def get_agent_details(self, name: str) -> dict[str, Any]:
+        agent = self.get_agent(name)
+        if not agent:
+            raise ValueError('Agente não encontrado.')
+        p = self.database.get_agent_profile(name) or {}
+        return {
+            **agent.to_dict(),
+            "soul": agent.soul or p.get("soul", ""),
+            "skills": agent.skills or p.get("skills", []),
+            "memory": agent.memory or p.get("memory", []),
+            "avatar_config": agent.avatar_config or p.get("avatar_config", {}),
+            "model_config": agent.model_config or p.get("model_config", {}),
+        }
+
+    def update_agent_details(self, name: str, data: dict[str, Any]) -> dict[str, Any]:
+        agent = self.get_agent(name)
+        if not agent:
+            raise ValueError('Agente não encontrado.')
+        if "role" in data and data["role"]:
+            agent.role = data["role"]
+        if "description" in data:
+            agent.description = data["description"].strip()
+        if "provider_id" in data and data["provider_id"]:
+            agent.provider_id = data["provider_id"]
+        if "soul" in data:
+            agent.soul = data["soul"]
+        if "skills" in data:
+            agent.skills = data["skills"]
+        if "memory" in data:
+            agent.memory = data["memory"]
+        if "avatar_config" in data:
+            agent.avatar_config = data["avatar_config"]
+        if "model_config" in data:
+            agent.model_config = data["model_config"]
+
+        self.database.update_agent_full(agent.name, {
+            "role": agent.role,
+            "description": agent.description,
+            "provider_id": agent.provider_id,
+            "soul": agent.soul,
+            "skills": agent.skills,
+            "memory": agent.memory,
+            "avatar_config": agent.avatar_config,
+            "model_config": agent.model_config,
+        })
+        return self.get_agent_details(name)
+
+    # ---------------- Groups / Squads ----------------
+    def list_groups(self) -> list[dict[str, Any]]:
+        return self.database.list_groups()
+
+    def create_group(self, name: str, description: str = "", members: Optional[list[str]] = None, avatar_icon: str = "users") -> dict[str, Any]:
+        name = name.strip()
+        if not name:
+            raise ValueError("O nome do grupo é obrigatório.")
+        import re
+        group_id = f"group-{re.sub(r'[^a-z0-9]', '-', name.lower()).strip('-')}-{uuid.uuid4().hex[:4]}"
+        return self.database.save_group(group_id, name, description, members or [], avatar_icon)
+
+    def update_group(self, group_id: str, name: Optional[str] = None, description: Optional[str] = None, members: Optional[list[str]] = None, avatar_icon: Optional[str] = None) -> Optional[dict[str, Any]]:
+        return self.database.update_group(group_id, name, description, members, avatar_icon)
+
+    def delete_group(self, group_id: str) -> bool:
+        return self.database.delete_group(group_id)
+
+    # ---------------- Backup ----------------
+    def export_backup(self) -> dict[str, Any]:
+        return self.database.export_backup()
+
+    def import_backup(self, data: dict[str, Any]) -> dict[str, Any]:
+        result = self.database.import_backup(data)
+        for profile in self.database.list_agent_profiles():
+            existing = self.get_agent(profile["name"])
+            if existing:
+                existing.role = profile.get("role", existing.role)
+                existing.description = profile.get("description", existing.description)
+                existing.provider_id = profile.get("provider_id", existing.provider_id)
+                existing.soul = profile.get("soul", existing.soul)
+                existing.skills = profile.get("skills", existing.skills)
+                existing.memory = profile.get("memory", existing.memory)
+                existing.avatar_config = profile.get("avatar_config", existing.avatar_config)
+                existing.model_config = profile.get("model_config", existing.model_config)
+            else:
+                self.register_agent(WorkerAgent(**profile, event_bus=self.event_bus, tool_registry=self.tool_registry))
+        return {"success": True, "counts": result}
 
     def create_routine(self, agent_name: str, name: str, prompt: str, schedule: str) -> dict[str, Any]:
         agent = self.get_agent(agent_name)
@@ -145,11 +267,20 @@ class AgentRuntime:
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
         )
+        ma = WorkerAgent(
+            name="Ma",
+            role="Investor",
+            description="Análise de mercado financeiro, cotações da B3, FIIs, indicadores técnicos e carteira de investimentos.",
+            provider_id="ollama",
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+        )
         self.register_agent(quinta)
         self.register_agent(atlas)
         self.register_agent(nero)
         self.register_agent(iris)
-        quinta.collaborators = {"Atlas": atlas, "Nero": nero, "Iris": iris}
+        self.register_agent(ma)
+        quinta.collaborators = {"Atlas": atlas, "Nero": nero, "Iris": iris, "Ma": ma}
 
         # Aliases for backwards compatibility with legacy tests
         self.agents["Manager"] = quinta

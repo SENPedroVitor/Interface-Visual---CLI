@@ -23,4 +23,4 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -f "$ICONS_DIR/hicolor" >/dev/null 2>&1 || true
 fi
 
-echo "✓ Removed $APP_ID launcher and desktop entry"
+echo "[OK] Removed $APP_ID launcher and desktop entry"

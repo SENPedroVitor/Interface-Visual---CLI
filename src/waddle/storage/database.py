@@ -1,6 +1,7 @@
 """SQLite persistence storage for Waddle Agent OS."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -89,6 +90,15 @@ class Database:
                         created_at TEXT NOT NULL
                     );
 
+                    CREATE TABLE IF NOT EXISTS groups (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        members_json TEXT NOT NULL,
+                        avatar_icon TEXT DEFAULT 'users',
+                        created_at TEXT NOT NULL
+                    );
+
                     CREATE TABLE IF NOT EXISTS tool_calls (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         tool_name TEXT NOT NULL,
@@ -106,6 +116,16 @@ class Database:
                 columns = {row["name"] for row in conn.execute("PRAGMA table_info(agent_profiles)")}
                 if "provider_id" not in columns:
                     conn.execute("ALTER TABLE agent_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'ollama'")
+                if "soul" not in columns:
+                    conn.execute("ALTER TABLE agent_profiles ADD COLUMN soul TEXT NOT NULL DEFAULT ''")
+                if "skills_json" not in columns:
+                    conn.execute("ALTER TABLE agent_profiles ADD COLUMN skills_json TEXT NOT NULL DEFAULT '[]'")
+                if "memory_json" not in columns:
+                    conn.execute("ALTER TABLE agent_profiles ADD COLUMN memory_json TEXT NOT NULL DEFAULT '[]'")
+                if "avatar_config_json" not in columns:
+                    conn.execute("ALTER TABLE agent_profiles ADD COLUMN avatar_config_json TEXT NOT NULL DEFAULT '{}'")
+                if "model_config_json" not in columns:
+                    conn.execute("ALTER TABLE agent_profiles ADD COLUMN model_config_json TEXT NOT NULL DEFAULT '{}'")
         finally:
             conn.close()
 
@@ -131,12 +151,204 @@ class Database:
         finally:
             conn.close()
 
+    def _row_to_agent_profile(self, row: Any) -> dict[str, Any]:
+        d = dict(row)
+        try:
+            d["skills"] = json.loads(d.get("skills_json") or "[]")
+        except Exception:
+            d["skills"] = []
+        try:
+            d["memory"] = json.loads(d.get("memory_json") or "[]")
+        except Exception:
+            d["memory"] = []
+        try:
+            d["avatar_config"] = json.loads(d.get("avatar_config_json") or "{}")
+        except Exception:
+            d["avatar_config"] = {}
+        try:
+            d["model_config"] = json.loads(d.get("model_config_json") or "{}")
+        except Exception:
+            d["model_config"] = {}
+        return d
+
+    def get_agent_profile(self, name: str) -> Optional[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute('SELECT * FROM agent_profiles WHERE name = ? COLLATE NOCASE', (name,))
+            row = cursor.fetchone()
+            return self._row_to_agent_profile(row) if row else None
+        finally:
+            conn.close()
+
+    def update_agent_full(self, name: str, data: dict[str, Any]) -> dict[str, Any]:
+        conn = self._get_connection()
+        try:
+            existing = self.get_agent_profile(name)
+            if not existing:
+                # Insert
+                role = data.get("role", "Developer")
+                desc = data.get("description", "")
+                provider = data.get("provider_id", "ollama")
+                soul = data.get("soul", "")
+                skills = json.dumps(data.get("skills", []))
+                memory = json.dumps(data.get("memory", []))
+                avatar = json.dumps(data.get("avatar_config", {}))
+                model = json.dumps(data.get("model_config", {}))
+                with conn:
+                    conn.execute(
+                        """
+                        INSERT INTO agent_profiles (name, role, description, provider_id, soul, skills_json, memory_json, avatar_config_json, model_config_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (name, role, desc, provider, soul, skills, memory, avatar, model),
+                    )
+            else:
+                role = data.get("role", existing.get("role", "Developer"))
+                desc = data.get("description", existing.get("description", ""))
+                provider = data.get("provider_id", existing.get("provider_id", "ollama"))
+                soul = data.get("soul", existing.get("soul", ""))
+                skills = json.dumps(data.get("skills", existing.get("skills", [])))
+                memory = json.dumps(data.get("memory", existing.get("memory", [])))
+                avatar = json.dumps(data.get("avatar_config", existing.get("avatar_config", {})))
+                model = json.dumps(data.get("model_config", existing.get("model_config", {})))
+                with conn:
+                    conn.execute(
+                        """
+                        UPDATE agent_profiles
+                        SET role = ?, description = ?, provider_id = ?, soul = ?, skills_json = ?, memory_json = ?, avatar_config_json = ?, model_config_json = ?
+                        WHERE name = ? COLLATE NOCASE
+                        """,
+                        (role, desc, provider, soul, skills, memory, avatar, model, name),
+                    )
+            return self.get_agent_profile(name) or {}
+        finally:
+            conn.close()
+
     def list_agent_profiles(self) -> list[dict[str, Any]]:
         conn = self._get_connection()
         try:
-            return [dict(row) for row in conn.execute('SELECT * FROM agent_profiles ORDER BY rowid')]
+            return [self._row_to_agent_profile(row) for row in conn.execute('SELECT * FROM agent_profiles ORDER BY rowid')]
         finally:
             conn.close()
+
+    # ---------------- Group CRUD ----------------
+    def save_group(self, group_id: str, name: str, description: str = "", members: Optional[list[str]] = None, avatar_icon: str = "users") -> dict[str, Any]:
+        conn = self._get_connection()
+        now = datetime.now(timezone.utc).isoformat()
+        members_list = members or []
+        try:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO groups (id, name, description, members_json, avatar_icon, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (group_id, name, description, json.dumps(members_list), avatar_icon, now),
+                )
+            return {
+                "id": group_id,
+                "name": name,
+                "description": description,
+                "members": members_list,
+                "avatar_icon": avatar_icon,
+                "created_at": now,
+            }
+        finally:
+            conn.close()
+
+    def get_group(self, group_id: str) -> Optional[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("SELECT * FROM groups WHERE id = ?", (group_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            d["members"] = json.loads(d.get("members_json") or "[]")
+            return d
+        finally:
+            conn.close()
+
+    def update_group(
+        self,
+        group_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        members: Optional[list[str]] = None,
+        avatar_icon: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            existing = self.get_group(group_id)
+            if not existing:
+                return None
+            new_name = name if name is not None else existing["name"]
+            new_desc = description if description is not None else existing["description"]
+            new_members = json.dumps(members if members is not None else existing["members"])
+            new_icon = avatar_icon if avatar_icon is not None else existing.get("avatar_icon", "users")
+            with conn:
+                conn.execute(
+                    "UPDATE groups SET name = ?, description = ?, members_json = ?, avatar_icon = ? WHERE id = ?",
+                    (new_name, new_desc, new_members, new_icon, group_id),
+                )
+            return self.get_group(group_id)
+        finally:
+            conn.close()
+
+    def delete_group(self, group_id: str) -> bool:
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+                return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def list_groups(self) -> list[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("SELECT * FROM groups ORDER BY created_at ASC")
+            groups = []
+            for row in cursor.fetchall():
+                d = dict(row)
+                d["members"] = json.loads(d.get("members_json") or "[]")
+                groups.append(d)
+            return groups
+        finally:
+            conn.close()
+
+    # ---------------- Backup & Export / Import ----------------
+    def export_backup(self) -> dict[str, Any]:
+        return {
+            "version": "1.0",
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "agents": self.list_agent_profiles(),
+            "groups": self.list_groups(),
+            "routines": self.list_routines(),
+            "messages": self.list_messages(limit=500),
+        }
+
+    def import_backup(self, backup_data: dict[str, Any]) -> dict[str, int]:
+        counts = {"agents": 0, "groups": 0, "routines": 0}
+        for agent in backup_data.get("agents", []):
+            if agent.get("name"):
+                self.update_agent_full(agent["name"], agent)
+                counts["agents"] += 1
+        for grp in backup_data.get("groups", []):
+            if grp.get("id") and grp.get("name"):
+                existing = self.get_group(grp["id"])
+                if existing:
+                    self.update_group(grp["id"], grp.get("name"), grp.get("description"), grp.get("members"), grp.get("avatar_icon"))
+                else:
+                    self.save_group(grp["id"], grp["name"], grp.get("description", ""), grp.get("members", []), grp.get("avatar_icon", "users"))
+                counts["groups"] += 1
+        for r in backup_data.get("routines", []):
+            try:
+                self.save_routine(r)
+                counts["routines"] += 1
+            except Exception:
+                pass
+        return counts
 
     def agent_activity(self) -> dict[str, str]:
         conn = self._get_connection()

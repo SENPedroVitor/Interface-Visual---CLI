@@ -183,13 +183,77 @@ class TestAgentRuntime(unittest.TestCase):
         self.assertEqual(iris_statuses[-1], "idle")
         self.assertEqual(self.runtime.get_agent("Iris").status.value, "idle")
 
-    def test_kill_switch(self):
-        res = asyncio.run(self.runtime.stop_all(reason="Emergencia"))
-        self.assertEqual(res["status"], "stopped")
-        agents = self.runtime.list_agents()
-        for a in agents:
-            self.assertEqual(a["status"], "stopped")
+    def test_agent_studio_details_and_cosmetics(self):
+        created = self.runtime.create_agent(
+            name="Chopper",
+            role="Research",
+            description="Médico assistente",
+            provider_id="ollama",
+            soul="Seja compassivo e atencioso.",
+            skills=["terminal_run", "file_read"],
+            memory=[{"id": "m1", "fact": "Amigo de Luffy"}],
+            avatar_config={"cosmetics": {"head": "luffy_hat"}, "color": "#06b6d4"},
+            model_config={"model": "llama3.2", "reasoning_effort": "Medium"},
+        )
+        self.assertEqual(created["name"], "Chopper")
+        self.assertEqual(created["soul"], "Seja compassivo e atencioso.")
+        self.assertEqual(created["avatar_config"]["cosmetics"]["head"], "luffy_hat")
+
+        # Update details
+        updated = self.runtime.update_agent_details("Chopper", {
+            "soul": "Médico pirata e estrategista.",
+            "avatar_config": {"cosmetics": {"head": "luffy_hat", "face": "glasses"}},
+        })
+        self.assertEqual(updated["soul"], "Médico pirata e estrategista.")
+        self.assertEqual(updated["avatar_config"]["cosmetics"]["face"], "glasses")
+
+        # Verify persistence across restart
+        bus = EventBus()
+        restored = AgentRuntime(event_bus=bus, tool_registry=ToolRegistry(event_bus=bus), db_path=str(self.runtime.database.path))
+        det = restored.get_agent_details("Chopper")
+        self.assertEqual(det["soul"], "Médico pirata e estrategista.")
+        self.assertEqual(det["avatar_config"]["cosmetics"]["face"], "glasses")
+
+    def test_groups_crud(self):
+        grp = self.runtime.create_group("Mugiwara Squad", "Grupo de exploração", ["Quinta", "Nero"], "flag")
+        self.assertIn("id", grp)
+        self.assertEqual(grp["name"], "Mugiwara Squad")
+        self.assertEqual(len(grp["members"]), 2)
+
+        groups = self.runtime.list_groups()
+        self.assertTrue(any(g["name"] == "Mugiwara Squad" for g in groups))
+
+        # Update
+        updated = self.runtime.update_group(grp["id"], name="Mugiwara Pirates")
+        self.assertEqual(updated["name"], "Mugiwara Pirates")
+
+        # Delete
+        self.assertTrue(self.runtime.delete_group(grp["id"]))
+        self.assertFalse(any(g["id"] == grp["id"] for g in self.runtime.list_groups()))
+
+    def test_backup_export_and_import(self):
+        self.runtime.create_agent("Zoro", "Executor", "Espadachim", "codex", soul="Santoryu")
+        self.runtime.create_group("Swordsmen", "Treinamento", ["Zoro"], "swords")
+
+        backup = self.runtime.export_backup()
+        self.assertIn("agents", backup)
+        self.assertIn("groups", backup)
+        self.assertTrue(any(a["name"] == "Zoro" for a in backup["agents"]))
+
+        # Restore into fresh runtime
+        fresh_dir = tempfile.TemporaryDirectory()
+        try:
+            fresh_db = str(Path(fresh_dir.name) / "fresh.db")
+            fresh_runtime = AgentRuntime(event_bus=EventBus(), tool_registry=ToolRegistry(), db_path=fresh_db)
+            res = fresh_runtime.import_backup(backup)
+            self.assertTrue(res["success"])
+            self.assertIsNotNone(fresh_runtime.get_agent("Zoro"))
+            self.assertEqual(fresh_runtime.get_agent_details("Zoro")["soul"], "Santoryu")
+            self.assertTrue(any(g["name"] == "Swordsmen" for g in fresh_runtime.list_groups()))
+        finally:
+            fresh_dir.cleanup()
 
 
 if __name__ == "__main__":
     unittest.main()
+

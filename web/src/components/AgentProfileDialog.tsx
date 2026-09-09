@@ -57,7 +57,7 @@ export function AgentProfileDialog({
 
         <label>Função
           <select value={role} onChange={e => setRole(e.target.value)} disabled={isSystemAgent}>
-            {['Research', 'Developer', 'Reviewer', 'Executor'].map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}
+            {['Research', 'Developer', 'Reviewer', 'Executor', 'Investor'].map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}
           </select>
         </label>
 

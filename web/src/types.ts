@@ -7,6 +7,20 @@ export interface Agent {
   status: 'idle' | 'working' | 'waiting' | 'thinking' | 'blocked' | 'stopped' | 'done';
   last_activity_at?: string;
   current_task_id?: string | null;
+  soul?: string;
+  skills?: string[];
+  memory?: any[];
+  avatar_config?: any;
+  model_config?: any;
+}
+
+export interface GroupSummary {
+  id: string;
+  name: string;
+  description: string;
+  members: string[];
+  avatar_icon: string;
+  created_at?: string;
 }
 
 export interface AgentMessage {

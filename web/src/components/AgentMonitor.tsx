@@ -1,5 +1,6 @@
 import React from 'react';
 import { Agent } from '../types';
+import { IconBrain, IconZap, IconGear } from './Icons';
 
 interface AgentMonitorProps {
   agents: Agent[];
@@ -22,8 +23,10 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({ agents }) => {
           agents.map((agent) => (
             <div key={agent.id} className="agent-card">
               <div className="agent-header">
-                <div className="agent-name">
-                  <span>{agent.name === 'Manager' ? '🧠' : '⚡'}</span>
+                <div className="agent-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    {agent.name === 'Manager' ? <IconBrain size={15} /> : <IconZap size={15} />}
+                  </span>
                   <span>{agent.name}</span>
                   <span className="agent-role-badge">{agent.role}</span>
                 </div>
@@ -35,8 +38,10 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({ agents }) => {
               <div className="agent-desc">{agent.description}</div>
 
               {agent.current_task_id && (
-                <div className="agent-active-task">
-                  <span>⚙️ Tarefa:</span>
+                <div className="agent-active-task" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconGear size={13} /> Tarefa:
+                  </span>
                   <span>{agent.current_task_id}</span>
                 </div>
               )}

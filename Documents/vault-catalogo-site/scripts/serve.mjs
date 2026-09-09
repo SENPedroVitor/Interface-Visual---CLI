@@ -42,24 +42,24 @@ const CATEGORY_SETTINGS = {
   },
   series: {
     label: 'Series',
-    noteDir: '📺 Series',
-    coverDir: '📺 Series/Capas',
+    noteDir: 'Series',
+    coverDir: 'Series/Capas',
     coverRelativePrefix: 'Capas/',
     defaultStatus: 'para assistir',
     defaultTags: ['serie', 'tv']
   },
   livros: {
     label: 'Livros',
-    noteDir: '📚 Livros',
-    coverDir: '📚 Livros/Capas',
+    noteDir: 'Livros',
+    coverDir: 'Livros/Capas',
     coverRelativePrefix: 'Capas/',
     defaultStatus: 'para ler',
     defaultTags: ['livro', 'leitura']
   },
   games: {
     label: 'Games',
-    noteDir: '🎮 Games',
-    coverDir: '🎮 Games/Capas',
+    noteDir: 'Games',
+    coverDir: 'Games/Capas',
     coverRelativePrefix: 'Capas/',
     defaultStatus: 'para jogar',
     defaultTags: ['game', 'jogos']

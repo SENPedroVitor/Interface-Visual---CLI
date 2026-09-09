@@ -12,14 +12,14 @@ O objetivo é oferecer uma experiência parecida com um painel de trabalho multi
 
 | Área | Status | Descrição |
 | --- | --- | --- |
-| Interface visual | ✅ | UI web com painel de conversa, agentes, histórico, tarefas e modo desenvolvedor. |
-| Multiagentes | ✅ | Quinta coordena Atlas, Nero e Iris em rodadas locais de discussão. |
-| Ollama local | ✅ | Respostas locais com modelo leve, sem exigir API key. |
-| Codex CLI | ✅ | Motor detectado e reservado para tarefas de implementação quando autenticado. |
-| Claude Code | ✅ | Motor detectado e reservado para revisão/arquitetura quando autenticado. |
-| Histórico | ✅ | Mensagens, eventos, tarefas, artefatos e rotinas persistidos em SQLite. |
-| WebSocket | ✅ | Eventos da equipe transmitidos em tempo real para a interface. |
-| Kill switch | ✅ | Controle para interromper execuções ativas com segurança. |
+| Interface visual | [OK] | UI web com painel de conversa, agentes, histórico, tarefas e modo desenvolvedor. |
+| Multiagentes | [OK] | Quinta coordena Atlas, Nero e Iris em rodadas locais de discussão. |
+| Ollama local | [OK] | Respostas locais com modelo leve, sem exigir API key. |
+| Codex CLI | [OK] | Motor detectado e reservado para tarefas de implementação quando autenticado. |
+| Claude Code | [OK] | Motor detectado e reservado para revisão/arquitetura quando autenticado. |
+| Histórico | [OK] | Mensagens, eventos, tarefas, artefatos e rotinas persistidos em SQLite. |
+| WebSocket | [OK] | Eventos da equipe transmitidos em tempo real para a interface. |
+| Kill switch | [OK] | Controle para interromper execuções ativas com segurança. |
 
 ---
 

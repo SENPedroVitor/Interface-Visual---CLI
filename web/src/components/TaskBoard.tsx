@@ -1,5 +1,6 @@
 import React from 'react';
 import { Task } from '../types';
+import { IconSpin, IconCheck, IconLock, IconAlert, IconBan } from './Icons';
 
 interface TaskBoardProps {
   tasks: Task[];
@@ -9,8 +10,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks }) => {
   return (
     <div className="panel-card">
       <div className="panel-title">
-        <span>Fila & Pipeline de Tarefas</span>
-        <span style={{ fontSize: '12px', color: 'var(--cyan-accent)', fontFamily: 'var(--font-mono)' }}>
+        <span>Quadro de Tarefas</span>
+        <span style={{ fontSize: '12px', color: 'var(--accent-primary)', fontFamily: 'var(--font-mono)' }}>
           {tasks.length} TAREFAS
         </span>
       </div>
@@ -24,12 +25,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks }) => {
           tasks.map((task) => (
             <div key={task.id} className={`task-item ${task.status}`}>
               <div className="task-header">
-                <div className="task-title">
-                  {task.status === 'running' && <span className="animate-spin" style={{ display: 'inline-block', marginRight: '6px' }}>⏳</span>}
-                  {task.status === 'completed' && <span style={{ marginRight: '6px' }}>✅</span>}
-                  {task.status === 'blocked' && <span style={{ marginRight: '6px' }}>🔒</span>}
-                  {task.status === 'failed' && <span style={{ marginRight: '6px' }}>❌</span>}
-                  {task.status === 'cancelled' && <span style={{ marginRight: '6px' }}>⛔</span>}
+                <div className="task-title" style={{ display: 'flex', alignItems: 'center' }}>
+                  {task.status === 'running' && <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px' }}><IconSpin size={14} /></span>}
+                  {task.status === 'completed' && <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px' }}><IconCheck size={14} /></span>}
+                  {task.status === 'blocked' && <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px' }}><IconLock size={14} /></span>}
+                  {task.status === 'failed' && <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px' }}><IconAlert size={14} /></span>}
+                  {task.status === 'cancelled' && <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px' }}><IconBan size={14} /></span>}
                   <span>{task.title}</span>
                 </div>
                 <span className={`status-badge ${task.status}`}>{task.status}</span>

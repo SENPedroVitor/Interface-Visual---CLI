@@ -1254,7 +1254,7 @@ ApplicationWindow {
 
             CapsuleButton {
                 label: "Preferences"
-                tag: "⚙"
+                tag: "CFG"
                 enabled: true
                 onClicked: chatHeader.openPreferences()
             }
@@ -1268,7 +1268,7 @@ ApplicationWindow {
                 }
 
                 WindowButton {
-                    label: chatHeader.maximized ? "❐" : "▢"
+                    label: chatHeader.maximized ? "[]" : "[ ]"
                     onClicked: chatHeader.toggleMaximizeRequested()
                 }
 
@@ -1687,8 +1687,9 @@ ApplicationWindow {
 
                 Text {
                     anchors.centerIn: parent
-                    text: "🐧"
+                    text: "W"
                     font.pixelSize: 16
+                    font.bold: true
                     visible: !miniMascotImage.visible
                 }
 
@@ -1956,7 +1957,7 @@ ApplicationWindow {
                     spacing: 12
 
                     IconBadge {
-                        label: "⚙"
+                        label: "CFG"
                         fillColor: theme.accent
                     }
 
@@ -2377,7 +2378,7 @@ ApplicationWindow {
 
                                         CapsuleButton {
                                             label: "Preferences"
-                                            tag: "⚙"
+                                            tag: "CFG"
                                             enabled: true
                                             onClicked: preferencesDialog.open()
                                         }
@@ -2648,8 +2649,9 @@ ApplicationWindow {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "🐧"
-                                    font.pixelSize: 80
+                                    text: "WADDLE"
+                                    font.pixelSize: 24
+                                    font.bold: true
                                     visible: mascotImage.status === Image.Error
 
                                     SequentialAnimation on scale {

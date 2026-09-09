@@ -59,6 +59,12 @@ class Agent(ABC):
         provider_id: str = "ollama",
         event_bus: Optional[EventBus] = None,
         tool_registry: Optional[ToolRegistry] = None,
+        soul: str = "",
+        skills: Optional[list[str]] = None,
+        memory: Optional[list[dict[str, Any]]] = None,
+        avatar_config: Optional[dict[str, Any]] = None,
+        model_config: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         self.id = f"agent-{name.lower()}"
         self.name = name
@@ -69,6 +75,11 @@ class Agent(ABC):
         self.current_task_id: Optional[str] = None
         self.event_bus = event_bus or global_event_bus
         self.tool_registry = tool_registry or global_tool_registry
+        self.soul: str = soul or ""
+        self.skills: list[str] = skills if skills is not None else []
+        self.memory: list[dict[str, Any]] = memory if memory is not None else []
+        self.avatar_config: dict[str, Any] = avatar_config if avatar_config is not None else {}
+        self.model_config: dict[str, Any] = model_config if model_config is not None else {}
 
     async def set_status(self, new_status: AgentStatus) -> None:
         old_status = self.status
@@ -122,4 +133,9 @@ class Agent(ABC):
             "provider_id": self.provider_id,
             "status": self.status.value if isinstance(self.status, AgentStatus) else self.status,
             "current_task_id": self.current_task_id,
+            "soul": self.soul,
+            "skills": self.skills,
+            "memory": self.memory,
+            "avatar_config": self.avatar_config,
+            "model_config": self.model_config,
         }

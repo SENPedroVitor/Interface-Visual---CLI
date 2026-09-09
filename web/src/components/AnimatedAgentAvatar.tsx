@@ -22,6 +22,7 @@ const DEFAULT_AVATARS: Record<string, string> = {
   Nero: '/waddle.svg',
   Worker: '/waddle.svg',
   Iris: '/waddle.svg',
+  Ma: '/waddle.svg',
 };
 
 export const AnimatedAgentAvatar: React.FC<AnimatedAgentAvatarProps> = ({

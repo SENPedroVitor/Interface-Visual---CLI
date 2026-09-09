@@ -11,6 +11,35 @@ from ..core.event_bus import EventBus
 from ..tools.registry import ToolRegistry
 
 
+def _extract_ticker_from_text(text: str, default: str = "PETR4") -> str:
+    import re
+    # 1. Standard B3 tickers (4 letters + 1-2 digits: PETR4, MXRF11, VALE3)
+    m = re.search(r"\b([A-Za-z]{4}\d{1,2})\b", text)
+    if m:
+        return m.group(1).upper()
+    
+    known = {
+        "IBOV": "^BVSP", "IBOVESPA": "^BVSP", "DOLAR": "USDBRL=X", "DÓLAR": "USDBRL=X",
+        "SP500": "^GSPC", "S&P500": "^GSPC", "BITCOIN": "BTC-USD", "BTC": "BTC-USD",
+        "AAPL": "AAPL", "NVDA": "NVDA", "TSLA": "TSLA", "MSFT": "MSFT", "AMZN": "AMZN",
+        "PETR4": "PETR4", "VALE3": "VALE3", "MXRF11": "MXRF11", "HGLG11": "HGLG11",
+        "XPML11": "XPML11", "ITUB4": "ITUB4", "BBDC4": "BBDC4", "BBAS3": "BBAS3", "WEGE3": "WEGE3"
+    }
+    stop_words = {
+        "COMPRA", "COMPRAR", "VENDA", "VENDER", "COTAS", "COTA", "ACOES", "AÇÕES",
+        "ACAO", "AÇÃO", "DE", "EM", "PARA", "NO", "NA", "QUAL", "COMO", "ESTA",
+        "ESTÁ", "PRECO", "PREÇO", "MINHA", "MEU", "SALDO", "CARTEIRA", "HOJE"
+    }
+    tokens = [w.strip(".,!?:;\"'()").upper() for w in text.split()]
+    for token in tokens:
+        if token in known:
+            return token
+    for token in tokens:
+        if token not in stop_words and (re.match(r"^[A-Z]{3,5}$", token) or re.match(r"^[A-Z]{4}\d{1,2}$", token)):
+            return token
+    return default
+
+
 class ManagerAgent(Agent):
     def __init__(
         self,
@@ -105,6 +134,10 @@ class ManagerAgent(Agent):
                 return "Eu implementaria em fatias pequenas: endpoint de motores, seletor por agente e uma rodada de discussão local testável antes de qualquer integração online."
             if agent.name == "Iris":
                 return "Eu validaria se cada agente deixa claro qual motor usa e se o app continua útil offline, com testes cobrindo o fluxo sem chaves externas."
+            if agent.name == "Ma":
+                return "Posso consultar cotações reais da B3, avaliar indicadores como RSI e médias móveis, e simular trades na carteira sem precisar de chaves pagas."
+        if agent.name == "Ma":
+            return "Estou acompanhando as cotações da B3, Ibovespa e ativos de valor para apoiar a estratégia da equipe."
         if agent.provider_id == "codex":
             return "Posso assumir a parte de implementação quando o Codex estiver autenticado; por enquanto recomendo uma tarefa pequena, testável e com diff claro."
         if agent.provider_id == "claude":
@@ -113,9 +146,18 @@ class ManagerAgent(Agent):
 
     async def discuss_with_team(self, objective: str) -> list[dict[str, str]]:
         """Ask the local team for short role-based opinions and surface them in Quinta's thread."""
+        is_financial = any(
+            w in objective.lower()
+            for w in [
+                "bolsa", "ação", "ações", "acoes", "fii", "invest", "mercado",
+                "cotação", "cotacao", "carteira", "lucro", "dividendo", "ibov",
+                "dólar", "dolar"
+            ]
+        )
+        allowed = {"Atlas", "Nero", "Iris", "Ma"} if is_financial else {"Atlas", "Nero", "Iris"}
         participants = [
             agent for name, agent in self.collaborators.items()
-            if name in {"Atlas", "Nero", "Iris"}
+            if name in allowed
         ]
         opinions: list[dict[str, str]] = []
         for agent in participants:
@@ -150,8 +192,99 @@ class ManagerAgent(Agent):
 
         params = parameters or {}
         tasks_created: list[Task] = []
+        obj_lower = objective.lower()
 
-        if "arquivo" in objective.lower() or "file" in objective.lower() or "salvar" in objective.lower():
+        is_ma_target = speaker.name == "Ma" or params.get("_assigned_agent") == "Ma"
+        fin_keywords = [
+            "cotação", "cotacao", "bolsa", "ação", "acoes", "ações",
+            "fii", "fiis", "dividendo", "dividendos", "ibov", "ibovespa",
+            "carteira", "investimento", "investimentos", "dolar", "dólar",
+            "rsi", "petr4", "vale3", "mxrf11", "itub4", "wege3", "bbas3"
+        ]
+        has_fin = any(w in obj_lower for w in fin_keywords)
+
+        if is_ma_target or has_fin:
+            assigned = "Ma"
+            # 1. Trade
+            if any(op in obj_lower for op in ["comprar", "compra", "vender", "venda"]):
+                import re
+                m_shares = re.search(r"(\d+)\s*(?:ações|acoes|cotas|unidades)?", obj_lower)
+                shares = float(m_shares.group(1)) if m_shares else 10.0
+                ticker = _extract_ticker_from_text(objective, default="PETR4")
+                op = "venda" if "vend" in obj_lower else "compra"
+                task = await self.task_manager.create_task(
+                    title=f"Registrar trade: {op.upper()} {int(shares)} {ticker}",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={
+                        "tool_calls": [
+                            {
+                                "tool": "stock_portfolio_record_trade",
+                                "params": {"ticker": ticker, "operation": op, "shares": shares},
+                            }
+                        ]
+                    },
+                )
+                tasks_created.append(task)
+            # 2. Portfolio view
+            elif any(w in obj_lower for w in ["carteira", "saldo", "patrimônio", "patrimonio", "posições", "posicoes"]):
+                task = await self.task_manager.create_task(
+                    title="Consultar carteira de investimentos",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={
+                        "tool_calls": [
+                            {"tool": "stock_portfolio_view", "params": {}}
+                        ]
+                    },
+                )
+                tasks_created.append(task)
+            # 3. Market overview
+            elif any(w in obj_lower for w in ["mercado", "ibov", "visão", "resumo", "panorâmica", "dólar", "dolar"]) and not any(t in obj_lower for t in ["petr4", "vale3", "mxrf11", "itub4", "wege3"]):
+                task = await self.task_manager.create_task(
+                    title="Consultar visão geral do mercado",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={
+                        "tool_calls": [
+                            {"tool": "stock_market_overview", "params": {}}
+                        ]
+                    },
+                )
+                tasks_created.append(task)
+            # 4. Technical analysis
+            elif any(w in obj_lower for w in ["indicador", "indicadores", "rsi", "média", "media", "técnica", "tecnica"]):
+                ticker = _extract_ticker_from_text(objective, default="PETR4")
+                task = await self.task_manager.create_task(
+                    title=f"Indicadores técnicos de {ticker}",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={
+                        "tool_calls": [
+                            {"tool": "stock_get_technicals", "params": {"ticker": ticker}}
+                        ]
+                    },
+                )
+                tasks_created.append(task)
+            # 5. Stock quote
+            else:
+                import re
+                matches = re.findall(r"\b([A-Za-z]{4}\d{1,2})\b", objective)
+                if not matches:
+                    sym = _extract_ticker_from_text(objective, default="PETR4")
+                    matches = [sym]
+                for sym in matches[:2]:
+                    tools = [{"tool": "stock_get_quote", "params": {"ticker": sym}}]
+                    if "analis" in obj_lower or "indicador" in obj_lower or "fii" in obj_lower:
+                        tools.append({"tool": "stock_get_technicals", "params": {"ticker": sym}})
+                    task = await self.task_manager.create_task(
+                        title=f"Cotação e dados de {sym}",
+                        description=objective,
+                        assigned_agent=assigned,
+                        input_data={"tool_calls": tools},
+                    )
+                    tasks_created.append(task)
+        elif "arquivo" in objective.lower() or "file" in objective.lower() or "salvar" in objective.lower():
             # Step 1: Nero writes the file
             task1 = await self.task_manager.create_task(
                 title=f"Criar arquivo: {objective[:32]}",

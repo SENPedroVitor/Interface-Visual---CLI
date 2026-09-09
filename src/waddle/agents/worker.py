@@ -17,6 +17,7 @@ class WorkerAgent(Agent):
         provider_id: str = "ollama",
         event_bus: Optional[EventBus] = None,
         tool_registry: Optional[ToolRegistry] = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             name=name,
@@ -25,7 +26,83 @@ class WorkerAgent(Agent):
             provider_id=provider_id,
             event_bus=event_bus,
             tool_registry=tool_registry,
+            **kwargs,
         )
+
+    def _format_task_summary(self, task: Task, results: list[dict[str, Any]]) -> str:
+        messages = []
+        for item in results:
+            tname = item.get("tool_name")
+            res = item.get("result")
+            if not item.get("success") or not isinstance(res, dict):
+                continue
+            if tname == "stock_get_quote":
+                ticker = res.get("ticker", "")
+                price = res.get("price")
+                cur = res.get("currency", "BRL")
+                chg = res.get("change")
+                chg_pct = res.get("change_pct")
+                d_low = res.get("day_low")
+                d_high = res.get("day_high")
+                sign = "+" if (chg_pct or 0) >= 0 else ""
+                chg_str = f" ({sign}{chg_pct:.2f}% | {sign}{chg:.2f})" if chg is not None and chg_pct is not None else ""
+                msg = f"**[Cotação] {ticker}**: {cur} {price:.2f}{chg_str}" if price is not None else f"**[Cotação] {ticker}**"
+                if d_low is not None and d_high is not None:
+                    msg += f" | Mín: {cur} {d_low:.2f} | Máx: {cur} {d_high:.2f}"
+                messages.append(msg)
+            elif tname == "stock_get_technicals":
+                ticker = res.get("ticker", "")
+                rsi = res.get("rsi_14")
+                eval_rsi = res.get("rsi_assessment", "")
+                sma20 = res.get("sma_20")
+                sma50 = res.get("sma_50")
+                trend = res.get("trend", "")
+                msg = f"**[Indicadores Técnicos] {ticker}**:\n- RSI (14): {rsi} ({eval_rsi})\n- Tendência: {trend}"
+                if sma20:
+                    msg += f"\n- Média Móvel (SMA 20): R$ {sma20}"
+                if sma50:
+                    msg += f"\n- Média Móvel (SMA 50): R$ {sma50}"
+                messages.append(msg)
+            elif tname == "stock_market_overview":
+                summary = res.get("market_summary", [])
+                lines = ["**[Visão do Mercado]**"]
+                for b in summary:
+                    sign = "+" if (b.get("change_pct") or 0) >= 0 else ""
+                    lines.append(f"- **{b.get('name')}** ({b.get('ticker')}): {b.get('currency')} {b.get('price')} ({sign}{b.get('change_pct')}%)")
+                messages.append("\n".join(lines))
+            elif tname == "stock_portfolio_view":
+                cash = res.get("cash_balance", 0.0)
+                tot_inv = res.get("total_invested", 0.0)
+                pos_val = res.get("positions_value", 0.0)
+                net = res.get("net_worth", 0.0)
+                pnl = res.get("total_pnl_brl", 0.0)
+                pnl_pct = res.get("total_pnl_pct", 0.0)
+                sign = "+" if pnl >= 0 else ""
+                lines = [
+                    "**[Carteira de Investimentos]**",
+                    f"- Saldo em Caixa: R$ {cash:.2f}",
+                    f"- Total Investido: R$ {tot_inv:.2f}",
+                    f"- Valor Atual dos Ativos: R$ {pos_val:.2f}",
+                    f"- Patrimônio Líquido: R$ {net:.2f}",
+                    f"- Rentabilidade Acumulada: {sign}R$ {pnl:.2f} ({sign}{pnl_pct:.2f}%)",
+                ]
+                pos_list = res.get("positions", [])
+                if pos_list:
+                    lines.append("\n**Posições em Custódia:**")
+                    for p in pos_list:
+                        psign = "+" if p.get("pnl_brl", 0) >= 0 else ""
+                        lines.append(
+                            f"- **{p['ticker']}**: {p['shares']} cotas | Médio: R$ {p['average_price']:.2f} | Atual: R$ {p['current_price']:.2f} ({psign}R$ {p['pnl_brl']:.2f})"
+                        )
+                else:
+                    lines.append("- Nenhuma cota ou ação em carteira no momento.")
+                messages.append("\n".join(lines))
+            elif tname == "stock_portfolio_record_trade":
+                messages.append(res.get("message", "Operação financeira realizada com sucesso!"))
+
+        if messages:
+            return "\n\n".join(messages)
+        return f"Successfully finished task: '{task.title}'"
 
     async def execute_task(self, task: Task) -> Any:
         self.current_task_id = task.id
@@ -36,6 +113,7 @@ class WorkerAgent(Agent):
             msg_type="status_update",
             content=f"Starting execution of task: '{task.title}'",
             task_id=task.id,
+            data={"conversation_agent": self.name.lower()},
         )
 
         output: dict[str, Any] = {"summary": f"Completed task: {task.title}", "results": []}
@@ -85,12 +163,13 @@ class WorkerAgent(Agent):
                 else:
                     output["results"].append({"action": "default_execution", "status": "ok"})
 
+            summary = self._format_task_summary(task, output["results"])
             await self.send_message(
                 to_agent="Manager",
                 msg_type="task_result",
-                content=f"Successfully finished task: '{task.title}'",
+                content=summary,
                 task_id=task.id,
-                data=output,
+                data={**output, "conversation_agent": self.name.lower()},
             )
             return output
 

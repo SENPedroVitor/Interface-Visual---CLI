@@ -13,6 +13,11 @@ import threading
 import webbrowser
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
 WEB_DIR = PROJECT_ROOT / "web"
@@ -40,7 +45,7 @@ def kill_process_tree(proc: subprocess.Popen | None):
 
 def main():
     print("=" * 64)
-    print("  🐧 WADDLE AGENT OS — Plataforma Multiagente Autônoma Local")
+    print("  [WADDLE] AGENT OS — Plataforma Multiagente Autonoma Local")
     print("=" * 64)
 
     # 1. Prepare Environment
@@ -58,14 +63,14 @@ def main():
     frontend_proc = None
 
     def cleanup_all():
-        print("\n\n🛑 Encerrando Waddle Agent OS...")
+        print("\n\n[!] Encerrando Waddle Agent OS...")
         if frontend_proc:
             print("   -> Parando Frontend (Vite)...")
             kill_process_tree(frontend_proc)
         if backend_proc:
             print("   -> Parando Backend (FastAPI / Uvicorn)...")
             kill_process_tree(backend_proc)
-        print("✔ Todos os serviços foram finalizados com sucesso.\n")
+        print("[OK] Todos os servicos foram finalizados com sucesso.\n")
 
     # Handle signal interrupts
     def signal_handler(sig, frame):
@@ -78,7 +83,7 @@ def main():
 
     try:
         # 2. Start Backend API
-        print("\n[1/2] 🚀 Iniciando Backend API & WebSocket (Porta 8000)...")
+        print("\n[1/2] [*] Iniciando Backend API & WebSocket (Porta 8000)...")
         backend_cmd = [
             sys.executable,
             "-m",
@@ -105,7 +110,7 @@ def main():
 
         # 3. Start Frontend (React + Vite)
         if has_web:
-            print("[2/2] 🎨 Iniciando Frontend Web UI (Porta 5173 com Hot-Reload)...")
+            print("[2/2] [*] Iniciando Frontend Web UI (Porta 5173 com Hot-Reload)...")
             frontend_cmd = [npm_path, "run", "dev"]
             frontend_proc = subprocess.Popen(
                 frontend_cmd,
@@ -114,13 +119,13 @@ def main():
             )
             target_url = "http://localhost:5173"
         else:
-            print("[2/2] ℹ️ Frontend embutido no Backend via build estático (Porta 8000)...")
+            print("[2/2] [i] Frontend embutido no Backend via build estatico (Porta 8000)...")
 
         print("\n" + "─" * 64)
-        print(f"  ✨ Waddle Agent OS rodando!")
-        print(f"  🌐 Interface Web:  {target_url}")
-        print(f"  🔌 API & Swagger:  http://127.0.0.1:8000/docs")
-        print("  💡 Pressione Ctrl+C para parar ambos os serviços a qualquer momento.")
+        print(f"  [*] Waddle Agent OS rodando!")
+        print(f"  -> Interface Web:  {target_url}")
+        print(f"  -> API & Swagger:  http://127.0.0.1:8000/docs")
+        print("  -> Pressione Ctrl+C para parar ambos os servicos a qualquer momento.")
         print("─" * 64 + "\n")
 
         # Open browser in a separate thread
@@ -134,10 +139,10 @@ def main():
         while True:
             time.sleep(0.5)
             if backend_proc.poll() is not None:
-                print("⚠️ Backend foi encerrado inesperadamente.")
+                print("[!] Backend foi encerrado inesperadamente.")
                 break
             if frontend_proc and frontend_proc.poll() is not None:
-                print("⚠️ Frontend foi encerrado inesperadamente.")
+                print("[!] Frontend foi encerrado inesperadamente.")
                 break
 
     except KeyboardInterrupt:

@@ -12,9 +12,9 @@ const vaultRoot = process.env.VAULT_PATH || '/home/faux/Documents/vault-faux';
 
 const CATEGORY_CONFIG = [
   { key: 'filmes', label: 'Filmes', dir: 'Filmes', exclude: ['galeria', 'template'] },
-  { key: 'series', label: 'Series', dir: '📺 Series', exclude: ['galeria', 'template'] },
-  { key: 'livros', label: 'Livros', dir: '📚 Livros', exclude: ['galeria', 'template'] },
-  { key: 'games', label: 'Games', dir: '🎮 Games', exclude: ['galeria', 'template'] },
+  { key: 'series', label: 'Series', dir: 'Series', exclude: ['galeria', 'template'] },
+  { key: 'livros', label: 'Livros', dir: 'Livros', exclude: ['galeria', 'template'] },
+  { key: 'games', label: 'Games', dir: 'Games', exclude: ['galeria', 'template'] },
   { key: 'musicas', label: 'Musicas', dir: 'Musicas/Albums', exclude: ['galeria', 'template', 'readme'] },
   { key: 'outros', label: 'Outros', dir: 'Catalogo/Outros', exclude: ['galeria', 'template', 'readme'] }
 ];

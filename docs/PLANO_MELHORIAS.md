@@ -31,28 +31,28 @@ Transformar o Waddle em um app desktop nativo, leve e confiável para operar CLI
 
 ~~**1. Paths hardcoded para o usuário do desenvolvedor** (`native_controller.py` ~L387):~~
 ~~Os caminhos `/home/faux/.npm-global/bin` e `/home/faux/.nvm/versions/node/...` estão hardcoded,~~
-~~quebrando o app em qualquer outra máquina.~~ ✅ **CORRIGIDO**
+~~quebrando o app em qualquer outra máquina.~~ [OK] **CORRIGIDO**
 
 ~~**2. Import duplicado dentro de função** (`connectBackend`):~~
-~~`import subprocess as sp` é feito dentro da função, mas `subprocess` já está importado no topo do arquivo.~~ ✅ **CORRIGIDO**
+~~`import subprocess as sp` é feito dentro da função, mas `subprocess` já está importado no topo do arquivo.~~ [OK] **CORRIGIDO**
 
 ### O que ainda está incompleto
 
 | Sprint | Item | Status |
 |--------|------|--------|
-| Sprint 1 | Detectar quando CLI está realmente pronto (não marcar `ready` imediatamente) | ❌ |
-| Sprint 1 | Botão "Reconectar" em destaque quando status = error | ✅ |
-| Sprint 1 | Salvar e restaurar último backend usado | ✅ |
-| Sprint 1 | `canSend` desabilitar no estado `error` | ✅ |
-| Sprint 2 | Tabs `Work` e `Sandbox` desabilitadas permanentemente | ❌ |
-| Sprint 2 | Background pixel art não responde ao resize | ❌ |
-| Sprint 3 | Filtro de noise do Qwen praticamente desligado | ✅ |
-| Sprint 3 | Debounce nos writes do histórico SQLite | ✅ |
-| Sprint 4 | Tela de preferências (vault, comandos, nome) | ❌ |
-| Sprint 4 | Script de build/distribuição | ❌ |
-| Sprint 5 | Código legado ainda presente (bridge.py, repl.py, backends/, cli.py) | ✅ |
-| Sprint 5 | README ainda foca no CLI antigo | ✅ |
-| Sprint 6 | Zero testes, zero CI | ❌ |
+| Sprint 1 | Detectar quando CLI está realmente pronto (não marcar `ready` imediatamente) | [X] |
+| Sprint 1 | Botão "Reconectar" em destaque quando status = error | [OK] |
+| Sprint 1 | Salvar e restaurar último backend usado | [OK] |
+| Sprint 1 | `canSend` desabilitar no estado `error` | [OK] |
+| Sprint 2 | Tabs `Work` e `Sandbox` desabilitadas permanentemente | [X] |
+| Sprint 2 | Background pixel art não responde ao resize | [X] |
+| Sprint 3 | Filtro de noise do Qwen praticamente desligado | [OK] |
+| Sprint 3 | Debounce nos writes do histórico SQLite | [OK] |
+| Sprint 4 | Tela de preferências (vault, comandos, nome) | [X] |
+| Sprint 4 | Script de build/distribuição | [X] |
+| Sprint 5 | Código legado ainda presente (bridge.py, repl.py, backends/, cli.py) | [OK] |
+| Sprint 5 | README ainda foca no CLI antigo | [OK] |
+| Sprint 6 | Zero testes, zero CI | [X] |
 
 ### Novos problemas identificados (não mapeados antes)
 
@@ -65,12 +65,12 @@ Transformar o Waddle em um app desktop nativo, leve e confiável para operar CLI
 
 ---
 
-## ✅ Hotfix Imediato — CONCLUÍDO
+## [OK] Hotfix Imediato — CONCLUÍDO
 
 ~~**Corrigir paths hardcoded e import duplicado em `native_controller.py`.**~~
 
-- ✅ Substituir lista `base_paths` hardcoded por construção dinâmica com `Path.home()` + detecção automática da versão NVM mais recente
-- ✅ Remover `import subprocess as sp` de dentro da função (já importado no topo)
+- [OK] Substituir lista `base_paths` hardcoded por construção dinâmica com `Path.home()` + detecção automática da versão NVM mais recente
+- [OK] Remover `import subprocess as sp` de dentro da função (já importado no topo)
 
 **Arquivo:** `src/cli_harness/native_controller.py`
 
@@ -186,10 +186,10 @@ Remover legado e deixar a base mais clara antes de adicionar novas features.
 
 - [x] Legado `desktop/` removido
 - [x] **Arquivar/remover código legado:**
-  - ~~`src/cli_harness/bridge.py`~~ — removido ✅
-  - ~~`src/cli_harness/repl.py`~~ — removido ✅
-  - ~~`src/cli_harness/backends/`~~ — removido ✅
-  - ~~`src/cli_harness/cli.py`~~ — removido ✅
+  - ~~`src/cli_harness/bridge.py`~~ — removido [OK]
+  - ~~`src/cli_harness/repl.py`~~ — removido [OK]
+  - ~~`src/cli_harness/backends/`~~ — removido [OK]
+  - ~~`src/cli_harness/cli.py`~~ — removido [OK]
   - `src/cli_harness/history_cli.py` — mantido (útil para debug de sessões)
 - [x] Reescrever `README.md` focando no fluxo nativo (install → abrir → usar)
 - [x] Remover import duplicado `subprocess as sp` de dentro de `connectBackend`

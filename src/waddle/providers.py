@@ -142,3 +142,61 @@ class ProviderRegistry:
         except Exception:
             return False
         return result.returncode == 0 and "NAME" in result.stdout
+
+    def list_provider_models(self, provider_id: str) -> list[dict[str, Any]]:
+        pid = provider_id.lower()
+        if pid == "ollama":
+            models = []
+            try:
+                import urllib.request
+                import json
+                req = urllib.request.Request("http://127.0.0.1:11434/api/tags", headers={"User-Agent": "Waddle"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    for m in data.get("models", []):
+                        m_name = m.get("name", "")
+                        details = m.get("details", {})
+                        param_size = details.get("parameter_size", "")
+                        models.append({
+                            "id": m_name,
+                            "name": m_name,
+                            "tag": param_size or "Local",
+                            "description": f"Modelo local ({details.get('family', 'ollama')})",
+                            "is_default": len(models) == 0,
+                            "size_bytes": m.get("size", 0),
+                        })
+            except Exception:
+                pass
+            if not models:
+                models = [
+                    {"id": "qwen2.5:0.5b", "name": "Qwen 2.5 (0.5B)", "tag": "Fast", "description": "Ultraleve para CPU local", "is_default": True},
+                    {"id": "llama3.2:1b", "name": "Llama 3.2 (1B)", "tag": "Compact", "description": "Rápido e eficiente", "is_default": False},
+                    {"id": "llama3.2:3b", "name": "Llama 3.2 (3B)", "tag": "Balanced", "description": "Excelente precisão local", "is_default": False},
+                    {"id": "deepseek-r1:7b", "name": "DeepSeek R1 (7B)", "tag": "Reasoning", "description": "Raciocínio analítico avançado", "is_default": False},
+                    {"id": "mistral:7b", "name": "Mistral (7B)", "tag": "Standard", "description": "Potente para código e tarefas", "is_default": False},
+                ]
+            return models
+        elif pid == "claude":
+            return [
+                {"id": "claude-sonnet-5", "name": "Claude Sonnet 5", "tag": "Default", "description": "Modelo de referência para codificação e raciocínio", "is_default": True},
+                {"id": "claude-fable-5.1", "name": "Claude Fable 5.1", "tag": "Creative", "description": "Criatividade e análise textual aprofundada", "is_default": False},
+                {"id": "claude-fable-5", "name": "Claude Fable 5", "tag": "Stable", "description": "Versão estável para fluxos longos", "is_default": False},
+                {"id": "claude-opus-5", "name": "Claude Opus 5", "tag": "Heavy", "description": "Máxima capacidade cognitiva para arquiteturas complexas", "is_default": False},
+                {"id": "claude-haiku-4.5", "name": "Claude Haiku 4.5", "tag": "Fast", "description": "Respostas instantâneas e baixo consumo", "is_default": False},
+            ]
+        elif pid in {"codex", "openai"}:
+            return [
+                {"id": "gpt-4o", "name": "GPT-4o", "tag": "Default", "description": "Modelo multimodal veloz e inteligente", "is_default": True},
+                {"id": "gpt-4o-mini", "name": "GPT-4o mini", "tag": "Fast", "description": "Econômico e ágil", "is_default": False},
+                {"id": "o1", "name": "OpenAI o1", "tag": "Reasoning", "description": "Cadeia de pensamento profunda", "is_default": False},
+                {"id": "o3-mini", "name": "OpenAI o3-mini", "tag": "Reasoning", "description": "Raciocínio rápido para código e matemática", "is_default": False},
+            ]
+        elif pid == "gemini":
+            return [
+                {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "tag": "Default", "description": "Velocidade extrema e janela de contexto estendida", "is_default": True},
+                {"id": "gemini-2.0-pro", "name": "Gemini 2.0 Pro", "tag": "Powerful", "description": "Alta inteligência e raciocínio complexo", "is_default": False},
+                {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "tag": "Fast", "description": "Versátil para tarefas cotidianas", "is_default": False},
+            ]
+        return [
+            {"id": "default", "name": f"{provider_id.title()} Default", "tag": "Default", "description": "Modelo padrão do provedor", "is_default": True}
+        ]

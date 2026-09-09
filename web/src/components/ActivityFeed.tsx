@@ -20,7 +20,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ events }) => {
 
     if (event.type === 'agent.message') {
       const msg = data.message || {};
-      return `${msg.from} ➔ ${msg.to} [${msg.type}]: "${msg.content}"`;
+      return `${msg.from} -> ${msg.to} [${msg.type}]: "${msg.content}"`;
     }
     if (event.type === 'task.created') {
       return `Nova tarefa criada: "${data.task?.title || data.task_id}"`;
@@ -38,7 +38,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ events }) => {
       return `Tool [${data.tool_name}] finalizada em ${data.duration_ms}ms`;
     }
     if (event.type === 'system.kill_switch') {
-      return `🛑 KILL SWITCH: Todas as tarefas foram interrompidas (${data.reason})`;
+      return `[KILL SWITCH]: Todas as tarefas foram interrompidas (${data.reason})`;
     }
     if (event.type === 'run.started') {
       return `Novo objetivo iniciado: "${data.objective}"`;

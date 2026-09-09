@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ProviderInfo, Task, ToolInfo, WaddleEvent } from '../types';
+import { IconClose } from './Icons';
 
 interface DeveloperDrawerProps {
   isOpen: boolean;
@@ -32,7 +33,9 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
       <aside className="dev-drawer">
         <div className="dev-drawer-header">
           <span className="dev-drawer-title">Developer Mode</span>
-          <button className="btn-dev-close" onClick={onClose} title="Fechar">✕</button>
+          <button className="btn-dev-close" onClick={onClose} title="Fechar">
+            <IconClose size={14} />
+          </button>
         </div>
 
         {/* Tab nav */}

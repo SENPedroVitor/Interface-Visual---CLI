@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Agent, ArtifactSummary, ProviderInfo, RoutineSummary, Task, ToolInfo, WaddleEvent, SystemStatus } from './types';
+import { Agent, ArtifactSummary, ProviderInfo, RoutineSummary, Task, ToolInfo, WaddleEvent, SystemStatus, GroupSummary } from './types';
 import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, connectWebSocket } from './services/api';
 import { AgentSidebar } from './components/AgentSidebar';
 import { ConversationView, ChatItem } from './components/ConversationView';
 import { DeveloperDrawer } from './components/DeveloperDrawer';
 import { useTimeOfDay } from './hooks/useTimeOfDay';
 import { useAgentPresence } from './hooks/useAgentPresence';
-import { NewAgentDialog } from './components/NewAgentDialog';
-import { AgentProfileDialog } from './components/AgentProfileDialog';
+import { AgentStudioModal } from './components/AgentStudioModal';
+import { GlobalActionMenu } from './components/GlobalActionMenu';
+import { NewGroupDialog } from './components/NewGroupDialog';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -32,10 +33,10 @@ function describeToolCall(toolName: string, params: Record<string, any> = {}): s
 }
 
 const TOOL_ICONS: Record<string, string> = {
-  write_file: '📝',
-  read_file: '📖',
-  list_directory: '📂',
-  run_command: '⚡',
+  write_file: 'write_file',
+  read_file: 'read_file',
+  list_directory: 'list_directory',
+  run_command: 'run_command',
 };
 
 const THEME_STORAGE_KEY = 'waddle-theme';
@@ -84,6 +85,7 @@ export const App: React.FC = () => {
   }, [dayPart]);
 
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tools, setTools] = useState<ToolInfo[]>([]);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
@@ -92,14 +94,21 @@ export const App: React.FC = () => {
   const [artifacts, setArtifacts] = useState<ArtifactSummary[]>([]);
   const [routines, setRoutines] = useState<RoutineSummary[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>(undefined);
   const [systemStatus, setSystemStatus] = useState<'active' | 'stopped'>('active');
   const [apiError, setApiError] = useState('');
   const [isSending, setIsSending] = useState<boolean>(false);
   const [isKillSwitchActive, setIsKillSwitchActive] = useState<boolean>(false);
   const [isDevDrawerOpen, setIsDevDrawerOpen] = useState<boolean>(false);
-  const [isNewAgentOpen, setIsNewAgentOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Modals state
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<DOMRect | null>(null);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [studioAgent, setStudioAgent] = useState<Agent | null>(null);
+  const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [presentation, setPresentation] = useState(false);
+
   useEffect(() => {
     const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setPresentation(false); };
     window.addEventListener('keydown', escape);
@@ -111,18 +120,28 @@ export const App: React.FC = () => {
 
   const visibleAgents = useAgentPresence(agents, events);
   const selectedAgent = visibleAgents.find((a) => a.id === selectedAgentId) || visibleAgents[0] || null;
-  // The websocket handler below is created once inside an effect and only
-  // recreated when refreshData's identity changes — it can't just close
-  // over `selectedAgent` and expect it to stay current, so this ref is kept
-  // in sync on every render instead.
+  const activeGroup = groups.find((g) => g.id === selectedGroupId);
+
+  const currentViewAgent: Agent | null = activeGroup
+    ? {
+        id: activeGroup.id,
+        name: activeGroup.name,
+        role: `Squad (${activeGroup.members.length} bots)`,
+        description: activeGroup.description || 'Squad colaborativo de agentes.',
+        status: 'idle',
+        avatar_config: {
+          color: '#a855f7',
+          marking: 'none',
+          cosmetics: { head: 'crown' },
+        },
+      }
+    : selectedAgent;
+
   const selectedAgentRef = useRef(selectedAgent);
   useEffect(() => {
     selectedAgentRef.current = selectedAgent;
   }, [selectedAgent]);
 
-  // Real content written by write_file, cached by task_id so the artifact
-  // card (built later, from the task_result message) can show what was
-  // actually written — not just its path and byte count.
   const writeContentCacheRef = useRef<Record<string, string>>({});
   const historyHydratedRef = useRef(false);
 
@@ -139,6 +158,15 @@ export const App: React.FC = () => {
         const quinta = agentsList.find((a) => a.name === 'Quinta') || agentsList[0];
         setSelectedAgentId(prev => prev || quinta.id);
       }
+
+      // Fetch Groups
+      try {
+        const gRes = await fetch('/api/groups');
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          setGroups(gData || []);
+        }
+      } catch (_) {}
 
       const toolsData = await fetchTools();
       setTools(toolsData || []);
@@ -292,7 +320,7 @@ export const App: React.FC = () => {
             senderName: agent.name,
             activityStatus: 'Em andamento',
             activityState: 'running',
-            activityIcon: TOOL_ICONS[data.tool_name] || '🔧',
+            activityIcon: TOOL_ICONS[data.tool_name] || 'tool',
             content: describeToolCall(data.tool_name, data.params || {}),
             timestamp: ts,
           },
@@ -343,8 +371,46 @@ export const App: React.FC = () => {
     };
   }, [refreshData]);
 
+  const handleExportBackup = async () => {
+    try {
+      const res = await fetch('/api/backup/export');
+      if (!res.ok) throw new Error('Falha ao exportar backup');
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `waddle-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || 'Erro ao exportar backup.');
+    }
+  };
+
+  const handleImportBackup = async (file: File) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const res = await fetch('/api/backup/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: parsed }),
+      });
+      if (!res.ok) throw new Error('Falha ao importar backup.');
+      await refreshData();
+      alert('Backup restaurado com sucesso!');
+    } catch (err: any) {
+      alert(err.message || 'Erro ao importar backup.');
+    }
+  };
+
   const handleSendMessage = async (text: string) => {
+    if (!text.trim() || isSending) return;
+
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const targetAgentName = activeGroup ? activeGroup.members[0] || 'Quinta' : selectedAgent?.name || 'Quinta';
+    const conversationKey = activeGroup ? activeGroup.name.toLowerCase() : (selectedAgent?.name || 'Quinta').toLowerCase();
 
     setChatItems((prev) => [
       ...prev,
@@ -352,7 +418,7 @@ export const App: React.FC = () => {
         id: String(Date.now()),
         type: 'message',
         sender: 'user',
-        agentKey: (selectedAgent?.name || 'Quinta').toLowerCase(),
+        agentKey: conversationKey,
         content: text,
         timestamp: ts,
       },
@@ -360,10 +426,10 @@ export const App: React.FC = () => {
 
     setIsSending(true);
     try {
-      await submitObjective(text, undefined, selectedAgent?.name);
+      await submitObjective(text, undefined, targetAgentName);
       await refreshData();
     } catch (err) {
-      setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: (selectedAgent?.name || 'Quinta').toLowerCase(), content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);
+      setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: conversationKey, content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);
     } finally {
       setIsSending(false);
     }
@@ -381,13 +447,29 @@ export const App: React.FC = () => {
     }
   };
 
+  const filteredChatItems = activeGroup
+    ? chatItems.filter(item =>
+        activeGroup.members.some(m => m.toLowerCase() === item.agentKey) ||
+        item.agentKey === activeGroup.name.toLowerCase() ||
+        item.agentKey === activeGroup.id
+      )
+    : chatItems.filter(item => item.agentKey === (selectedAgent?.name || 'Quinta').toLowerCase());
+
   return (
     <div className={`app-shell ${presentation ? 'is-presentation' : ''}`}>
       <AgentSidebar
         agents={visibleAgents}
+        groups={groups}
         tasks={tasks}
         selectedAgentId={selectedAgentId}
-        onSelectAgent={setSelectedAgentId}
+        selectedGroupId={selectedGroupId}
+        onSelectAgent={(id) => {
+          setSelectedAgentId(id);
+          setSelectedGroupId(undefined);
+        }}
+        onSelectGroup={(id) => {
+          setSelectedGroupId(id);
+        }}
         onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
         onKillSwitch={handleKillSwitch}
         isKillSwitchActive={isKillSwitchActive}
@@ -395,13 +477,20 @@ export const App: React.FC = () => {
         agentPreviews={agentPreviews}
         isDarkTheme={isDark}
         onToggleTheme={toggleTheme}
-        onNewAgent={() => setIsNewAgentOpen(true)}
+        onOpenActionMenu={(rect) => {
+          setActionMenuAnchor(rect);
+          setIsActionMenuOpen(true);
+        }}
+        onCustomizeAgent={(agent) => {
+          setStudioAgent(agent);
+          setIsStudioOpen(true);
+        }}
       />
 
       <ConversationView
-        key={selectedAgent?.id}
-        currentAgent={selectedAgent}
-        chatItems={chatItems.filter((item) => item.agentKey === (selectedAgent?.name || 'Quinta').toLowerCase())}
+        key={selectedGroupId || selectedAgent?.id}
+        currentAgent={currentViewAgent}
+        chatItems={filteredChatItems}
         onSendMessage={handleSendMessage}
         isSending={isSending}
         presentation={presentation}
@@ -409,25 +498,52 @@ export const App: React.FC = () => {
         tasks={tasks}
         artifacts={artifacts}
         routines={routines}
-        onEditAgent={() => setIsProfileOpen(true)}
+        onEditAgent={() => {
+          setStudioAgent(selectedAgent);
+          setIsStudioOpen(true);
+        }}
         apiError={apiError}
       />
 
-      {isNewAgentOpen && <NewAgentDialog onClose={() => setIsNewAgentOpen(false)} onCreated={agent => {
-        setAgents(prev => [...prev.filter(a => a.id !== agent.id), agent]);
-        setSelectedAgentId(agent.id);
-        refreshData();
-      }} />}
-
-      {isProfileOpen && selectedAgent && <AgentProfileDialog
-        agent={selectedAgent}
-        providers={providers}
-        onClose={() => setIsProfileOpen(false)}
-        onSaved={agent => {
-          setAgents(prev => prev.map(item => item.id === agent.id ? { ...item, ...agent } : item));
-          refreshData();
+      <GlobalActionMenu
+        isOpen={isActionMenuOpen}
+        anchorRect={actionMenuAnchor}
+        onClose={() => setIsActionMenuOpen(false)}
+        onNewBot={() => {
+          setStudioAgent(null);
+          setIsStudioOpen(true);
         }}
-      />}
+        onNewGroup={() => setIsNewGroupOpen(true)}
+        onExportBackup={handleExportBackup}
+        onImportBackup={handleImportBackup}
+      />
+
+      {isStudioOpen && (
+        <AgentStudioModal
+          isOpen={isStudioOpen}
+          agent={studioAgent}
+          onClose={() => setIsStudioOpen(false)}
+          onSaved={async (saved) => {
+            await refreshData();
+            if (saved?.name) {
+              const found = agents.find(a => a.name.toLowerCase() === saved.name.toLowerCase());
+              if (found) setSelectedAgentId(found.id);
+            }
+          }}
+        />
+      )}
+
+      {isNewGroupOpen && (
+        <NewGroupDialog
+          isOpen={isNewGroupOpen}
+          agents={visibleAgents}
+          onClose={() => setIsNewGroupOpen(false)}
+          onCreated={async (newGrp) => {
+            await refreshData();
+            setSelectedGroupId(newGrp.id);
+          }}
+        />
+      )}
 
       <DeveloperDrawer
         isOpen={isDevDrawerOpen}

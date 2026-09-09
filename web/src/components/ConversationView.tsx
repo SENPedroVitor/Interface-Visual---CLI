@@ -4,6 +4,7 @@ import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
 import { RevealText } from './RevealText';
 import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
+import { VectorIcon, IconDocument } from './Icons';
 
 export interface ChatItem {
   id: string;
@@ -53,6 +54,7 @@ const SENDER_COLOR_CLASS: Record<string, string> = {
   atlas:  'atlas',
   nero:   'nero',
   iris:   'iris',
+  ma:     'ma',
   system: 'system',
 };
 
@@ -60,6 +62,13 @@ const QUICK_SUGGESTIONS = [
   'Analise a arquitetura do projeto e sugira melhorias.',
   'Crie um arquivo de documentação com os agentes.',
   'Execute a verificação de integridade do sistema.',
+];
+
+const INVESTOR_SUGGESTIONS = [
+  'Como está o Ibovespa e o Dólar hoje?',
+  'Qual a cotação e indicadores de PETR4 e VALE3?',
+  'Analise o FII MXRF11 para dividendos.',
+  'Como está o saldo e rentabilidade da minha carteira?',
 ];
 
 /** Renders `code`-wrapped segments (real file paths/commands) as inline code chips. */
@@ -213,7 +222,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 : currentAgent?.description || 'Pronto para trabalhar.'}
             </p>
             <div className="quick-actions">
-              {QUICK_SUGGESTIONS.map((s, i) => (
+              {(agentName === 'Ma' || currentAgent?.role === 'Investor' ? INVESTOR_SUGGESTIONS : QUICK_SUGGESTIONS).map((s, i) => (
                 <button key={i} className="quick-action-btn" onClick={() => setInputText(s)}>
                   {s}
                 </button>
@@ -277,7 +286,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                   <div key={item.id} className="activity-inline">
                     <div className="activity-inline-header">
                       <span className={`activity-dot ${item.activityState || 'running'}`} />
-                      {item.activityIcon && <span className="activity-icon">{item.activityIcon}</span>}
+                      {item.activityIcon && (
+                        <span className="activity-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <VectorIcon name={item.activityIcon} size={14} />
+                        </span>
+                      )}
                       <span>{item.senderName || 'Agente'}</span>
                       <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>
                         · {item.activityStatus || 'Em andamento'}
@@ -297,7 +310,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                   <div key={item.id} className="artifact-card" style={{ margin: '2px 20px' }}>
                     <div className="artifact-card-header">
                       <div className="artifact-file-info">
-                        <div className="artifact-icon-box">📄</div>
+                        <div className="artifact-icon-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <IconDocument size={18} />
+                        </div>
                         <div>
                           <div className="artifact-name">{item.artifact.filename}</div>
                           <div className="artifact-sub">

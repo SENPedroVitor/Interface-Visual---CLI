@@ -3,9 +3,9 @@
 Esse projeto gera um site estatico lendo os markdowns do seu vault:
 
 - `Filmes`
-- `📺 Series`
-- `📚 Livros`
-- `🎮 Games`
+- `Series`
+- `Livros`
+- `Games`
 - `Musicas/Albums`
 - `Catalogo/Outros`
 
