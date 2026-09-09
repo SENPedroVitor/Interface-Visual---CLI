@@ -1,4 +1,4 @@
-import { Agent, AgentMessage, HistorySnapshot, ProviderInfo, RoutineSummary, SystemStatus, ToolInfo, WaddleEvent } from '../types';
+import { Agent, AgentMessage, HistorySnapshot, ProviderInfo, RoutineDetail, RoutineSummary, SystemStatus, ToolInfo, WaddleEvent } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000';
 const WS_BASE = 'ws://127.0.0.1:8000';
@@ -76,6 +76,42 @@ export async function createRoutine(routine: {
   if (!res.ok) {
     const body = await res.json();
     throw new Error(typeof body.detail === 'string' ? body.detail : 'Não foi possível criar a rotina.');
+  }
+  return res.json();
+}
+
+export async function fetchRoutine(routineId: string): Promise<RoutineDetail> {
+  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`);
+  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+  return res.json();
+}
+
+export async function updateRoutine(
+  routineId: string,
+  patch: Partial<{ name: string; prompt: string; schedule: string; status: string }>
+): Promise<RoutineSummary> {
+  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(typeof body.detail === 'string' ? body.detail : 'Não foi possível atualizar a rotina.');
+  }
+  return res.json();
+}
+
+export async function deleteRoutine(routineId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+}
+
+export async function runRoutineNow(routineId: string): Promise<{ id: string; status: string; triggered_at: string }> {
+  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}/run`, { method: 'POST' });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(typeof body.detail === 'string' ? body.detail : 'Não foi possível executar a rotina agora.');
   }
   return res.json();
 }

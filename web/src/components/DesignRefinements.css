@@ -25,6 +25,8 @@
 .agent-memory-grid h3 { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
 .agent-memory-grid p { color: var(--text-muted); font-size: 12px; line-height: 1.45; }
 .memory-row { display: grid; gap: 2px; padding: 7px 0; border-top: 1px solid var(--hairline); }
+.memory-row-clickable { width: 100%; background: none; border: none; border-top: 1px solid var(--hairline); font: inherit; text-align: left; cursor: pointer; border-radius: 6px; transition: background 0.15s; }
+.memory-row-clickable:hover { background: var(--bg-hover); }
 .memory-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: 12px; }
 .memory-row small { color: var(--text-muted); font-size: 11px; }
 .connection-banner { align-self: center; width: min(520px, calc(100% - 32px)); margin: 0 16px 12px; padding: 9px 12px; border: 1px solid rgba(220,123,115,.28); border-radius: 12px; background: rgba(220,123,115,.10); color: #dc7b73; font-size: 12px; text-align: center; }

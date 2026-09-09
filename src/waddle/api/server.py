@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,7 +67,12 @@ class AgentRequest(BaseModel):
     skills: Optional[list[str]] = None
     memory: Optional[list[dict[str, Any]]] = None
     avatar_config: Optional[dict[str, Any]] = None
-    model_config: Optional[dict[str, Any]] = None
+    # `model_config` is a reserved attribute name on pydantic's BaseModel
+    # (it holds the model's own ConfigDict) — the field is renamed at the
+    # Python level but keeps its `model_config` wire name via alias, so the
+    # frontend payload and the rest of the stack (AgentRuntime, SQLite
+    # column, etc.) are unaffected.
+    model_settings: Optional[dict[str, Any]] = Field(default=None, alias="model_config")
 
 
 class AgentUpdateRequest(BaseModel):
@@ -76,7 +83,7 @@ class AgentUpdateRequest(BaseModel):
     skills: Optional[list[str]] = None
     memory: Optional[list[dict[str, Any]]] = None
     avatar_config: Optional[dict[str, Any]] = None
-    model_config: Optional[dict[str, Any]] = None
+    model_settings: Optional[dict[str, Any]] = Field(default=None, alias="model_config")
 
 
 class GroupRequest(BaseModel):
@@ -104,6 +111,13 @@ class RoutineRequest(BaseModel):
     schedule: str = Field(min_length=1, max_length=120)
 
 
+class RoutineUpdateRequest(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    prompt: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    schedule: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    status: Optional[str] = None
+
+
 @app.post('/api/agents', status_code=201)
 async def create_agent(req: AgentRequest) -> dict[str, Any]:
     try:
@@ -116,7 +130,7 @@ async def create_agent(req: AgentRequest) -> dict[str, Any]:
             skills=req.skills,
             memory=req.memory,
             avatar_config=req.avatar_config,
-            model_config=req.model_config,
+            model_config=req.model_settings,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -127,7 +141,10 @@ async def create_agent(req: AgentRequest) -> dict[str, Any]:
 @app.patch('/api/agents/{agent_name}')
 async def update_agent(agent_name: str, req: AgentUpdateRequest) -> dict[str, Any]:
     try:
-        data = req.model_dump(exclude_unset=True)
+        # by_alias=True: re-export model_settings under its wire name
+        # (model_config), which is what runtime.update_agent_details and
+        # the "model_config" membership check below expect.
+        data = req.model_dump(exclude_unset=True, by_alias=True)
         # Check if basic update or full update
         if any(k in data for k in ("soul", "skills", "memory", "avatar_config", "model_config")):
             agent = runtime.update_agent_details(agent_name, data)
@@ -153,7 +170,7 @@ async def get_agent_details(agent_name: str) -> dict[str, Any]:
 @app.patch('/api/agents/{agent_name}/details')
 async def update_agent_details_endpoint(agent_name: str, req: AgentUpdateRequest) -> dict[str, Any]:
     try:
-        data = req.model_dump(exclude_unset=True)
+        data = req.model_dump(exclude_unset=True, by_alias=True)
         updated = runtime.update_agent_details(agent_name, data)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -264,6 +281,55 @@ async def create_routine(req: RoutineRequest) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await global_event_bus.emit('routine.created', {'routine': routine}, source=req.agent_name)
     return routine
+
+
+@app.get("/api/routines/{routine_id}")
+async def get_routine(routine_id: str) -> dict[str, Any]:
+    routine = runtime.get_routine(routine_id)
+    if not routine:
+        raise HTTPException(status_code=404, detail='Rotina não encontrada.')
+    return {**routine, "runs": runtime.database.list_routine_runs(routine_id)}
+
+
+@app.patch("/api/routines/{routine_id}")
+async def update_routine(routine_id: str, req: RoutineUpdateRequest) -> dict[str, Any]:
+    try:
+        routine = runtime.update_routine(
+            routine_id, name=req.name, prompt=req.prompt, schedule=req.schedule, status=req.status
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not routine:
+        raise HTTPException(status_code=404, detail='Rotina não encontrada.')
+    await global_event_bus.emit('routine.updated', {'routine': routine}, source=routine['agent_name'])
+    return routine
+
+
+@app.delete("/api/routines/{routine_id}")
+async def delete_routine(routine_id: str) -> dict[str, Any]:
+    routine = runtime.get_routine(routine_id)
+    if not routine:
+        raise HTTPException(status_code=404, detail='Rotina não encontrada.')
+    runtime.delete_routine(routine_id)
+    await global_event_bus.emit('routine.deleted', {'routine_id': routine_id}, source=routine['agent_name'])
+    return {"success": True}
+
+
+@app.post("/api/routines/{routine_id}/run")
+async def run_routine_now(routine_id: str) -> dict[str, Any]:
+    """"Test run": submits the routine's own prompt as a real objective to its
+    agent right now, through the same runtime.run_objective path a normal chat
+    message takes — not a simulated/fake action."""
+    routine = runtime.get_routine(routine_id)
+    if not routine:
+        raise HTTPException(status_code=404, detail='Rotina não encontrada.')
+    triggered_at = datetime.now(timezone.utc).isoformat()
+    run = runtime.database.save_routine_run(
+        run_id=f"run-{uuid.uuid4().hex[:10]}", routine_id=routine_id, status="triggered", triggered_at=triggered_at
+    )
+    asyncio.create_task(runtime.run_objective(routine["prompt"], None, routine["agent_name"]))
+    await global_event_bus.emit('routine.run_triggered', {'routine': routine, 'run': run}, source=routine['agent_name'])
+    return run
 
 
 @app.get("/api/history")

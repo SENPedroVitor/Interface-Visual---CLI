@@ -9,6 +9,8 @@ import { useAgentPresence } from './hooks/useAgentPresence';
 import { AgentStudioModal } from './components/AgentStudioModal';
 import { GlobalActionMenu } from './components/GlobalActionMenu';
 import { NewGroupDialog } from './components/NewGroupDialog';
+import { RoutineDrawer } from './components/RoutineDrawer';
+import { PluginsModal } from './components/PluginsModal';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -107,6 +109,8 @@ export const App: React.FC = () => {
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [studioAgent, setStudioAgent] = useState<Agent | null>(null);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
+  const [openRoutineId, setOpenRoutineId] = useState<string | null>(null);
+  const [isPluginsOpen, setIsPluginsOpen] = useState(false);
   const [presentation, setPresentation] = useState(false);
 
   useEffect(() => {
@@ -471,6 +475,7 @@ export const App: React.FC = () => {
           setSelectedGroupId(id);
         }}
         onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
+        onOpenPlugins={() => setIsPluginsOpen(true)}
         onKillSwitch={handleKillSwitch}
         isKillSwitchActive={isKillSwitchActive}
         systemStatus={systemStatus}
@@ -490,6 +495,7 @@ export const App: React.FC = () => {
       <ConversationView
         key={selectedGroupId || selectedAgent?.id}
         currentAgent={currentViewAgent}
+        isGroup={!!activeGroup}
         chatItems={filteredChatItems}
         onSendMessage={handleSendMessage}
         isSending={isSending}
@@ -502,7 +508,22 @@ export const App: React.FC = () => {
           setStudioAgent(selectedAgent);
           setIsStudioOpen(true);
         }}
+        onOpenRoutine={(id) => setOpenRoutineId(id)}
         apiError={apiError}
+      />
+
+      <RoutineDrawer
+        isOpen={!!openRoutineId}
+        routineId={openRoutineId}
+        onClose={() => setOpenRoutineId(null)}
+        onChanged={refreshData}
+      />
+
+      <PluginsModal
+        isOpen={isPluginsOpen}
+        onClose={() => setIsPluginsOpen(false)}
+        tools={tools}
+        providers={providers}
       />
 
       <GlobalActionMenu

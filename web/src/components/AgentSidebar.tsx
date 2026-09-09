@@ -3,7 +3,7 @@ import { Agent, Task, GroupSummary } from '../types';
 import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
 import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
-import { VectorIcon, IconPalette } from './Icons';
+import { VectorIcon, IconPalette, IconPlug } from './Icons';
 
 export interface AgentSidebarProps {
   agents: Agent[];
@@ -14,6 +14,7 @@ export interface AgentSidebarProps {
   onSelectAgent: (id: string) => void;
   onSelectGroup?: (id: string) => void;
   onOpenDeveloperMode: () => void;
+  onOpenPlugins: () => void;
   onKillSwitch: () => void;
   isKillSwitchActive: boolean;
   systemStatus: 'active' | 'stopped';
@@ -33,6 +34,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   onSelectAgent,
   onSelectGroup,
   onOpenDeveloperMode,
+  onOpenPlugins,
   agentPreviews,
   isDarkTheme,
   onToggleTheme,
@@ -207,6 +209,11 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
             </svg>
           </span>
           {isDarkTheme ? 'Modo escuro' : 'Modo claro'}
+        </button>
+
+        <button className="sidebar-footer-btn" onClick={onOpenPlugins}>
+          <IconPlug size={16} />
+          Plugins
         </button>
 
         <button className="sidebar-footer-btn" onClick={onOpenDeveloperMode}>

@@ -55,6 +55,17 @@ export interface RoutineSummary {
   created_at: string;
 }
 
+export interface RoutineRun {
+  id: string;
+  routine_id: string;
+  status: string;
+  triggered_at: string;
+}
+
+export interface RoutineDetail extends RoutineSummary {
+  runs: RoutineRun[];
+}
+
 export interface Task {
   id: string;
   title: string;

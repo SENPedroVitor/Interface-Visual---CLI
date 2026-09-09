@@ -235,6 +235,24 @@ class AgentRuntime:
         self.database.save_routine(routine)
         return routine
 
+    def get_routine(self, routine_id: str) -> Optional[dict[str, Any]]:
+        return self.database.get_routine(routine_id)
+
+    def update_routine(
+        self,
+        routine_id: str,
+        name: Optional[str] = None,
+        prompt: Optional[str] = None,
+        schedule: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        if status is not None and status not in ("draft", "active", "paused"):
+            raise ValueError("Status de rotina inválido.")
+        return self.database.update_routine(routine_id, name=name, prompt=prompt, schedule=schedule, status=status)
+
+    def delete_routine(self, routine_id: str) -> bool:
+        return self.database.delete_routine(routine_id)
+
     def _setup_default_agents(self) -> None:
         quinta = ManagerAgent(
             task_manager=self.task_manager,

@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Agent, ArtifactSummary, RoutineSummary, Task } from '../types';
 import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
 import { RevealText } from './RevealText';
 import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
-import { VectorIcon, IconDocument } from './Icons';
+import { VectorIcon, IconDocument, IconCheck, IconAlert } from './Icons';
+import { MarkdownMessage, looksLikeMarkdown, CopyButton } from './MarkdownMessage';
 
 export interface ChatItem {
   id: string;
@@ -35,8 +36,64 @@ export interface ChatItem {
   };
 }
 
+/**
+ * For squad/group chats: finds the last item of each consecutive run of
+ * agent messages that involves 2+ distinct bots, and maps that item's id
+ * to the participant names — used to drop a Grok-Bot-style collapsed
+ * "Mensagens de X e Y" line right after that run, instead of repeating a
+ * name+avatar on every single message (each bubble already has one).
+ * Tool/artifact items in between don't break a run — they're the same turn.
+ */
+function computeGroupSummaryPoints(items: ChatItem[]): Map<string, string[]> {
+  const points = new Map<string, string[]>();
+  let runNames: string[] = [];
+  let lastItemId: string | null = null;
+
+  const flush = () => {
+    const uniqueNames = Array.from(new Set(runNames));
+    if (uniqueNames.length >= 2 && lastItemId) {
+      points.set(lastItemId, uniqueNames);
+    }
+    runNames = [];
+    lastItemId = null;
+  };
+
+  for (const item of items) {
+    if (item.type !== 'message') continue;
+    if (item.sender === 'user') {
+      flush();
+      continue;
+    }
+    runNames.push(item.senderName || item.sender);
+    lastItemId = item.id;
+  }
+  flush();
+  return points;
+}
+
+function GroupSummaryLine({ names }: { names: string[] }): React.ReactElement {
+  return (
+    <div className="group-summary-line">
+      Mensagens de{' '}
+      {names.map((name, i) => {
+        const vis = agentVisual(name);
+        const isLast = i === names.length - 1;
+        const isSecondToLast = i === names.length - 2;
+        return (
+          <React.Fragment key={name}>
+            <span className="group-summary-dot" style={{ background: vis.color }} />
+            <strong>{name}</strong>
+            {!isLast && (isSecondToLast ? ' e ' : ', ')}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
 interface ConversationViewProps {
   currentAgent: Agent | null;
+  isGroup?: boolean;
   chatItems: ChatItem[];
   onSendMessage: (text: string) => Promise<void>;
   isSending: boolean;
@@ -46,6 +103,7 @@ interface ConversationViewProps {
   artifacts: ArtifactSummary[];
   routines: RoutineSummary[];
   onEditAgent: () => void;
+  onOpenRoutine: (routineId: string) => void;
   apiError?: string;
 }
 
@@ -87,6 +145,7 @@ function renderActivityContent(content: string): React.ReactNode {
 
 export const ConversationView: React.FC<ConversationViewProps> = ({
   currentAgent,
+  isGroup = false,
   chatItems,
   onSendMessage,
   isSending,
@@ -96,6 +155,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   artifacts,
   routines,
   onEditAgent,
+  onOpenRoutine,
   apiError,
 }) => {
   const [inputText, setInputText] = useState('');
@@ -154,6 +214,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   const agentRoutines = routines
     .filter(routine => routine.agent_name === agentName)
     .slice(0, 3);
+  const groupSummaryPoints = useMemo(
+    () => (isGroup ? computeGroupSummaryPoints(chatItems) : new Map<string, string[]>()),
+    [isGroup, chatItems]
+  );
 
   useEffect(() => {
     if (isTyping && !wasTypingRef.current && hasEmptyHero) {
@@ -196,6 +260,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
       {/* ── Message Stream ── */}
       <div className="messages-area">
+       <div className="messages-inner">
         {apiError && <div className="connection-banner" role="status">{apiError}</div>}
 
         {chatItems.length === 0 && !isSending ? (
@@ -259,10 +324,16 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 <section>
                   <h3>Rotinas</h3>
                   {agentRoutines.length ? agentRoutines.map(routine => (
-                    <div className="memory-row" key={routine.id} title={routine.prompt}>
+                    <button
+                      type="button"
+                      className="memory-row memory-row-clickable"
+                      key={routine.id}
+                      title={routine.prompt}
+                      onClick={() => onOpenRoutine(routine.id)}
+                    >
                       <span>{routine.name}</span>
                       <small>{routine.schedule}</small>
-                    </div>
+                    </button>
                   )) : <p>Nenhuma rotina configurada ainda.</p>}
                 </section>
               </div>
@@ -280,25 +351,33 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
             {chatItems.map((item) => {
 
-              /* Context Activity card */
+              /* Context activity — one log line among the agent's other
+                 activity items; see .activity-inline in index.css for how
+                 consecutive lines merge into a single shared card. */
               if (item.type === 'context_activity') {
+                const state = item.activityState || 'running';
                 return (
                   <div key={item.id} className="activity-inline">
-                    <div className="activity-inline-header">
-                      <span className={`activity-dot ${item.activityState || 'running'}`} />
-                      {item.activityIcon && (
-                        <span className="activity-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                          <VectorIcon name={item.activityIcon} size={14} />
-                        </span>
+                    <span className="activity-state-icon" aria-hidden="true">
+                      {state === 'failed' ? (
+                        <IconAlert size={12} />
+                      ) : state === 'done' ? (
+                        <IconCheck size={12} />
+                      ) : (
+                        <span className="activity-dot" />
                       )}
-                      <span>{item.senderName || 'Agente'}</span>
-                      <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>
-                        · {item.activityStatus || 'Em andamento'}
+                    </span>
+                    {item.activityIcon && (
+                      <span className="activity-icon">
+                        <VectorIcon name={item.activityIcon} size={13} />
                       </span>
-                    </div>
-                    <div className={`activity-inline-body ${item.activityState === 'running' ? 'is-running' : ''}`}>
+                    )}
+                    <span className={`activity-line-text ${state === 'running' ? 'is-running' : ''}`}>
                       {renderActivityContent(item.content)}
-                    </div>
+                      {item.activityStatus && state !== 'running' && (
+                        <span className="activity-line-meta"> · {item.activityStatus}</span>
+                      )}
+                    </span>
                   </div>
                 );
               }
@@ -339,9 +418,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               const isUser     = item.sender === 'user';
               const colorClass = SENDER_COLOR_CLASS[item.sender] || 'system';
               const senderVis  = agentVisual(item.senderName || '');
+              const summaryNames = groupSummaryPoints.get(item.id);
 
               return (
-                <div key={item.id} className={`msg-row ${isUser ? 'user-msg' : 'agent-msg'}`}>
+                <React.Fragment key={item.id}>
+                <div className={`msg-row ${isUser ? 'user-msg' : 'agent-msg'}`}>
                   {!isUser && (
                     <div className={`msg-sender-name ${colorClass}`}>
                       <WaddleAvatar
@@ -357,11 +438,25 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                   <div className="msg-bubble">
                     {isUser ? (
                       item.content
+                    ) : looksLikeMarkdown(item.content) ? (
+                      <MarkdownMessage text={item.content} />
                     ) : (
                       <RevealText text={item.content} animate={!!item.justArrived} />
                     )}
                   </div>
+                  {!isUser && item.content && (
+                    <div className="msg-actions">
+                      <CopyButton
+                        text={item.content}
+                        className="msg-copy-all-btn"
+                        label="Copiar resposta"
+                        copiedLabel="Copiado"
+                      />
+                    </div>
+                  )}
                 </div>
+                {summaryNames && <GroupSummaryLine names={summaryNames} />}
+                </React.Fragment>
               );
             })}
 
@@ -383,6 +478,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         )}
 
         <div ref={endRef} />
+       </div>
       </div>
 
       {/* ── Composer ── */}

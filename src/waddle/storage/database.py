@@ -90,6 +90,13 @@ class Database:
                         created_at TEXT NOT NULL
                     );
 
+                    CREATE TABLE IF NOT EXISTS routine_runs (
+                        id TEXT PRIMARY KEY,
+                        routine_id TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        triggered_at TEXT NOT NULL
+                    );
+
                     CREATE TABLE IF NOT EXISTS groups (
                         id TEXT PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -461,6 +468,74 @@ class Database:
                 )
             else:
                 cursor = conn.execute("SELECT * FROM routines ORDER BY created_at DESC LIMIT ?", (limit,))
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
+    def get_routine(self, routine_id: str) -> Optional[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("SELECT * FROM routines WHERE id = ?", (routine_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def update_routine(
+        self,
+        routine_id: str,
+        name: Optional[str] = None,
+        prompt: Optional[str] = None,
+        schedule: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            existing = self.get_routine(routine_id)
+            if not existing:
+                return None
+            new_name = name if name is not None else existing["name"]
+            new_prompt = prompt if prompt is not None else existing["prompt"]
+            new_schedule = schedule if schedule is not None else existing["schedule"]
+            new_status = status if status is not None else existing["status"]
+            with conn:
+                conn.execute(
+                    "UPDATE routines SET name = ?, prompt = ?, schedule = ?, status = ? WHERE id = ?",
+                    (new_name, new_prompt, new_schedule, new_status, routine_id),
+                )
+            return self.get_routine(routine_id)
+        finally:
+            conn.close()
+
+    def delete_routine(self, routine_id: str) -> bool:
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute("DELETE FROM routine_runs WHERE routine_id = ?", (routine_id,))
+                cursor = conn.execute("DELETE FROM routines WHERE id = ?", (routine_id,))
+                return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def save_routine_run(self, run_id: str, routine_id: str, status: str, triggered_at: str) -> dict[str, Any]:
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    "INSERT INTO routine_runs (id, routine_id, status, triggered_at) VALUES (?, ?, ?, ?)",
+                    (run_id, routine_id, status, triggered_at),
+                )
+            return {"id": run_id, "routine_id": routine_id, "status": status, "triggered_at": triggered_at}
+        finally:
+            conn.close()
+
+    def list_routine_runs(self, routine_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT * FROM routine_runs WHERE routine_id = ? ORDER BY triggered_at DESC LIMIT ?",
+                (routine_id, limit),
+            )
             return [dict(row) for row in cursor.fetchall()]
         finally:
             conn.close()

@@ -229,8 +229,10 @@ button, input, textarea {
   display: flex;
   height: 100vh;
   width: 100vw;
+  /* Flat, per the real Grok Bot reference — the app chrome itself is plain
+     white/near-white with no wash; the colorful gradient only ever shows up
+     as the OS/marketing frame *around* the app window, never inside it. */
   background-color: var(--bg-app);
-  background-image: radial-gradient(ellipse 160% 90% at 50% -20%, var(--daypart-tint), transparent 70%);
   overflow: hidden;
 }
 
@@ -638,6 +640,18 @@ button, input, textarea {
   flex-direction: column;
 }
 
+/* Reading column — caps line length so full-width agent text (no bubble)
+   stays legible on wide windows, and keeps the empty-state hero and the
+   composer visually aligned on the same centered axis, Grok/ChatGPT-style. */
+.messages-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
 /* Empty state hero with Apple entrance physics */
 .empty-state {
   display: flex;
@@ -744,12 +758,17 @@ button, input, textarea {
   max-width: 440px;
 }
 
+/* Horizontal, wrapping suggestion chips (Grok-style) rather than a stacked
+   menu of full-width rows — scannable at a glance, and the row centers
+   itself under the greeting instead of reading like a list of options. */
 .quick-actions {
   display: flex;
-  flex-direction: column;
-  gap: 9px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  max-width: 440px;
+  max-width: 560px;
 }
 
 .quick-action-btn {
@@ -757,9 +776,10 @@ button, input, textarea {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  padding: 12px 18px;
-  font-size: 13.5px;
+  border-radius: var(--radius-full);
+  padding: 9px 16px;
+  max-width: 100%;
+  font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
@@ -825,13 +845,15 @@ button, input, textarea {
   align-items: flex-end;
 }
 
-/* Bubble */
+/* Bubble — both sides get one, per the real Grok Bot reference: a fully
+   rounded (no messenger "tail" corner) card, black for the user and soft
+   neutral gray for the agent. Content-width, not full-panel-width. */
 .msg-bubble {
-  max-width: 72%;
-  padding: 11px 15px;
-  border-radius: 18px;
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 20px;
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.6;
   position: relative;
   white-space: pre-wrap;
   word-break: break-word;
@@ -860,13 +882,123 @@ button, input, textarea {
 .agent-msg .msg-bubble {
   background: var(--bg-bubble-agent);
   color: var(--text-primary);
-  border-top-left-radius: 6px;
 }
 
 .user-msg .msg-bubble {
   background: var(--bg-bubble-user);
   color: var(--text-on-dark);
-  border-top-right-radius: 6px;
+}
+
+/* Copy-response action — sits under the agent's bubble, quiet until
+   hovered so it doesn't compete with the reply itself. */
+.msg-actions {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding-left: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.msg-row.agent-msg:hover .msg-actions,
+.msg-actions:focus-within {
+  opacity: 1;
+}
+
+.msg-copy-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.msg-copy-all-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* =====================================================================
+   MARKDOWN RENDERING (agent replies only)
+   ===================================================================== */
+
+.md-inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--surface-neutral);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.md-list {
+  margin: 4px 0 4px 1.3em;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.md-list li {
+  line-height: 1.55;
+}
+
+.md-code-block {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-neutral);
+}
+
+.md-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-hover);
+}
+
+.md-code-lang {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: lowercase;
+  color: var(--text-muted);
+}
+
+.md-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.md-copy-btn:hover {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}
+
+.md-code-pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-primary);
 }
 
 /* Agent name above bubble */
@@ -913,25 +1045,42 @@ button, input, textarea {
   30%            { transform: translateY(-5px); opacity: 1; }
 }
 
-/* Context activity card (inline specialist activity) */
+/* Context activity — a running log of what the agent is doing (tool calls,
+   delegation), styled after the real Grok Bot reference: plain log lines
+   ("Wrote `path`", "Ran `command`" ...) sharing ONE soft card, not a
+   bordered card with an icon+dot header per action. Consecutive entries
+   merge into a single block via the adjacency rules below; a lone entry
+   (or the last of a run) just keeps its own full rounding. */
 .activity-inline {
   align-self: flex-start;
-  background: var(--bg-main);
-  border: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--surface-neutral);
   border-radius: var(--radius-md);
-  padding: 9px 13px;
-  max-width: 500px;
-  margin: 4px 20px;
+  padding: 7px 14px;
+  max-width: 75%;
+  margin: 2px 0;
 }
 
-.activity-inline-header {
+.activity-inline + .activity-inline {
+  margin-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.activity-inline:has(+ .activity-inline) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.activity-state-icon {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 3px;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 18px;
 }
 
 .activity-dot {
@@ -939,20 +1088,7 @@ button, input, textarea {
   height: 6px;
   border-radius: 50%;
   background: #22c55e;
-  flex-shrink: 0;
   animation: pulseDot 1.8s ease-in-out infinite;
-}
-
-/* Real completion/failure state (from tool.completed / tool.failed) stops pulsing — it's history now */
-.activity-dot.done {
-  background: #22c55e;
-  opacity: 0.55;
-  animation: none;
-}
-
-.activity-dot.failed {
-  background: #ef4444;
-  animation: none;
 }
 
 @keyframes pulseDot {
@@ -960,20 +1096,28 @@ button, input, textarea {
   50%       { opacity: 1;   transform: scale(1.3); }
 }
 
-.activity-inline-body {
+.activity-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.activity-line-text {
   font-size: 13px;
+  line-height: 1.6;
   color: var(--text-primary);
 }
 
-.activity-icon {
-  font-size: 12px;
-  line-height: 1;
+.activity-line-meta {
+  color: var(--text-muted);
 }
 
 .activity-code {
   font-family: var(--font-mono);
   font-size: 12px;
-  background: var(--surface-neutral);
+  background: var(--surface-neutral-strong);
   border-radius: 4px;
   padding: 1px 5px;
   color: var(--text-primary);
@@ -981,7 +1125,7 @@ button, input, textarea {
 
 /* Soft shimmer sweep across the label while the tool call is genuinely
    still running — stops the instant tool.completed/tool.failed arrives. */
-.activity-inline-body.is-running {
+.activity-line-text.is-running {
   background-image: linear-gradient(
     90deg,
     var(--text-primary) 0%,
@@ -1091,6 +1235,30 @@ button, input, textarea {
   overflow-y: auto;
 }
 
+/* Collapsed multi-agent attribution line for squad/group chats — "Mensagens
+   de X e Y" after a run of replies from different bots, instead of a
+   name+avatar repeated on every single bubble. */
+.group-summary-line {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 6px 24px 2px;
+}
+
+.group-summary-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin: 0 4px 0 8px;
+  vertical-align: middle;
+}
+
+.group-summary-line strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 /* Created routine / summary pill */
 .routine-pill {
   display: flex;
@@ -1109,6 +1277,9 @@ button, input, textarea {
 .composer-area {
   position: relative;
   flex-shrink: 0;
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
   padding: 12px 20px 16px;
 }
 
@@ -1288,7 +1459,8 @@ button, input, textarea {
   to   { opacity: 1; }
 }
 
-.dev-drawer {
+.dev-drawer,
+.routine-drawer {
   position: fixed;
   top: 0;
   right: 0;
@@ -1504,6 +1676,161 @@ button, input, textarea {
 }
 
 /* =====================================================================
+   ROUTINE DRAWER (Active toggle, Test run, Run history — Grok Bot's
+   Routine editor reference)
+   ===================================================================== */
+
+.routine-drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.routine-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.routine-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.routine-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.routine-toggle-track {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--surface-neutral-strong);
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.routine-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-main);
+  box-shadow: 0 1px 3px var(--shadow-strong);
+  transition: transform 0.2s var(--ease-spring);
+}
+
+.routine-toggle input:checked + .routine-toggle-track {
+  background: #22c55e;
+}
+
+.routine-toggle input:checked + .routine-toggle-track .routine-toggle-thumb {
+  transform: translateX(14px);
+}
+
+.routine-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.routine-btn-primary {
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--gray-900);
+  color: white;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.routine-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.routine-btn-danger {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: #dc7b73;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.routine-btn-danger:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.routine-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.routine-field input,
+.routine-field textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border-input);
+  border-radius: 9px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13.5px;
+  resize: vertical;
+}
+
+.routine-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.routine-runs-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.routine-run-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--surface-neutral);
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+
+.routine-run-status {
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* =====================================================================
    MISC UTILITIES
    ===================================================================== */
 
@@ -1541,7 +1868,7 @@ button, input, textarea {
     filter: none !important;
     transform: none !important;
   }
-  .activity-inline-body.is-running {
+  .activity-line-text.is-running {
     animation: none !important;
     background-image: none !important;
     -webkit-background-clip: initial !important;
