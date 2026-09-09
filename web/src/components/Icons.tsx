@@ -351,6 +351,72 @@ export const IconSparkles: React.FC<IconProps> = ({ size = 16, color = 'currentC
   </svg>
 );
 
+// Sports
+export const IconTrophy: React.FC<IconProps> = ({ size = 16, color = 'currentColor', className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34" />
+    <path d="M6 4h12v5a6 6 0 0 1-12 0V4Z" />
+  </svg>
+);
+
+export const IconBall: React.FC<IconProps> = ({ size = 16, color = 'currentColor', className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m12 7 3.5 2.5-1.5 4h-4L8.5 9.5Z" />
+    <path d="M12 7V2" />
+    <path d="m15.5 9.5 4.5-1.5" />
+    <path d="m14 13.5 3 3.5" />
+    <path d="m10 13.5-3 3.5" />
+    <path d="m8.5 9.5-4.5-1.5" />
+  </svg>
+);
+
+export const IconBasketball: React.FC<IconProps> = ({ size = 16, color = 'currentColor', className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M2 12h20" />
+    <path d="M12 2v20" />
+    <path d="M4.93 4.93c4.24 4.24 4.24 10.9 0 14.14" />
+    <path d="M19.07 4.93c-4.24 4.24-4.24 10.9 0 14.14" />
+  </svg>
+);
+
+export const IconFootball: React.FC<IconProps> = ({ size = 16, color = 'currentColor', className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <path d="M2 12C2 6.5 6.5 2 12 2c7 0 10 3 10 10 0 5.5-4.5 10-10 10C5 22 2 19 2 12Z" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+    <line x1="10" y1="14" x2="14" y2="10" />
+    <line x1="8" y1="12" x2="12" y2="8" />
+    <line x1="12" y1="16" x2="16" y2="12" />
+  </svg>
+);
+
+export const IconBaseball: React.FC<IconProps> = ({ size = 16, color = 'currentColor', className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M5.5 3a10 10 0 0 0 0 18" />
+    <path d="M18.5 3a10 10 0 0 1 0 18" />
+    <line x1="3" y1="8" x2="6.5" y2="9" />
+    <line x1="2" y1="12" x2="5.5" y2="12" />
+    <line x1="3" y1="16" x2="6.5" y2="15" />
+    <line x1="21" y1="8" x2="17.5" y2="9" />
+    <line x1="22" y1="12" x2="18.5" y2="12" />
+    <line x1="21" y1="16" x2="17.5" y2="15" />
+  </svg>
+);
+
+export const IconWhistle: React.FC<IconProps> = ({ size = 16, color = 'currentColor', className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <circle cx="9" cy="14" r="6" />
+    <path d="M15 14h5a2 2 0 0 0 2-2V8h-6v2" />
+    <path d="M9 8V4" />
+    <circle cx="9" cy="14" r="2" />
+  </svg>
+);
+
 // ---------------- Universal VectorIcon Dispatcher ----------------
 export const VectorIcon: React.FC<{ name: string; size?: number | string; color?: string; className?: string }> = ({
   name,
@@ -469,6 +535,24 @@ export const VectorIcon: React.FC<{ name: string; size?: number | string; color?
       return <IconBowtie size={size} color={color} className={className} />;
     case 'coffee':
       return <IconCoffee size={size} color={color} className={className} />;
+    case 'whistle':
+    case 'sports':
+      return <IconWhistle size={size} color={color} className={className} />;
+    case 'trophy':
+    case 'champion':
+      return <IconTrophy size={size} color={color} className={className} />;
+    case 'ball':
+    case 'soccer':
+      return <IconBall size={size} color={color} className={className} />;
+    case 'basketball':
+    case 'nba':
+      return <IconBasketball size={size} color={color} className={className} />;
+    case 'football':
+    case 'nfl':
+      return <IconFootball size={size} color={color} className={className} />;
+    case 'baseball':
+    case 'mlb':
+      return <IconBaseball size={size} color={color} className={className} />;
 
     // Providers
     case 'llama':

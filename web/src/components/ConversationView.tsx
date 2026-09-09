@@ -409,6 +409,51 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
           />
         </div>
 
+        {agentName === 'Livro' && (
+          <div className="quick-action-chips" style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="quick-chip"
+              onClick={() => setInputText("Tabela de classificação do Brasileirão")}
+              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+            >
+              <VectorIcon name="trophy" size={13} color="#059669" /> Tabela Brasileirão
+            </button>
+            <button
+              type="button"
+              className="quick-chip"
+              onClick={() => setInputText("Classificação da NBA")}
+              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+            >
+              <VectorIcon name="basketball" size={13} color="#ea580c" /> Classificação NBA
+            </button>
+            <button
+              type="button"
+              className="quick-chip"
+              onClick={() => setInputText("Tabela da NFL e conferências")}
+              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+            >
+              <VectorIcon name="football" size={13} color="#d97706" /> NFL & Super Bowl
+            </button>
+            <button
+              type="button"
+              className="quick-chip"
+              onClick={() => setInputText("Classificação da MLB e beisebol")}
+              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+            >
+              <VectorIcon name="baseball" size={13} color="#3b82f6" /> MLB Beisebol
+            </button>
+            <button
+              type="button"
+              className="quick-chip"
+              onClick={() => setInputText("Próximos jogos do Flamengo")}
+              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+            >
+              <VectorIcon name="ball" size={13} color="#ef4444" /> Próximos Jogos
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="composer-box">
           <button type="button" className="btn-composer-attach" title="Anexar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">

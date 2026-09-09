@@ -16,6 +16,7 @@ from ..tools.registry import ToolRegistry, global_tool_registry
 from ..tools.filesystem import register_filesystem_tools
 from ..tools.shell import register_shell_tools
 from ..tools.stocks import register_stock_tools
+from ..tools.sports import register_sports_tools
 from ..agents.base import Agent, AgentStatus
 from ..agents.manager import ManagerAgent
 from ..agents.worker import WorkerAgent
@@ -45,6 +46,7 @@ class AgentRuntime:
         register_filesystem_tools(self.tool_registry)
         register_shell_tools(self.tool_registry)
         register_stock_tools(self.tool_registry)
+        register_sports_tools(self.tool_registry)
 
         # Wire database persistence to event bus
         self._setup_event_persistence()
@@ -74,7 +76,7 @@ class AgentRuntime:
             raise ValueError('Use um nome de até 32 caracteres, com letras, números ou espaços.')
         if name.casefold() in {n.casefold() for n in self.agents} | {'system', 'sistema', 'user', 'usuário'}:
             raise ValueError('Já existe um agente com esse nome ou o nome é reservado.')
-        if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor'}:
+        if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor', 'Sports'}:
             raise ValueError('Escolha uma função válida.')
         if provider_id not in {'ollama', 'codex', 'claude'}:
             raise ValueError('Escolha um motor válido.')
@@ -112,7 +114,7 @@ class AgentRuntime:
             raise ValueError('Agente não encontrado.')
         if name in {'Quinta', 'Manager', 'Worker'}:
             raise ValueError('Esse agente do sistema não pode ser editado por aqui.')
-        if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor'}:
+        if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor', 'Sports'}:
             raise ValueError('Escolha uma função válida.')
         if provider_id not in {'ollama', 'codex', 'claude'}:
             raise ValueError('Escolha um motor válido.')
@@ -275,12 +277,21 @@ class AgentRuntime:
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
         )
+        livro = WorkerAgent(
+            name="Livro",
+            role="Sports",
+            description="Especialista esportivo em Futebol, Basquete (NBA), NFL e MLB. Tabelas de classificação, estatísticas, jogos e enciclopédia esportiva.",
+            provider_id="ollama",
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+        )
         self.register_agent(quinta)
         self.register_agent(atlas)
         self.register_agent(nero)
         self.register_agent(iris)
         self.register_agent(ma)
-        quinta.collaborators = {"Atlas": atlas, "Nero": nero, "Iris": iris, "Ma": ma}
+        self.register_agent(livro)
+        quinta.collaborators = {"Atlas": atlas, "Nero": nero, "Iris": iris, "Ma": ma, "Livro": livro}
 
         # Aliases for backwards compatibility with legacy tests
         self.agents["Manager"] = quinta

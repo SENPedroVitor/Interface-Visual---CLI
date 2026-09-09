@@ -154,7 +154,22 @@ class ManagerAgent(Agent):
                 "dólar", "dolar"
             ]
         )
-        allowed = {"Atlas", "Nero", "Iris", "Ma"} if is_financial else {"Atlas", "Nero", "Iris"}
+        is_sports = any(
+            w in objective.lower()
+            for w in [
+                "esporte", "esportes", "futebol", "tabela", "classificação", "classificacao",
+                "brasileirão", "brasileirao", "rodada", "campeonato", "champions",
+                "libertadores", "nba", "basquete", "nfl", "super bowl", "mlb", "beisebol",
+                "flamengo", "palmeiras", "corinthians", "são paulo", "sao paulo", "vasco",
+                "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"
+            ]
+        )
+        if is_sports:
+            allowed = {"Atlas", "Nero", "Iris", "Livro"}
+        elif is_financial:
+            allowed = {"Atlas", "Nero", "Iris", "Ma"}
+        else:
+            allowed = {"Atlas", "Nero", "Iris"}
         participants = [
             agent for name, agent in self.collaborators.items()
             if name in allowed
@@ -202,6 +217,18 @@ class ManagerAgent(Agent):
             "rsi", "petr4", "vale3", "mxrf11", "itub4", "wege3", "bbas3"
         ]
         has_fin = any(w in obj_lower for w in fin_keywords)
+
+        is_livro_target = speaker.name == "Livro" or params.get("_assigned_agent") == "Livro"
+        sports_keywords = [
+            "esporte", "esportes", "futebol", "tabela", "classificação", "classificacao",
+            "brasileirão", "brasileirao", "rodada", "campeonato", "champions", "premier league",
+            "la liga", "libertadores", "nba", "basquete", "nfl", "super bowl", "mlb", "beisebol",
+            "flamengo", "palmeiras", "corinthians", "são paulo", "sao paulo", "vasco", "botafogo",
+            "cruzeiro", "grêmio", "gremio", "internacional", "lakers", "celtics", "warriors",
+            "bulls", "chiefs", "49ers", "eagles", "patriots", "packers", "yankees", "dodgers",
+            "red sox", "próximo jogo", "proximo jogo", "últimos jogos", "ultimos jogos", "jogos", "placar"
+        ]
+        has_sports = any(w in obj_lower for w in sports_keywords)
 
         if is_ma_target or has_fin:
             assigned = "Ma"
@@ -284,6 +311,74 @@ class ManagerAgent(Agent):
                         input_data={"tool_calls": tools},
                     )
                     tasks_created.append(task)
+        elif is_livro_target or has_sports:
+            assigned = "Livro"
+            # 1. Matches / fixtures
+            if any(w in obj_lower for w in ["jogo", "jogos", "próximo", "proximo", "último", "ultimo", "resultado", "placar", "confronto"]):
+                target_team = "Flamengo"
+                for t in ["flamengo", "palmeiras", "corinthians", "sao paulo", "são paulo", "botafogo", "vasco", "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"]:
+                    if t in obj_lower:
+                        target_team = t
+                        break
+                task = await self.task_manager.create_task(
+                    title=f"Consultar jogos de {target_team.title()}",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={"tool_calls": [{"tool": "sports_get_matches", "params": {"team_or_league": target_team}}]},
+                )
+                tasks_created.append(task)
+            # 2. Standings / table
+            elif any(w in obj_lower for w in ["tabela", "classificação", "classificacao", "pontuação", "pontuacao", "líder", "lider"]):
+                league_target = "brasileirao"
+                if "nba" in obj_lower or "basquete" in obj_lower:
+                    league_target = "nba"
+                elif "nfl" in obj_lower or "americano" in obj_lower or "super bowl" in obj_lower:
+                    league_target = "nfl"
+                elif "mlb" in obj_lower or "beisebol" in obj_lower:
+                    league_target = "mlb"
+                elif "premier" in obj_lower or "inglês" in obj_lower or "ingles" in obj_lower:
+                    league_target = "premier league"
+                elif "champions" in obj_lower:
+                    league_target = "champions league"
+                task = await self.task_manager.create_task(
+                    title=f"Tabela de classificação ({league_target.upper()})",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={"tool_calls": [{"tool": "sports_get_standings", "params": {"league_or_sport": league_target}}]},
+                )
+                tasks_created.append(task)
+            # 3. Rules / Trivia
+            elif any(w in obj_lower for w in ["regra", "regras", "como funciona", "formato", "playoffs", "história", "historia"]):
+                topic = "brasileirao_format"
+                if "nba" in obj_lower or "basquete" in obj_lower:
+                    topic = "nba_playoffs"
+                elif "nfl" in obj_lower:
+                    topic = "nfl_rules"
+                elif "mlb" in obj_lower or "beisebol" in obj_lower:
+                    topic = "mlb_rules"
+                elif "champions" in obj_lower:
+                    topic = "champions_format"
+                task = await self.task_manager.create_task(
+                    title=f"Enciclopédia esportiva: {topic}",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={"tool_calls": [{"tool": "sports_get_trivia_and_rules", "params": {"topic": topic}}]},
+                )
+                tasks_created.append(task)
+            # 4. Team Info / Generic Sports Search
+            else:
+                target_team = "Flamengo"
+                for t in ["flamengo", "palmeiras", "corinthians", "sao paulo", "são paulo", "botafogo", "vasco", "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"]:
+                    if t in obj_lower:
+                        target_team = t
+                        break
+                task = await self.task_manager.create_task(
+                    title=f"Informações e histórico de {target_team.title()}",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={"tool_calls": [{"tool": "sports_get_team_info", "params": {"team_name": target_team}}]},
+                )
+                tasks_created.append(task)
         elif "arquivo" in objective.lower() or "file" in objective.lower() or "salvar" in objective.lower():
             # Step 1: Nero writes the file
             task1 = await self.task_manager.create_task(

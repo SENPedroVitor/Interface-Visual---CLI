@@ -99,6 +99,76 @@ class WorkerAgent(Agent):
                 messages.append("\n".join(lines))
             elif tname == "stock_portfolio_record_trade":
                 messages.append(res.get("message", "Operação financeira realizada com sucesso!"))
+            elif tname == "sports_get_standings":
+                league = res.get("league", "Classificação")
+                sport = res.get("sport", "Esporte")
+                src = res.get("source", "Waddle Sports")
+                table = res.get("table", [])
+                lines = [f"**[{sport}] {league}** (Fonte: {src})\n"]
+                if table:
+                    # Check if table is soccer style (points/played) or US style (wins/losses)
+                    first_row = table[0]
+                    if "wins" in first_row or "pct" in first_row:
+                        conf_header = " | Conf/Div" if "conference" in first_row or "division" in first_row else ""
+                        lines.append(f"| Pos | Franquia{conf_header} | V | D | % |")
+                        lines.append(f"| --- | ---{' | ---' if conf_header else ''} | --- | --- | --- |")
+                        for r in table[:15]:
+                            conf_col = f" | {r.get('conference') or r.get('division', '')}" if conf_header else ""
+                            lines.append(f"| {r.get('pos', '-')} | **{r.get('team')}**{conf_col} | {r.get('wins', '-')} | {r.get('losses', '-')} | {r.get('pct', '-')} |")
+                    else:
+                        lines.append("| Pos | Clube | Pts | J | V | E | D | SG |")
+                        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+                        for r in table[:15]:
+                            lines.append(f"| {r.get('pos', '-')} | **{r.get('team')}** | {r.get('points', '-')} | {r.get('played', '-')} | {r.get('won', '-')} | {r.get('drawn', '-')} | {r.get('lost', '-')} | {r.get('goal_diff', '-')} |")
+                else:
+                    lines.append("Nenhum dado de classificação retornado.")
+                messages.append("\n".join(lines))
+            elif tname == "sports_get_team_info":
+                if res.get("success"):
+                    team = res.get("team")
+                    sport = res.get("sport")
+                    league = res.get("league")
+                    stadium = res.get("stadium")
+                    founded = res.get("founded")
+                    titles = res.get("titles")
+                    nick = res.get("nickname")
+                    lines = [
+                        f"**[{sport}] {team}** ({league})",
+                        f"- Estádio/Arena: {stadium}",
+                        f"- Fundação: {founded} | Apelido: {nick}",
+                    ]
+                    if titles:
+                        lines.append(f"- Títulos: {titles}")
+                    if res.get("rivals"):
+                        lines.append(f"- Rivais: {res.get('rivals')}")
+                    if res.get("description"):
+                        lines.append(f"\n{res.get('description')}")
+                    messages.append("\n".join(lines))
+                else:
+                    messages.append(res.get("error", "Clube ou franquia não localizada."))
+            elif tname == "sports_get_matches":
+                team = res.get("team", "Time")
+                past = res.get("past_matches", [])
+                upc = res.get("upcoming_matches", [])
+                lines = [f"**[Confrontos & Resultados] {team.title()}**"]
+                if past:
+                    lines.append("\n*Últimos Resultados:*")
+                    for m in past:
+                        lines.append(f"- {m.get('status')} {m.get('event')} ({m.get('date', '')})")
+                if upc:
+                    lines.append("\n*Próximas Partidas:*")
+                    for m in upc:
+                        lines.append(f"- {m.get('status')} {m.get('event')} ({m.get('date', '')} {m.get('time', '')})")
+                if not past and not upc:
+                    lines.append("- Nenhuma partida recente ou futura encontrada.")
+                messages.append("\n".join(lines))
+            elif tname == "sports_get_trivia_and_rules":
+                top = res.get("topic", "Enciclopédia Esportiva")
+                if res.get("content"):
+                    messages.append(f"**[{top}]**\n\n{res.get('content')}")
+                elif res.get("available_topics"):
+                    tops = "\n".join(f"- {t}" for t in res["available_topics"])
+                    messages.append(f"**[{top}]**\n\n{res.get('message', '')}\n\n{tops}")
 
         if messages:
             return "\n\n".join(messages)

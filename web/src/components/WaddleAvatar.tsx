@@ -3,13 +3,13 @@ import { registerEye } from '../lib/eyeTracker';
 import './WaddleAvatar.css';
 
 export type AgentState = 'idle' | 'working' | 'thinking' | 'waiting' | 'done' | 'blocked' | 'stopped';
-export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap' | 'tie';
+export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap' | 'tie' | 'whistle';
 export type ClickAnim = 'hop' | 'fast' | 'jump2' | 'tilt';
 
 export interface AvatarCosmetics {
   head?: 'none' | 'luffy_hat' | 'headphones' | 'crown' | string;
   face?: 'none' | 'zoro_scar' | 'glasses' | 'sunglasses' | string;
-  body?: 'none' | 'tie' | 'bowtie' | string;
+  body?: 'none' | 'tie' | 'bowtie' | 'whistle' | string;
   hand?: 'none' | 'coffee' | string;
 }
 
@@ -32,6 +32,7 @@ const SHAPES = {
   tuft: { rx: 35, ry: 40, top: 27, waist: 83, gap: 9, tilt: -3 },
   chinstrap: { rx: 34, ry: 45, top: 23, waist: 87, gap: 9, tilt: 3 },
   tie: { rx: 36, ry: 41, top: 25, waist: 84, gap: 9, tilt: 0 },
+  whistle: { rx: 36, ry: 41, top: 25, waist: 84, gap: 9, tilt: 0 },
 };
 /** Soft mascot eyes share one gaze, with state expressions taking priority over the cursor. */
 export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
@@ -276,6 +277,15 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
                 <polygon points="60,65 51,60 51,70" fill="#a855f7" stroke="#7e22ce" strokeWidth="0.8" />
                 <polygon points="60,65 69,60 69,70" fill="#a855f7" stroke="#7e22ce" strokeWidth="0.8" />
                 <rect x="58.5" y="63" width="3" height="4" rx="1" fill="#7e22ce" />
+              </g>
+            )}
+
+            {(bodyItem === 'whistle' || marking === 'whistle') && (
+              <g className="waddle-cosmetic-whistle">
+                <path d="M50 58 Q60 68 70 58" fill="none" stroke="#f59e0b" strokeWidth="1.6" strokeLinecap="round" />
+                <circle cx="58" cy="74" r="5" fill="#94a3b8" stroke="#475569" strokeWidth="0.8" />
+                <rect x="58" y="70" width="7" height="4" rx="1" fill="#cbd5e1" stroke="#475569" strokeWidth="0.8" />
+                <circle cx="58" cy="74" r="2" fill="#475569" />
               </g>
             )}
 
