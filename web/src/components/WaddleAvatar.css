@@ -1,0 +1,40 @@
+.waddle-avatar-wrapper { display: inline-flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; filter: drop-shadow(0 8px 16px rgba(0,0,0,.12)); }
+.waddle-avatar-wrapper svg { display: block; overflow: visible; }
+.waddle-avatar-wrapper[data-interactive] { cursor: pointer; }
+.waddle-body { transform-origin: 60px 101px; }
+.waddle-shell { stroke: rgba(255,255,255,.16); stroke-width: 1.2; }
+.waddle-body-shade, .waddle-ground-shadow { pointer-events: none; }
+.waddle-ground-shadow { fill: rgba(0,0,0,.16); transform-origin: 60px 104px; }
+.waddle-belly { stroke: rgba(0,0,0,.05); stroke-width: .8; }
+.waddle-beak { filter: drop-shadow(0 1px 0 rgba(0,0,0,.16)); }
+.waddle-accessory { filter: drop-shadow(0 1px 1px rgba(0,0,0,.18)); }
+.waddle-gaze { transition: transform 160ms cubic-bezier(.2,.8,.2,1); }
+.waddle-eye { transition: transform 120ms ease; }
+.waddle-eye-capsule { transform-box: fill-box; }
+.waddle-avatar-wrapper[data-state="idle"] .waddle-body { animation: waddleBreathe 4.8s ease-in-out infinite; }
+.waddle-avatar-wrapper[data-state="working"] .waddle-body { animation: waddleWork 1s cubic-bezier(.4,0,.2,1) infinite; }
+.waddle-avatar-wrapper[data-state="working"] .waddle-ground-shadow { animation: waddleShadowPulse 1s ease-in-out infinite; }
+.waddle-avatar-wrapper[data-state="thinking"] .waddle-body { animation: waddleThink 2.8s ease-in-out infinite; }
+.waddle-avatar-wrapper[data-state="waiting"] .waddle-body { animation: waddleWait 3.2s ease-in-out infinite; }
+.waddle-avatar-wrapper[data-state="blocked"] .waddle-body { animation: waddleAttention 900ms ease-in-out infinite; }
+.waddle-avatar-wrapper[data-state="done"] .waddle-body { animation: waddleCelebrate 650ms ease both; }
+.waddle-avatar-wrapper[data-state="stopped"] { opacity: .5; }
+.waddle-avatar-wrapper[data-reaction] .waddle-body { animation: waddleHop 600ms ease; }
+.waddle-avatar-wrapper[data-reaction="tilt"] .waddle-body { animation: waddleAttention 600ms ease; }
+.waddle-avatar-wrapper[data-reaction="fast"] .waddle-body { animation: waddleHop 300ms ease 2; }
+.waddle-avatar-wrapper[data-reaction="jump2"] .waddle-body { animation: waddleCelebrate 600ms ease; }
+.waddle-presence-dot { position: absolute; right: 0; bottom: 0; width: 6px; height: 6px; border-radius: 50%; background: #40b98a; }
+[data-state="blocked"] > .waddle-presence-dot { background: #dfa83d; }
+[data-state="waiting"] > .waddle-presence-dot { background: #8b8b9b; }
+.waddle-bubble { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 180px; padding: 8px 12px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-size: 12px; text-align: center; pointer-events: none; z-index: 20; box-shadow: 0 6px 20px var(--shadow-soft); }
+@keyframes waddleBreathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-.7px) scale(1.006); } }
+@keyframes waddleWork { 0%,100% { transform: rotate(-2deg) translateY(0); } 35% { transform: rotate(3deg) translateY(-2px); } 70% { transform: rotate(-1deg) translateY(0); } }
+@keyframes waddleThink { 0%,100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(-7deg) translateY(-2px); } }
+@keyframes waddleWait { 0%,100% { transform: translateX(0) translateY(0); } 35% { transform: translateX(1.2px) translateY(.8px) scaleY(.99); } 70% { transform: translateX(-.7px) translateY(0); } }
+@keyframes waddleAttention { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-3deg) translateX(-1px); } 55% { transform: rotate(4deg) translateX(1px); } }
+@keyframes waddleCelebrate { 0%,100% { transform: none; } 20% { transform: scale(1.04,.94); } 50% { transform: translateY(-7px) rotate(-4deg); } 75% { transform: translateY(0) scale(1.03,.97); } }
+@keyframes waddleHop { 0%,100% { transform: none; } 25% { transform: scale(1.03,.95); } 55% { transform: translateY(-5px); } }
+@keyframes waddleShadowPulse { 0%,100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(.82); opacity: .72; } }
+@media (prefers-reduced-motion: reduce) {
+  .waddle-avatar-wrapper *, .waddle-avatar-wrapper[data-reaction] .waddle-body { animation: none !important; transition: none !important; }
+}

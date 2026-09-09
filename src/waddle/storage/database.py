@@ -36,6 +36,12 @@ class Database:
                         completed_at TEXT
                     );
 
+                    CREATE TABLE IF NOT EXISTS agent_profiles (
+                        name TEXT PRIMARY KEY COLLATE NOCASE,
+                        role TEXT NOT NULL,
+                        description TEXT NOT NULL
+                    );
+
                     CREATE TABLE IF NOT EXISTS tasks (
                         id TEXT PRIMARY KEY,
                         run_id TEXT,
@@ -86,6 +92,30 @@ class Database:
                     );
                     """
                 )
+        finally:
+            conn.close()
+
+    def save_agent(self, name: str, role: str, description: str) -> None:
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute('INSERT INTO agent_profiles VALUES (?, ?, ?)', (name, role, description))
+        finally:
+            conn.close()
+
+    def list_agent_profiles(self) -> list[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            return [dict(row) for row in conn.execute('SELECT * FROM agent_profiles ORDER BY rowid')]
+        finally:
+            conn.close()
+
+    def agent_activity(self) -> dict[str, str]:
+        conn = self._get_connection()
+        try:
+            return {row['source']: row['latest'] for row in conn.execute(
+                "SELECT source, MAX(timestamp) AS latest FROM events WHERE event_type LIKE 'agent.%' GROUP BY source"
+            )}
         finally:
             conn.close()
 

@@ -5,13 +5,13 @@ import { AgentSidebar } from './components/AgentSidebar';
 import { ConversationView, ChatItem } from './components/ConversationView';
 import { DeveloperDrawer } from './components/DeveloperDrawer';
 import { useTimeOfDay } from './hooks/useTimeOfDay';
-
-const KNOWN_SENDERS = ['quinta', 'atlas', 'nero', 'iris'];
+import { useAgentPresence } from './hooks/useAgentPresence';
+import { NewAgentDialog } from './components/NewAgentDialog';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
   const key = (agentId || '').replace(/^agent-/, '').toLowerCase();
-  if (KNOWN_SENDERS.includes(key)) {
+  if (key) {
     return { key: key as ChatItem['sender'], name: key.charAt(0).toUpperCase() + key.slice(1) };
   }
   return { key: 'system', name: 'Sistema' };
@@ -92,11 +92,19 @@ export const App: React.FC = () => {
   const [isSending, setIsSending] = useState<boolean>(false);
   const [isKillSwitchActive, setIsKillSwitchActive] = useState<boolean>(false);
   const [isDevDrawerOpen, setIsDevDrawerOpen] = useState<boolean>(false);
+  const [isNewAgentOpen, setIsNewAgentOpen] = useState(false);
+  const [presentation, setPresentation] = useState(false);
+  useEffect(() => {
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setPresentation(false); };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, []);
 
   // Track last message per agent for sidebar preview
   const [agentPreviews, setAgentPreviews] = useState<Record<string, string>>({});
 
-  const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0] || null;
+  const visibleAgents = useAgentPresence(agents, events);
+  const selectedAgent = visibleAgents.find((a) => a.id === selectedAgentId) || visibleAgents[0] || null;
   // The websocket handler below is created once inside an effect and only
   // recreated when refreshData's identity changes — it can't just close
   // over `selectedAgent` and expect it to stay current, so this ref is kept
@@ -119,9 +127,9 @@ export const App: React.FC = () => {
       setTasks(statusData.tasks || []);
       setSystemStatus(statusData.status);
 
-      if (!selectedAgentId && agentsList.length > 0) {
+      if (agentsList.length > 0) {
         const quinta = agentsList.find((a) => a.name === 'Quinta') || agentsList[0];
-        setSelectedAgentId(quinta.id);
+        setSelectedAgentId(prev => prev || quinta.id);
       }
 
       const toolsData = await fetchTools();
@@ -129,7 +137,7 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('[API Error]', err);
     }
-  }, [selectedAgentId]);
+  }, []);
 
   useEffect(() => {
     refreshData();
@@ -148,9 +156,7 @@ export const App: React.FC = () => {
         const newItem: ChatItem = {
           id: msg.id || String(Date.now()),
           type: 'message',
-          sender: (['quinta', 'atlas', 'nero', 'iris'].includes(senderLower)
-            ? senderLower
-            : 'system') as ChatItem['sender'],
+          sender: senderLower || 'system',
           agentKey: senderLower,
           senderName: msg.from,
           content: msg.content,
@@ -324,8 +330,10 @@ export const App: React.FC = () => {
 
     setIsSending(true);
     try {
-      await submitObjective(text);
+      await submitObjective(text, undefined, selectedAgent?.name);
       await refreshData();
+    } catch (err) {
+      setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: (selectedAgent?.name || 'Quinta').toLowerCase(), content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);
     } finally {
       setIsSending(false);
     }
@@ -344,9 +352,10 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${presentation ? 'is-presentation' : ''}`}>
       <AgentSidebar
-        agents={agents}
+        agents={visibleAgents}
+        tasks={tasks}
         selectedAgentId={selectedAgentId}
         onSelectAgent={setSelectedAgentId}
         onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
@@ -356,14 +365,24 @@ export const App: React.FC = () => {
         agentPreviews={agentPreviews}
         isDarkTheme={isDark}
         onToggleTheme={toggleTheme}
+        onNewAgent={() => setIsNewAgentOpen(true)}
       />
 
       <ConversationView
+        key={selectedAgent?.id}
         currentAgent={selectedAgent}
         chatItems={chatItems.filter((item) => item.agentKey === (selectedAgent?.name || 'Quinta').toLowerCase())}
         onSendMessage={handleSendMessage}
         isSending={isSending}
+        presentation={presentation}
+        onTogglePresentation={() => setPresentation(prev => !prev)}
       />
+
+      {isNewAgentOpen && <NewAgentDialog onClose={() => setIsNewAgentOpen(false)} onCreated={agent => {
+        setAgents(prev => [...prev.filter(a => a.id !== agent.id), agent]);
+        setSelectedAgentId(agent.id);
+        refreshData();
+      }} />}
 
       <DeveloperDrawer
         isOpen={isDevDrawerOpen}

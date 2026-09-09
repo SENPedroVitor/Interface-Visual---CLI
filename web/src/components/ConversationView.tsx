@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent } from '../types';
-import { WaddleAvatar, AgentState } from './WaddleAvatar';
+import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
 import { RevealText } from './RevealText';
-import { agentStateFromStatus } from '../utils/agentState';
+import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 
 export interface ChatItem {
   id: string;
   type: 'message' | 'context_activity' | 'artifact';
-  sender: 'user' | 'quinta' | 'atlas' | 'nero' | 'iris' | 'system';
+  sender: string;
   /** Which bot's separate conversation this item belongs to (lowercase agent name) — App.tsx tags every item with this at creation. */
   agentKey: string;
   senderName?: string;
@@ -39,6 +39,8 @@ interface ConversationViewProps {
   chatItems: ChatItem[];
   onSendMessage: (text: string) => Promise<void>;
   isSending: boolean;
+  presentation: boolean;
+  onTogglePresentation: () => void;
 }
 
 const SENDER_COLOR_CLASS: Record<string, string> = {
@@ -74,14 +76,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   chatItems,
   onSendMessage,
   isSending,
+  presentation,
+  onTogglePresentation,
 }) => {
   const [inputText, setInputText] = useState('');
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
+  const [avatarFlight, setAvatarFlight] = useState(false);
   const endRef    = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wasTypingRef = useRef(false);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatItems.length || isSending) endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatItems, isSending]);
 
   // Auto-grow textarea
@@ -109,7 +115,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   };
 
   const agentName   = currentAgent?.name || 'Quinta';
-  const agentVis    = agentVisual(agentName);
+  const agentVis    = agentVisual(agentName, currentAgent?.role);
   const headerState: AgentState = isSending ? 'working' : agentStateFromStatus(currentAgent?.status);
 
   // Sweeps the composer-peek avatar's gaze left-to-right as you type,
@@ -117,9 +123,22 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   // caret tracker. Backspacing naturally pulls the gaze back too, for free.
   const isTyping = inputText.length > 0;
   const gazeX = isTyping ? ((inputText.length % 30) / 30) * 2 - 1 : 0;
+  const hasEmptyHero = chatItems.length === 0 && !isSending;
+  const showComposerPeek = isTyping && (!hasEmptyHero || avatarFlight);
+
+  useEffect(() => {
+    if (isTyping && !wasTypingRef.current && hasEmptyHero) {
+      setAvatarFlight(true);
+      const timer = window.setTimeout(() => setAvatarFlight(false), 950);
+      wasTypingRef.current = true;
+      return () => window.clearTimeout(timer);
+    }
+
+    if (!isTyping) wasTypingRef.current = false;
+  }, [hasEmptyHero, isTyping]);
 
   return (
-    <div className="main-panel">
+    <div className={`main-panel ${avatarFlight ? 'is-avatar-flight' : ''}`}>
 
       {/* ── Panel Header ── */}
       <header className="panel-header">
@@ -133,11 +152,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             trackMouse
             interactive
           />
-          <span className="panel-agent-name">{agentName}</span>
+          <span className="panel-agent-name">{agentName}<small className="panel-presence-label" role="status">{STATE_LABELS[headerState]}</small></span>
         </div>
 
         <div className="panel-header-right">
-          <button className="panel-icon-btn" title="Modo apresentação">
+          <button className="panel-icon-btn" title={presentation ? 'Sair da apresentação (Esc)' : 'Modo apresentação'} aria-pressed={presentation} onClick={onTogglePresentation}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <rect x="2" y="4" width="20" height="14" rx="2" />
               <path d="M8 20h8M12 18v2" strokeLinecap="round" />
@@ -152,11 +171,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         {chatItems.length === 0 && !isSending ? (
           /* Empty State Hero with Interactive Mouse-Tracking Penguin */
           <div className="empty-state">
-            <div className="empty-avatar-hero">
+            <div className={`empty-avatar-hero ${avatarFlight ? 'is-departing' : ''} ${isTyping ? 'is-parked-in-composer' : ''}`}>
               <WaddleAvatar
                 color={agentVis.color}
-                state="idle"
-                size={130}
+                state={headerState}
+                size={112}
                 marking={agentVis.marking}
                 clickAnim={agentVis.clickAnim}
                 quote={agentVis.quote}
@@ -166,7 +185,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               />
             </div>
             <h2 className="empty-title">{agentName}</h2>
-            <div className="empty-role-badge">{currentAgent?.role || 'Agente de IA Autônomo'}</div>
+            <div className="empty-role-badge">{roleLabel(currentAgent?.role || 'Agente')}</div>
             <p className="empty-desc">
               {agentName === 'Quinta'
                 ? 'Coordeno a equipe para pesquisar, escrever código e validar resultados. O que fazemos hoje?'
@@ -293,7 +312,19 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
       {/* ── Composer ── */}
       <div className="composer-area">
-        <div className={`composer-peek ${isTyping ? 'is-typing' : ''}`}>
+        {avatarFlight && (
+          <div className="hero-to-composer-flight" aria-hidden="true">
+            <WaddleAvatar
+              color={agentVis.color}
+              state="idle"
+              size={112}
+              marking={agentVis.marking}
+              plain={false}
+            />
+          </div>
+        )}
+
+        <div className={`composer-peek ${showComposerPeek ? 'is-typing' : ''}`}>
           <WaddleAvatar
             color={agentVis.color}
             state="idle"
@@ -313,7 +344,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
           <textarea
             ref={textareaRef}
             className="composer-input"
-            placeholder={`Message ${agentName}`}
+            placeholder={`Mensagem para ${agentName}`}
+            aria-label={`Mensagem para ${agentName}`}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}

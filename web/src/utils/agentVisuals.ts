@@ -25,6 +25,7 @@ export const AGENT_VISUALS: Record<string, AgentVisual> = {
 
 const DEFAULT_VISUAL: AgentVisual = { color: '#9159FE', marking: 'none', clickAnim: 'hop', quote: '' };
 
-export function agentVisual(name: string): AgentVisual {
-  return AGENT_VISUALS[name] || DEFAULT_VISUAL;
+export function agentVisual(name: string, role?: string): AgentVisual {
+  const roleAgent = ({ Research: 'Atlas', Developer: 'Nero', Reviewer: 'Iris' } as Record<string, string>)[role || ''];
+  return AGENT_VISUALS[name] || AGENT_VISUALS[roleAgent] || DEFAULT_VISUAL;
 }

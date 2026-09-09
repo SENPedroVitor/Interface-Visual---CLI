@@ -1,4 +1,4 @@
-import { SystemStatus, ToolInfo, WaddleEvent } from '../types';
+import { Agent, SystemStatus, ToolInfo, WaddleEvent } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000';
 const WS_BASE = 'ws://127.0.0.1:8000';
@@ -9,13 +9,24 @@ export async function fetchStatus(): Promise<SystemStatus> {
   return res.json();
 }
 
-export async function submitObjective(objective: string, parameters?: Record<string, any>): Promise<any> {
+export async function submitObjective(objective: string, parameters?: Record<string, any>, agentName?: string): Promise<any> {
   const res = await fetch(`${API_BASE}/api/objectives`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ objective, parameters }),
+    body: JSON.stringify({ objective, parameters, agent_name: agentName }),
   });
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+  return res.json();
+}
+
+export async function createAgent(profile: { name: string; role: string; description: string }): Promise<Agent> {
+  const res = await fetch(`${API_BASE}/api/agents`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(typeof body.detail === 'string' ? body.detail : 'Confira o nome e a função do agente.');
+  }
   return res.json();
 }
 

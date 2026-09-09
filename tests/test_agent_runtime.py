@@ -34,6 +34,34 @@ class TestAgentRuntime(unittest.TestCase):
         self.assertIn("Atlas", names)
         self.assertIn("Iris", names)
 
+    def test_custom_agent_survives_restart_and_rejects_duplicate_names(self):
+        self.runtime.create_agent('Luna', 'Research', 'Pesquisa local')
+        with self.assertRaises(ValueError):
+            self.runtime.create_agent('luna', 'Developer')
+        with self.assertRaises(ValueError):
+            self.runtime.create_agent('System', 'Research')
+        bus = EventBus()
+        restored = AgentRuntime(event_bus=bus, tool_registry=ToolRegistry(event_bus=bus), db_path=str(self.runtime.database.path))
+        self.assertEqual(restored.get_agent('Luna').description, 'Pesquisa local')
+
+    def test_objective_targets_custom_agent_and_records_real_activity(self):
+        self.runtime.create_agent('Luna', 'Research')
+        result = asyncio.run(self.runtime.run_objective('analisar diretório', {'path': self.tmp_dir.name}, agent_name='Luna'))
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['tasks'][0]['assigned_agent'], 'Luna')
+        self.assertIsNotNone(next(a for a in self.runtime.list_agents() if a['name'] == 'Luna')['last_activity_at'])
+        self.assertIsNone(next(a for a in self.runtime.list_agents() if a['name'] == 'Nero')['last_activity_at'])
+
+    def test_plain_message_is_answered_by_selected_agent(self):
+        self.runtime.create_agent('Luna', 'Research')
+        replies = []
+        async def record(event):
+            if event.data['message']['type'] == 'answer':
+                replies.append(event.data['message']['from'])
+        self.event_bus.subscribe('agent.message', record)
+        asyncio.run(self.runtime.run_objective('olá', agent_name='Luna'))
+        self.assertEqual(replies, ['Luna'])
+
     def test_full_objective_execution(self):
         test_file = str(Path(self.tmp_dir.name) / "teste_resultado.txt")
         objective = "Criar arquivo com resultado e verificar"
@@ -51,8 +79,8 @@ class TestAgentRuntime(unittest.TestCase):
 
     def test_agent_blocks_on_unmet_dependency_then_recovers(self):
         # The "arquivo" objective assigns Nero a write_file task and Iris a
-        # dependent review task, which is born BLOCKED until Nero finishes —
-        # a real dependency signal, not a simulated one.
+        # dependent review task. Iris should look like she is waiting on Nero,
+        # not hard-failed or idle.
         test_file = str(Path(self.tmp_dir.name) / "teste_dependencia.txt")
         objective = "Criar arquivo com resultado e verificar"
 
@@ -72,7 +100,7 @@ class TestAgentRuntime(unittest.TestCase):
         )
 
         self.assertEqual(res["status"], "completed")
-        self.assertIn("blocked", iris_statuses)
+        self.assertIn("waiting", iris_statuses)
         # Recovers once the dependency clears, and settles back to idle.
         self.assertEqual(iris_statuses[-1], "idle")
         self.assertEqual(self.runtime.get_agent("Iris").status.value, "idle")

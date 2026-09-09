@@ -28,10 +28,11 @@ class ManagerAgent(Agent):
         )
         self.task_manager = task_manager
 
-    async def plan_objective(self, objective: str, parameters: Optional[dict[str, Any]] = None) -> list[Task]:
+    async def plan_objective(self, objective: str, parameters: Optional[dict[str, Any]] = None, response_agent: Optional[Agent] = None) -> list[Task]:
         """Decompose a high-level user objective into executable tasks for the team."""
-        await self.set_status(AgentStatus.WORKING)
-        await self.send_message(
+        speaker = response_agent or self
+        await speaker.set_status(AgentStatus.THINKING)
+        await speaker.send_message(
             to_agent="System",
             msg_type="status_update",
             content=f"Analisando objetivo e coordenando a equipe: '{objective}'",
@@ -45,7 +46,7 @@ class ManagerAgent(Agent):
             task1 = await self.task_manager.create_task(
                 title=f"Criar arquivo: {objective[:32]}",
                 description=objective,
-                assigned_agent="Nero",
+                assigned_agent=params.get('_assigned_agent', 'Nero'),
                 input_data={
                     "tool_calls": [
                         {
@@ -81,7 +82,7 @@ class ManagerAgent(Agent):
             task = await self.task_manager.create_task(
                 title=f"Pesquisar e analisar: {objective[:35]}",
                 description=objective,
-                assigned_agent="Atlas",
+                assigned_agent=params.get('_assigned_agent', 'Atlas'),
                 input_data={
                     "tool_calls": [
                         {
@@ -97,7 +98,7 @@ class ManagerAgent(Agent):
             task = await self.task_manager.create_task(
                 title=f"Executar comando: {cmd[:30]}",
                 description=objective,
-                assigned_agent="Nero",
+                assigned_agent=params.get('_assigned_agent', 'Nero'),
                 input_data={
                     "tool_calls": [
                         {
@@ -114,7 +115,7 @@ class ManagerAgent(Agent):
             # spawning a worker task with nothing concrete to execute.
             # NOTE: there is no LLM plugged in yet (see docs/Waddle_Agent_OS_Plano.md
             # scope) — this is a placeholder acknowledgement, not a real answer.
-            await self.send_message(
+            await speaker.send_message(
                 to_agent="System",
                 msg_type="answer",
                 content=(
@@ -125,12 +126,12 @@ class ManagerAgent(Agent):
             )
 
         if tasks_created:
-            await self.send_message(
+            await speaker.send_message(
                 to_agent="System",
                 msg_type="status_update",
-                content=f"Created {len(tasks_created)} subtasks for objective.",
+                content=f"Plano pronto: {len(tasks_created)} etapas para executar.",
             )
-        await self.set_status(AgentStatus.IDLE)
+        await speaker.set_status(AgentStatus.IDLE)
         return tasks_created
 
     async def execute_task(self, task: Task) -> Any:

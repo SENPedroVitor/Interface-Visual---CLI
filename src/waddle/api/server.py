@@ -4,9 +4,9 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..runtime.agent_runtime import AgentRuntime
 from ..core.event_bus import Event, global_event_bus
@@ -51,6 +51,23 @@ app.add_middleware(
 class ObjectiveRequest(BaseModel):
     objective: str
     parameters: Optional[dict[str, Any]] = None
+    agent_name: Optional[str] = None
+
+
+class AgentRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=32)
+    role: str
+    description: str = Field(default='', max_length=240)
+
+
+@app.post('/api/agents', status_code=201)
+async def create_agent(req: AgentRequest) -> dict[str, Any]:
+    try:
+        agent = runtime.create_agent(req.name, req.role, req.description)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await global_event_bus.emit('agent.created', {'agent': agent}, source=agent['name'])
+    return agent
 
 
 @app.get("/api/status")
@@ -89,8 +106,10 @@ async def get_history(limit: int = 50) -> dict[str, Any]:
 
 @app.post("/api/objectives")
 async def submit_objective(req: ObjectiveRequest) -> dict[str, Any]:
+    if req.agent_name and not runtime.get_agent(req.agent_name):
+        raise HTTPException(status_code=404, detail='Agente não encontrado.')
     # Start execution as background task in the running loop
-    asyncio.create_task(runtime.run_objective(req.objective, req.parameters))
+    asyncio.create_task(runtime.run_objective(req.objective, req.parameters, req.agent_name))
     return {
         "message": "Objective submitted and processing started.",
         "objective": req.objective,

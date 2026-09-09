@@ -18,7 +18,7 @@
  */
 
 interface Watcher {
-  el: SVGCircleElement;
+  el: SVGGraphicsElement;
   cx: number;
   cy: number;
   tx: number;
@@ -60,13 +60,15 @@ function attachGlobalListenersOnce() {
 
 // Cleared every tick; both eyes of an avatar share one <svg>, so this avoids
 // calling getScreenCTM() twice per instance per frame.
-const ctmCache = new Map<SVGSVGElement, DOMMatrix | null>();
+const ctmCache = new Map<SVGGraphicsElement, DOMMatrix | null>();
 
-function toScreenPoint(el: SVGCircleElement, x: number, y: number): { x: number; y: number } | null {
+function toScreenPoint(el: SVGGraphicsElement, x: number, y: number): { x: number; y: number } | null {
   const svg = el.ownerSVGElement;
   if (!svg) return null;
-  if (!ctmCache.has(svg)) ctmCache.set(svg, svg.getScreenCTM());
-  const ctm = ctmCache.get(svg);
+  // Include body tilt, but never our own gaze offset.
+  const parent = el.parentElement as unknown as SVGGraphicsElement;
+  if (!ctmCache.has(parent)) ctmCache.set(parent, parent.getScreenCTM());
+  const ctm = ctmCache.get(parent);
   if (!ctm) return null;
   const pt = svg.createSVGPoint();
   pt.x = x;
@@ -107,7 +109,7 @@ function tick() {
  * always call it on unmount / when tracking turns off, or the eye is left
  * with a stale transform.
  */
-export function registerEye(el: SVGCircleElement, cx: number, cy: number, maxOffset: number): () => void {
+export function registerEye(el: SVGGraphicsElement, cx: number, cy: number, maxOffset: number): () => void {
   attachGlobalListenersOnce();
   const watcher: Watcher = { el, cx, cy, tx: 0, ty: 0, maxOffset };
   watchers.push(watcher);

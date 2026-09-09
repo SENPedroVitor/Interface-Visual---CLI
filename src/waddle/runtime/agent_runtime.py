@@ -47,11 +47,26 @@ class AgentRuntime:
         # Wire database persistence to event bus
         self._setup_event_persistence()
 
-        # Reflect real task-dependency blocking onto agent status
+        # Reflect real task-dependency waiting onto agent status
         self._setup_agent_state_wiring()
 
         # Register default agents (Manager + Worker)
         self._setup_default_agents()
+        for profile in self.database.list_agent_profiles():
+            self.register_agent(WorkerAgent(**profile, event_bus=self.event_bus, tool_registry=self.tool_registry))
+
+    def create_agent(self, name: str, role: str, description: str = "") -> dict[str, Any]:
+        name = name.strip()
+        if not name or len(name) > 32 or not all(c.isalnum() or c in ' -_' for c in name):
+            raise ValueError('Use um nome de até 32 caracteres, com letras, números ou espaços.')
+        if name.casefold() in {n.casefold() for n in self.agents} | {'system', 'sistema', 'user', 'usuário'}:
+            raise ValueError('Já existe um agente com esse nome ou o nome é reservado.')
+        if role not in {'Research', 'Developer', 'Reviewer', 'Executor'}:
+            raise ValueError('Escolha uma função válida.')
+        agent = WorkerAgent(name=name, role=role, description=description.strip(), event_bus=self.event_bus, tool_registry=self.tool_registry)
+        self.database.save_agent(agent.name, agent.role, agent.description)
+        self.register_agent(agent)
+        return agent.to_dict()
 
     def _setup_default_agents(self) -> None:
         quinta = ManagerAgent(
@@ -112,7 +127,7 @@ class AgentRuntime:
         self.event_bus.subscribe("*", on_any_event)
 
     def _setup_agent_state_wiring(self) -> None:
-        """Reflect the task manager's real dependency-blocking onto the
+        """Reflect the task manager's real dependency waiting onto the
         assigned agent's status, so the mascot's motion honestly shows when
         an agent is stuck waiting on another task rather than sitting idle."""
 
@@ -122,12 +137,12 @@ class AgentRuntime:
                 return
             agent = self.agents.get(task.get("assigned_agent") or "")
             if agent:
-                await agent.set_status(AgentStatus.BLOCKED)
+                await agent.set_status(AgentStatus.WAITING)
 
         async def on_task_unblocked(event: Event) -> None:
             task = event.data.get("task", {})
             agent = self.agents.get(task.get("assigned_agent") or "")
-            if agent and agent.status == AgentStatus.BLOCKED:
+            if agent and agent.status == AgentStatus.WAITING:
                 await agent.set_status(AgentStatus.IDLE)
 
         self.event_bus.subscribe("task.created", on_task_created)
@@ -140,15 +155,16 @@ class AgentRuntime:
         return self.agents.get(name)
 
     def list_agents(self) -> list[dict[str, Any]]:
+        activity = self.database.agent_activity()
         seen_ids = set()
         result = []
         for agent in self.agents.values():
             if agent.id not in seen_ids:
                 seen_ids.add(agent.id)
-                result.append(agent.to_dict())
+                result.append({**agent.to_dict(), 'last_activity_at': activity.get(agent.name)})
         return result
 
-    async def run_objective(self, objective: str, parameters: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    async def run_objective(self, objective: str, parameters: Optional[dict[str, Any]] = None, agent_name: Optional[str] = None) -> dict[str, Any]:
         """Execute a full workflow starting from a user objective."""
         self._is_stopped = False
         run_id = f"run-{uuid.uuid4().hex[:8]}"
@@ -159,7 +175,7 @@ class AgentRuntime:
 
         await self.event_bus.emit(
             "run.started",
-            {"run_id": run_id, "objective": objective},
+            {"run_id": run_id, "objective": objective, "agent_name": agent_name or 'Quinta'},
             source="runtime",
         )
 
@@ -168,7 +184,13 @@ class AgentRuntime:
             raise RuntimeError("Manager agent is required to coordinate run.")
 
         # Step 1: Manager plans objective into subtasks
-        tasks = await manager.plan_objective(objective, parameters)
+        recipient = self.get_agent(agent_name) if agent_name else manager
+        if recipient is None:
+            raise ValueError('Agente não encontrado.')
+        plan_parameters = dict(parameters or {})
+        if recipient is not manager:
+            plan_parameters['_assigned_agent'] = recipient.name
+        tasks = await manager.plan_objective(objective, plan_parameters, response_agent=recipient)
         for t in tasks:
             self.database.save_task(t.to_dict(), run_id=run_id)
 
@@ -233,7 +255,7 @@ class AgentRuntime:
 
         await self.event_bus.emit(
             f"run.{final_status}",
-            {"run_id": run_id, "status": final_status, "objective": objective},
+            {"run_id": run_id, "status": final_status, "objective": objective, "agent_name": agent_name or 'Quinta'},
             source="runtime",
         )
 

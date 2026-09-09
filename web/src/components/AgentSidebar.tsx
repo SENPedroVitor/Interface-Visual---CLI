@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Agent } from '../types';
-import { WaddleAvatar } from './WaddleAvatar';
-import { agentStateFromStatus } from '../utils/agentState';
+import { Agent, Task } from '../types';
+import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
+import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 
 export interface AgentSidebarProps {
   agents: Agent[];
+  tasks: Task[];
   selectedAgentId: string;
   onSelectAgent: (id: string) => void;
   onOpenDeveloperMode: () => void;
@@ -15,16 +16,19 @@ export interface AgentSidebarProps {
   agentPreviews: Record<string, string>;
   isDarkTheme: boolean;
   onToggleTheme: () => void;
+  onNewAgent: () => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   agents,
+  tasks,
   selectedAgentId,
   onSelectAgent,
   onOpenDeveloperMode,
   agentPreviews,
   isDarkTheme,
   onToggleTheme,
+  onNewAgent,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -32,8 +36,20 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
     (a) =>
       !searchQuery ||
       a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.role.toLowerCase().includes(searchQuery.toLowerCase())
+      roleLabel(a.role).toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const previewFor = (agent: Agent, avatarState: ReturnType<typeof agentStateFromStatus>) => {
+    const activeTask = tasks.find(task =>
+      task.assigned_agent === agent.name && ['running', 'pending', 'blocked'].includes(task.status)
+    );
+
+    if (activeTask?.status === 'running') return `Agora: ${activeTask.title}`;
+    if (activeTask?.status === 'pending') return `Na fila: ${activeTask.title}`;
+    if (activeTask?.status === 'blocked') return `Aguardando: ${activeTask.title}`;
+    if (agent.status !== 'idle') return STATE_LABELS[avatarState];
+    return agentPreviews[agent.id] || roleLabel(agent.role);
+  };
 
   return (
     <aside className="sidebar">
@@ -43,7 +59,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           <WaddleAvatar color="#18181b" size={22} showPresence={false} plain />
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Waddle</span>
         </div>
-        <button className="btn-new-agent" title="Novo agente">
+        <button className="btn-new-agent" title="Novo agente" onClick={onNewAgent}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M12 5v14M5 12h14" strokeLinecap="round" />
           </svg>
@@ -59,7 +75,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           </svg>
           <input
             className="search-input"
-            placeholder="Search"
+            placeholder="Buscar agentes"
+            aria-label="Buscar agentes"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -70,17 +87,17 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
       <nav className="sidebar-agents">
         {filtered.map((agent) => {
           const isActive = selectedAgentId === agent.id;
-          const visual = agentVisual(agent.name);
+          const visual = agentVisual(agent.name, agent.role);
           const avatarState = agentStateFromStatus(agent.status);
-          const preview = agentPreviews[agent.id] ||
-            (agent.status === 'working' ? 'Trabalhando...' :
-             agent.status === 'waiting' ? 'Aguardando...' : 'Disponível');
+          const preview = previewFor(agent, avatarState);
 
           return (
             <button
               key={agent.id}
               className={`agent-list-item ${isActive ? 'active' : ''}`}
               onClick={() => onSelectAgent(agent.id)}
+              aria-current={isActive ? 'page' : undefined}
+              title={`${agent.name} · ${STATE_LABELS[avatarState]}`}
             >
               {/* Minimalist circular penguin avatar with motion states */}
               <WaddleAvatar
@@ -96,11 +113,14 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
               <div className="agent-list-info">
                 <div className="agent-list-row1">
                   <span className="agent-list-name">{agent.name}</span>
+                  {avatarState !== 'idle' && <span className={`agent-state-chip ${avatarState}`}>{STATE_LABELS[avatarState]}</span>}
+                </div>
+                <div className="agent-list-row2">
+                  <span className="agent-list-preview">{preview}</span>
                   <span className="agent-list-time">
-                    {agent.status === 'working' ? 'Agora' : 'Ontem'}
+                    {['working', 'thinking', 'waiting'].includes(agent.status) ? 'Agora' : activityTime(agent.last_activity_at)}
                   </span>
                 </div>
-                <div className="agent-list-preview">{preview}</div>
               </div>
             </button>
           );
