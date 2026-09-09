@@ -56,6 +56,7 @@ class Agent(ABC):
         name: str,
         role: str,
         description: str = "",
+        provider_id: str = "ollama",
         event_bus: Optional[EventBus] = None,
         tool_registry: Optional[ToolRegistry] = None,
     ) -> None:
@@ -63,6 +64,7 @@ class Agent(ABC):
         self.name = name
         self.role = role
         self.description = description
+        self.provider_id = provider_id
         self.status = AgentStatus.IDLE
         self.current_task_id: Optional[str] = None
         self.event_bus = event_bus or global_event_bus
@@ -117,6 +119,7 @@ class Agent(ABC):
             "name": self.name,
             "role": self.role,
             "description": self.description,
+            "provider_id": self.provider_id,
             "status": self.status.value if isinstance(self.status, AgentStatus) else self.status,
             "current_task_id": self.current_task_id,
         }

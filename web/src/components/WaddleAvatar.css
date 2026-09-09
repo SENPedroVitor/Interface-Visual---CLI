@@ -10,7 +10,9 @@
 .waddle-accessory { filter: drop-shadow(0 1px 1px rgba(0,0,0,.18)); }
 .waddle-gaze { transition: transform 160ms cubic-bezier(.2,.8,.2,1); }
 .waddle-eye { transition: transform 120ms ease; }
-.waddle-eye-capsule { transform-box: fill-box; }
+.waddle-eye-minimal { filter: drop-shadow(0 .8px .8px rgba(0,0,0,.18)); }
+.waddle-eye-ink { fill: #111116; }
+.waddle-eye-shine { fill: rgba(255,255,255,.72); pointer-events: none; }
 .waddle-avatar-wrapper[data-state="idle"] .waddle-body { animation: waddleBreathe 4.8s ease-in-out infinite; }
 .waddle-avatar-wrapper[data-state="working"] .waddle-body { animation: waddleWork 1s cubic-bezier(.4,0,.2,1) infinite; }
 .waddle-avatar-wrapper[data-state="working"] .waddle-ground-shadow { animation: waddleShadowPulse 1s ease-in-out infinite; }

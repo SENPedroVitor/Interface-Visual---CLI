@@ -33,6 +33,9 @@ class TestAgentRuntime(unittest.TestCase):
         self.assertIn("Nero", names)
         self.assertIn("Atlas", names)
         self.assertIn("Iris", names)
+        provider_by_name = {agent["name"]: agent["provider_id"] for agent in agents}
+        self.assertEqual(provider_by_name["Nero"], "codex")
+        self.assertEqual(provider_by_name["Iris"], "claude")
 
     def test_custom_agent_survives_restart_and_rejects_duplicate_names(self):
         self.runtime.create_agent('Luna', 'Research', 'Pesquisa local')
@@ -61,6 +64,81 @@ class TestAgentRuntime(unittest.TestCase):
         self.event_bus.subscribe('agent.message', record)
         asyncio.run(self.runtime.run_objective('olá', agent_name='Luna'))
         self.assertEqual(replies, ['Luna'])
+
+    def test_quinta_runs_local_team_discussion_for_plain_messages(self):
+        manager = self.runtime.get_agent('Quinta')
+        manager.llm_generate = lambda agent, prompt: f"{agent.name} opinou sobre o pedido."
+
+        asyncio.run(self.runtime.run_objective('como melhoramos o projeto?', agent_name='Quinta'))
+
+        messages = self.runtime.database.list_messages(limit=10)
+        discussions = [msg for msg in messages if msg['type'] == 'discussion']
+        self.assertEqual({msg['from'] for msg in discussions}, {'Atlas', 'Nero', 'Iris'})
+        self.assertTrue(all(msg['to'] == 'Quinta' for msg in discussions))
+        self.assertTrue(all(msg['data']['conversation_agent'] == 'quinta' for msg in discussions))
+        self.assertTrue(any(msg['type'] == 'answer' and msg['from'] == 'Quinta' for msg in messages))
+
+    def test_quinta_no_api_keys_request_gets_local_fallback_summary(self):
+        manager = self.runtime.get_agent('Quinta')
+        manager.llm_generate = None
+        manager._ollama_answer = lambda agent, prompt: "Use API keys externas para resolver."
+
+        asyncio.run(self.runtime.run_objective('como melhorar sem API keys?', agent_name='Quinta'))
+
+        messages = self.runtime.database.list_messages(limit=10)
+        answer = next(msg for msg in messages if msg['type'] == 'answer' and msg['from'] == 'Quinta')
+        discussions = [msg for msg in messages if msg['type'] == 'discussion']
+        self.assertIn('sem API keys', answer['content'])
+        self.assertIn('Ollama', answer['content'])
+        self.assertNotIn('Use API keys externas', answer['content'])
+        self.assertTrue(all('API externa' not in msg['content'] for msg in discussions))
+        self.assertTrue(any(msg['from'] == 'Atlas' and 'localmente' in msg['content'] for msg in discussions))
+
+    def test_custom_agent_profile_can_be_updated(self):
+        self.runtime.create_agent('Luna', 'Research', 'Pesquisa local')
+        updated = self.runtime.update_agent('Luna', role='Reviewer', description='Revisa entregas', provider_id='claude')
+        self.assertEqual(updated['role'], 'Reviewer')
+        self.assertEqual(updated['description'], 'Revisa entregas')
+        self.assertEqual(updated['provider_id'], 'claude')
+
+        bus = EventBus()
+        restored = AgentRuntime(event_bus=bus, tool_registry=ToolRegistry(event_bus=bus), db_path=str(self.runtime.database.path))
+        self.assertEqual(restored.get_agent('Luna').role, 'Reviewer')
+        self.assertEqual(restored.get_agent('Luna').description, 'Revisa entregas')
+        self.assertEqual(restored.get_agent('Luna').provider_id, 'claude')
+
+    def test_history_groups_messages_by_agent(self):
+        self.runtime.create_agent('Luna', 'Research')
+        asyncio.run(self.runtime.run_objective('olá', agent_name='Luna'))
+        luna_messages = self.runtime.database.list_messages(agent_name='Luna')
+        self.assertTrue(luna_messages)
+        self.assertTrue(all(msg['from'] == 'Luna' or msg['to'] == 'Luna' for msg in luna_messages))
+
+    def test_artifacts_are_derived_from_completed_write_tasks(self):
+        test_file = str(Path(self.tmp_dir.name) / "artifact.txt")
+        asyncio.run(
+            self.runtime.run_objective(
+                "Criar arquivo com resultado e verificar",
+                {"path": test_file, "content": "artifact body"},
+            )
+        )
+
+        artifacts = self.runtime.database.list_artifacts()
+        self.assertEqual(artifacts[0]['filename'], 'artifact.txt')
+        self.assertEqual(artifacts[0]['agent_name'], 'Nero')
+        self.assertEqual(artifacts[0]['bytes'], len("artifact body"))
+
+    def test_routines_are_saved_for_existing_agents(self):
+        routine = self.runtime.create_routine(
+            agent_name='Nero',
+            name='Revisar pendências',
+            prompt='Verifique tarefas bloqueadas e sugira o próximo passo.',
+            schedule='todo dia as 09:00',
+        )
+
+        self.assertEqual(routine['agent_name'], 'Nero')
+        self.assertEqual(routine['status'], 'draft')
+        self.assertEqual(self.runtime.database.list_routines(agent_name='Nero')[0]['name'], 'Revisar pendências')
 
     def test_full_objective_execution(self):
         test_file = str(Path(self.tmp_dir.name) / "teste_resultado.txt")

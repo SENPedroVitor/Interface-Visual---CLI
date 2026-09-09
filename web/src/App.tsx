@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Agent, Task, ToolInfo, WaddleEvent, SystemStatus } from './types';
-import { fetchStatus, fetchTools, submitObjective, triggerKillSwitch, connectWebSocket } from './services/api';
+import { Agent, ArtifactSummary, ProviderInfo, RoutineSummary, Task, ToolInfo, WaddleEvent, SystemStatus } from './types';
+import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, connectWebSocket } from './services/api';
 import { AgentSidebar } from './components/AgentSidebar';
 import { ConversationView, ChatItem } from './components/ConversationView';
 import { DeveloperDrawer } from './components/DeveloperDrawer';
 import { useTimeOfDay } from './hooks/useTimeOfDay';
 import { useAgentPresence } from './hooks/useAgentPresence';
 import { NewAgentDialog } from './components/NewAgentDialog';
+import { AgentProfileDialog } from './components/AgentProfileDialog';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -85,14 +86,19 @@ export const App: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tools, setTools] = useState<ToolInfo[]>([]);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [events, setEvents] = useState<WaddleEvent[]>([]);
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
+  const [artifacts, setArtifacts] = useState<ArtifactSummary[]>([]);
+  const [routines, setRoutines] = useState<RoutineSummary[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [systemStatus, setSystemStatus] = useState<'active' | 'stopped'>('active');
+  const [apiError, setApiError] = useState('');
   const [isSending, setIsSending] = useState<boolean>(false);
   const [isKillSwitchActive, setIsKillSwitchActive] = useState<boolean>(false);
   const [isDevDrawerOpen, setIsDevDrawerOpen] = useState<boolean>(false);
   const [isNewAgentOpen, setIsNewAgentOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [presentation, setPresentation] = useState(false);
   useEffect(() => {
     const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setPresentation(false); };
@@ -118,9 +124,11 @@ export const App: React.FC = () => {
   // card (built later, from the task_result message) can show what was
   // actually written — not just its path and byte count.
   const writeContentCacheRef = useRef<Record<string, string>>({});
+  const historyHydratedRef = useRef(false);
 
   const refreshData = useCallback(async () => {
     try {
+      setApiError('');
       const statusData: SystemStatus = await fetchStatus();
       const agentsList = statusData.agents || [];
       setAgents(agentsList);
@@ -134,7 +142,28 @@ export const App: React.FC = () => {
 
       const toolsData = await fetchTools();
       setTools(toolsData || []);
+      const providersData = await fetchProviders();
+      setProviders(providersData || []);
+
+      const historyData = await fetchHistory();
+      setArtifacts(historyData.artifacts || []);
+      setRoutines(historyData.routines || []);
+      if (!historyHydratedRef.current && historyData.messages?.length) {
+        const restored = [...historyData.messages].reverse().map((msg): ChatItem => ({
+          id: msg.id,
+          type: 'message',
+          sender: msg.from.toLowerCase(),
+          agentKey: (msg.data?.conversation_agent || msg.from).toLowerCase(),
+          senderName: msg.from,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          justArrived: false,
+        }));
+        setChatItems(restored);
+        historyHydratedRef.current = true;
+      }
     } catch (err) {
+      setApiError('Servidor local indisponível. Confira se a API está rodando em 127.0.0.1:8000.');
       console.error('[API Error]', err);
     }
   }, []);
@@ -153,11 +182,12 @@ export const App: React.FC = () => {
       if (newEvent.type === 'agent.message') {
         const msg = newEvent.data.message || {};
         const senderLower = (msg.from || '').toLowerCase();
+        const conversationAgent = (msg.data?.conversation_agent || msg.from || '').toLowerCase();
         const newItem: ChatItem = {
           id: msg.id || String(Date.now()),
           type: 'message',
           sender: senderLower || 'system',
-          agentKey: senderLower,
+          agentKey: conversationAgent || senderLower || 'system',
           senderName: msg.from,
           content: msg.content,
           timestamp: ts,
@@ -376,6 +406,11 @@ export const App: React.FC = () => {
         isSending={isSending}
         presentation={presentation}
         onTogglePresentation={() => setPresentation(prev => !prev)}
+        tasks={tasks}
+        artifacts={artifacts}
+        routines={routines}
+        onEditAgent={() => setIsProfileOpen(true)}
+        apiError={apiError}
       />
 
       {isNewAgentOpen && <NewAgentDialog onClose={() => setIsNewAgentOpen(false)} onCreated={agent => {
@@ -384,11 +419,22 @@ export const App: React.FC = () => {
         refreshData();
       }} />}
 
+      {isProfileOpen && selectedAgent && <AgentProfileDialog
+        agent={selectedAgent}
+        providers={providers}
+        onClose={() => setIsProfileOpen(false)}
+        onSaved={agent => {
+          setAgents(prev => prev.map(item => item.id === agent.id ? { ...item, ...agent } : item));
+          refreshData();
+        }}
+      />}
+
       <DeveloperDrawer
         isOpen={isDevDrawerOpen}
         onClose={() => setIsDevDrawerOpen(false)}
         tasks={tasks}
         tools={tools}
+        providers={providers}
         events={events}
         onKillSwitch={handleKillSwitch}
       />

@@ -39,7 +39,8 @@ class Database:
                     CREATE TABLE IF NOT EXISTS agent_profiles (
                         name TEXT PRIMARY KEY COLLATE NOCASE,
                         role TEXT NOT NULL,
-                        description TEXT NOT NULL
+                        description TEXT NOT NULL,
+                        provider_id TEXT NOT NULL DEFAULT 'ollama'
                     );
 
                     CREATE TABLE IF NOT EXISTS tasks (
@@ -78,6 +79,16 @@ class Database:
                         timestamp TEXT NOT NULL
                     );
 
+                    CREATE TABLE IF NOT EXISTS routines (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        agent_name TEXT NOT NULL,
+                        prompt TEXT NOT NULL,
+                        schedule TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        created_at TEXT NOT NULL
+                    );
+
                     CREATE TABLE IF NOT EXISTS tool_calls (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         tool_name TEXT NOT NULL,
@@ -92,14 +103,31 @@ class Database:
                     );
                     """
                 )
+                columns = {row["name"] for row in conn.execute("PRAGMA table_info(agent_profiles)")}
+                if "provider_id" not in columns:
+                    conn.execute("ALTER TABLE agent_profiles ADD COLUMN provider_id TEXT NOT NULL DEFAULT 'ollama'")
         finally:
             conn.close()
 
-    def save_agent(self, name: str, role: str, description: str) -> None:
+    def save_agent(self, name: str, role: str, description: str, provider_id: str = "ollama") -> None:
         conn = self._get_connection()
         try:
             with conn:
-                conn.execute('INSERT INTO agent_profiles VALUES (?, ?, ?)', (name, role, description))
+                conn.execute(
+                    'INSERT INTO agent_profiles (name, role, description, provider_id) VALUES (?, ?, ?, ?)',
+                    (name, role, description, provider_id),
+                )
+        finally:
+            conn.close()
+
+    def update_agent(self, name: str, role: str, description: str, provider_id: str = "ollama") -> None:
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    'UPDATE agent_profiles SET role = ?, description = ?, provider_id = ? WHERE name = ? COLLATE NOCASE',
+                    (role, description, provider_id, name),
+                )
         finally:
             conn.close()
 
@@ -116,6 +144,112 @@ class Database:
             return {row['source']: row['latest'] for row in conn.execute(
                 "SELECT source, MAX(timestamp) AS latest FROM events WHERE event_type LIKE 'agent.%' GROUP BY source"
             )}
+        finally:
+            conn.close()
+
+    def list_messages(self, agent_name: Optional[str] = None, limit: int = 100) -> list[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            if agent_name:
+                cursor = conn.execute(
+                    """
+                    SELECT * FROM messages
+                    WHERE from_agent = ? COLLATE NOCASE OR to_agent = ? COLLATE NOCASE
+                    ORDER BY timestamp DESC LIMIT ?
+                    """,
+                    (agent_name, agent_name, limit),
+                )
+            else:
+                cursor = conn.execute("SELECT * FROM messages ORDER BY timestamp DESC LIMIT ?", (limit,))
+            return [
+                {
+                    "id": row["id"],
+                    "from": row["from_agent"],
+                    "to": row["to_agent"],
+                    "type": row["msg_type"],
+                    "content": row["content"],
+                    "task_id": row["task_id"],
+                    "data": json.loads(row["data_json"] or "{}"),
+                    "timestamp": row["timestamp"],
+                }
+                for row in cursor.fetchall()
+            ]
+        finally:
+            conn.close()
+
+    def list_artifacts(self, limit: int = 50) -> list[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                """
+                SELECT id, title, assigned_agent, input_json, output_json, completed_at
+                FROM tasks
+                WHERE status = 'completed' AND output_json IS NOT NULL
+                ORDER BY completed_at DESC LIMIT ?
+                """,
+                (limit,),
+            )
+            artifacts: list[dict[str, Any]] = []
+            for row in cursor.fetchall():
+                output = json.loads(row["output_json"] or "{}")
+                input_data = json.loads(row["input_json"] or "{}")
+                for result in output.get("results", []):
+                    if result.get("tool_name") != "write_file" or not result.get("success"):
+                        continue
+                    path = result.get("result", {}).get("path") or input_data.get("path")
+                    if not path:
+                        continue
+                    artifacts.append({
+                        "id": f"artifact-{row['id']}",
+                        "task_id": row["id"],
+                        "title": row["title"],
+                        "agent_name": row["assigned_agent"],
+                        "path": path,
+                        "filename": Path(path).name,
+                        "bytes": result.get("result", {}).get("bytes_written"),
+                        "created_at": row["completed_at"],
+                    })
+            return artifacts
+        finally:
+            conn.close()
+
+    def save_routine(self, routine: dict[str, Any]) -> None:
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO routines (id, name, agent_name, prompt, schedule, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        routine["id"],
+                        routine["name"],
+                        routine["agent_name"],
+                        routine["prompt"],
+                        routine["schedule"],
+                        routine["status"],
+                        routine["created_at"],
+                    ),
+                )
+        finally:
+            conn.close()
+
+    def list_routines(self, agent_name: Optional[str] = None, limit: int = 50) -> list[dict[str, Any]]:
+        conn = self._get_connection()
+        try:
+            if agent_name:
+                cursor = conn.execute(
+                    """
+                    SELECT * FROM routines
+                    WHERE agent_name = ? COLLATE NOCASE
+                    ORDER BY created_at DESC LIMIT ?
+                    """,
+                    (agent_name, limit),
+                )
+            else:
+                cursor = conn.execute("SELECT * FROM routines ORDER BY created_at DESC LIMIT ?", (limit,))
+            return [dict(row) for row in cursor.fetchall()]
         finally:
             conn.close()
 

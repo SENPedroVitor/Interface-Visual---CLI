@@ -55,7 +55,7 @@ class AgentRuntime:
         for profile in self.database.list_agent_profiles():
             self.register_agent(WorkerAgent(**profile, event_bus=self.event_bus, tool_registry=self.tool_registry))
 
-    def create_agent(self, name: str, role: str, description: str = "") -> dict[str, Any]:
+    def create_agent(self, name: str, role: str, description: str = "", provider_id: str = "ollama") -> dict[str, Any]:
         name = name.strip()
         if not name or len(name) > 32 or not all(c.isalnum() or c in ' -_' for c in name):
             raise ValueError('Use um nome de até 32 caracteres, com letras, números ou espaços.')
@@ -63,10 +63,53 @@ class AgentRuntime:
             raise ValueError('Já existe um agente com esse nome ou o nome é reservado.')
         if role not in {'Research', 'Developer', 'Reviewer', 'Executor'}:
             raise ValueError('Escolha uma função válida.')
-        agent = WorkerAgent(name=name, role=role, description=description.strip(), event_bus=self.event_bus, tool_registry=self.tool_registry)
-        self.database.save_agent(agent.name, agent.role, agent.description)
+        if provider_id not in {'ollama', 'codex', 'claude'}:
+            raise ValueError('Escolha um motor válido.')
+        agent = WorkerAgent(name=name, role=role, description=description.strip(), provider_id=provider_id, event_bus=self.event_bus, tool_registry=self.tool_registry)
+        self.database.save_agent(agent.name, agent.role, agent.description, agent.provider_id)
         self.register_agent(agent)
         return agent.to_dict()
+
+    def update_agent(self, name: str, role: str, description: str = "", provider_id: str = "ollama") -> dict[str, Any]:
+        agent = self.get_agent(name)
+        if not agent:
+            raise ValueError('Agente não encontrado.')
+        if name in {'Quinta', 'Manager', 'Worker'}:
+            raise ValueError('Esse agente do sistema não pode ser editado por aqui.')
+        if role not in {'Research', 'Developer', 'Reviewer', 'Executor'}:
+            raise ValueError('Escolha uma função válida.')
+        if provider_id not in {'ollama', 'codex', 'claude'}:
+            raise ValueError('Escolha um motor válido.')
+        agent.role = role
+        agent.description = description.strip()
+        agent.provider_id = provider_id
+        self.database.update_agent(agent.name, agent.role, agent.description, agent.provider_id)
+        return agent.to_dict()
+
+    def create_routine(self, agent_name: str, name: str, prompt: str, schedule: str) -> dict[str, Any]:
+        agent = self.get_agent(agent_name)
+        if not agent:
+            raise ValueError('Agente não encontrado.')
+        name = name.strip()
+        prompt = prompt.strip()
+        schedule = schedule.strip()
+        if not name or len(name) > 80:
+            raise ValueError('Use um nome de rotina com até 80 caracteres.')
+        if not prompt:
+            raise ValueError('Descreva o que a rotina deve fazer.')
+        if not schedule:
+            raise ValueError('Informe quando a rotina deve rodar.')
+        routine = {
+            "id": f"routine-{uuid.uuid4().hex[:10]}",
+            "name": name,
+            "agent_name": agent.name,
+            "prompt": prompt,
+            "schedule": schedule,
+            "status": "draft",
+            "created_at": _utc_iso(),
+        }
+        self.database.save_routine(routine)
+        return routine
 
     def _setup_default_agents(self) -> None:
         quinta = ManagerAgent(
@@ -74,6 +117,7 @@ class AgentRuntime:
             name="Quinta",
             role="Manager",
             description="Coordenação da equipe, planejamento e consolidação de resultados.",
+            provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
         )
@@ -81,6 +125,7 @@ class AgentRuntime:
             name="Atlas",
             role="Research",
             description="Pesquisa de informações, análise de fontes e documentação.",
+            provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
         )
@@ -88,6 +133,7 @@ class AgentRuntime:
             name="Nero",
             role="Developer",
             description="Implementação de código, automação de terminal e manipulação de arquivos.",
+            provider_id="codex",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
         )
@@ -95,6 +141,7 @@ class AgentRuntime:
             name="Iris",
             role="Reviewer",
             description="Revisão de qualidade, validação de critérios e consistência.",
+            provider_id="claude",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
         )
@@ -102,6 +149,7 @@ class AgentRuntime:
         self.register_agent(atlas)
         self.register_agent(nero)
         self.register_agent(iris)
+        quinta.collaborators = {"Atlas": atlas, "Nero": nero, "Iris": iris}
 
         # Aliases for backwards compatibility with legacy tests
         self.agents["Manager"] = quinta

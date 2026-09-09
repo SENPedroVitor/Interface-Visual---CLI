@@ -14,6 +14,7 @@ class WorkerAgent(Agent):
         name: str = "Worker",
         role: str = "Executor",
         description: str = "Executes assigned tasks using authorized tools.",
+        provider_id: str = "ollama",
         event_bus: Optional[EventBus] = None,
         tool_registry: Optional[ToolRegistry] = None,
     ) -> None:
@@ -21,6 +22,7 @@ class WorkerAgent(Agent):
             name=name,
             role=role,
             description=description,
+            provider_id=provider_id,
             event_bus=event_bus,
             tool_registry=tool_registry,
         )

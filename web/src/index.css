@@ -1407,6 +1407,27 @@ button, input, textarea {
   border-bottom: 1px solid var(--surface-neutral);
 }
 
+.dev-provider-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--surface-neutral);
+}
+
+.dev-provider-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.dev-provider-status.available { background: #dcfce7; color: #166534; }
+.dev-provider-status.installed { background: #fef9c3; color: #713f12; }
+.dev-provider-status.missing { background: #fee2e2; color: #991b1b; }
+
 .dev-tool-name {
   font-size: 13px;
   color: var(--text-primary);

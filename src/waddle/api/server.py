@@ -10,10 +10,12 @@ from pydantic import BaseModel, Field
 
 from ..runtime.agent_runtime import AgentRuntime
 from ..core.event_bus import Event, global_event_bus
+from ..providers import ProviderRegistry
 from ..tools.registry import global_tool_registry
 
 
 runtime = AgentRuntime(event_bus=global_event_bus, tool_registry=global_tool_registry)
+provider_registry = ProviderRegistry()
 active_websockets: set[WebSocket] = set()
 
 
@@ -58,15 +60,33 @@ class AgentRequest(BaseModel):
     name: str = Field(min_length=1, max_length=32)
     role: str
     description: str = Field(default='', max_length=240)
+    provider_id: str = Field(default='ollama', max_length=24)
+
+
+class RoutineRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    agent_name: str = Field(min_length=1, max_length=32)
+    prompt: str = Field(min_length=1, max_length=500)
+    schedule: str = Field(min_length=1, max_length=120)
 
 
 @app.post('/api/agents', status_code=201)
 async def create_agent(req: AgentRequest) -> dict[str, Any]:
     try:
-        agent = runtime.create_agent(req.name, req.role, req.description)
+        agent = runtime.create_agent(req.name, req.role, req.description, req.provider_id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await global_event_bus.emit('agent.created', {'agent': agent}, source=agent['name'])
+    return agent
+
+
+@app.patch('/api/agents/{agent_name}')
+async def update_agent(agent_name: str, req: AgentRequest) -> dict[str, Any]:
+    try:
+        agent = runtime.update_agent(agent_name, req.role, req.description, req.provider_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await global_event_bus.emit('agent.updated', {'agent': agent}, source=agent['name'])
     return agent
 
 
@@ -96,12 +116,42 @@ async def get_tools() -> list[dict[str, Any]]:
     return runtime.tool_registry.list_tools()
 
 
+@app.get("/api/providers")
+async def get_providers() -> list[dict[str, object]]:
+    return provider_registry.list_providers()
+
+
+@app.get("/api/routines")
+async def get_routines(agent_name: Optional[str] = None, limit: int = 50) -> list[dict[str, Any]]:
+    return runtime.database.list_routines(agent_name=agent_name, limit=limit)
+
+
+@app.post("/api/routines", status_code=201)
+async def create_routine(req: RoutineRequest) -> dict[str, Any]:
+    try:
+        routine = runtime.create_routine(req.agent_name, req.name, req.prompt, req.schedule)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await global_event_bus.emit('routine.created', {'routine': routine}, source=req.agent_name)
+    return routine
+
+
 @app.get("/api/history")
 async def get_history(limit: int = 50) -> dict[str, Any]:
     return {
         "runs": runtime.database.list_runs(limit=limit),
         "recent_events": runtime.database.list_recent_events(limit=limit),
+        "messages": runtime.database.list_messages(limit=limit),
+        "artifacts": runtime.database.list_artifacts(limit=limit),
+        "routines": runtime.database.list_routines(limit=limit),
     }
+
+
+@app.get("/api/agents/{agent_name}/history")
+async def get_agent_history(agent_name: str, limit: int = 100) -> dict[str, Any]:
+    if not runtime.get_agent(agent_name):
+        raise HTTPException(status_code=404, detail='Agente não encontrado.')
+    return {"messages": runtime.database.list_messages(agent_name=agent_name, limit=limit)}
 
 
 @app.post("/api/objectives")

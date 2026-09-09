@@ -3,9 +3,42 @@ export interface Agent {
   name: string;
   role: string;
   description: string;
+  provider_id?: string;
   status: 'idle' | 'working' | 'waiting' | 'thinking' | 'blocked' | 'stopped' | 'done';
   last_activity_at?: string;
   current_task_id?: string | null;
+}
+
+export interface AgentMessage {
+  id: string;
+  from: string;
+  to: string;
+  type: string;
+  content: string;
+  task_id?: string | null;
+  data: Record<string, any>;
+  timestamp: string;
+}
+
+export interface ArtifactSummary {
+  id: string;
+  task_id: string;
+  title: string;
+  agent_name: string;
+  path: string;
+  filename: string;
+  bytes?: number | null;
+  created_at?: string | null;
+}
+
+export interface RoutineSummary {
+  id: string;
+  name: string;
+  agent_name: string;
+  prompt: string;
+  schedule: string;
+  status: 'draft' | 'active' | 'paused';
+  created_at: string;
 }
 
 export interface Task {
@@ -33,6 +66,18 @@ export interface ToolInfo {
   output_schema: Record<string, any>;
 }
 
+export interface ProviderInfo {
+  id: 'ollama' | 'codex' | 'claude' | string;
+  name: string;
+  kind: 'local-llm' | 'code-agent' | string;
+  installed: boolean;
+  available: boolean;
+  command: string;
+  path?: string | null;
+  version?: string | null;
+  detail: string;
+}
+
 export interface WaddleEvent {
   id: string;
   type: string;
@@ -47,4 +92,12 @@ export interface SystemStatus {
   agents: Agent[];
   tasks: Task[];
   tools_count: number;
+}
+
+export interface HistorySnapshot {
+  runs: Array<Record<string, any>>;
+  recent_events: WaddleEvent[];
+  messages: AgentMessage[];
+  artifacts: ArtifactSummary[];
+  routines: RoutineSummary[];
 }

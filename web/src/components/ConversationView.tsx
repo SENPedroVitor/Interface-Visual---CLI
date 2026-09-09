@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Agent } from '../types';
+import { Agent, ArtifactSummary, RoutineSummary, Task } from '../types';
 import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
 import { RevealText } from './RevealText';
 import { agentStateFromStatus, roleLabel } from '../utils/agentState';
@@ -41,6 +41,11 @@ interface ConversationViewProps {
   isSending: boolean;
   presentation: boolean;
   onTogglePresentation: () => void;
+  tasks: Task[];
+  artifacts: ArtifactSummary[];
+  routines: RoutineSummary[];
+  onEditAgent: () => void;
+  apiError?: string;
 }
 
 const SENDER_COLOR_CLASS: Record<string, string> = {
@@ -78,6 +83,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   isSending,
   presentation,
   onTogglePresentation,
+  tasks,
+  artifacts,
+  routines,
+  onEditAgent,
+  apiError,
 }) => {
   const [inputText, setInputText] = useState('');
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
@@ -125,6 +135,16 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   const gazeX = isTyping ? ((inputText.length % 30) / 30) * 2 - 1 : 0;
   const hasEmptyHero = chatItems.length === 0 && !isSending;
   const showComposerPeek = isTyping && (!hasEmptyHero || avatarFlight);
+  const agentTasks = tasks
+    .filter(task => task.assigned_agent === agentName)
+    .slice(-3)
+    .reverse();
+  const agentArtifacts = artifacts
+    .filter(artifact => artifact.agent_name === agentName)
+    .slice(0, 3);
+  const agentRoutines = routines
+    .filter(routine => routine.agent_name === agentName)
+    .slice(0, 3);
 
   useEffect(() => {
     if (isTyping && !wasTypingRef.current && hasEmptyHero) {
@@ -167,6 +187,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
       {/* ── Message Stream ── */}
       <div className="messages-area">
+        {apiError && <div className="connection-banner" role="status">{apiError}</div>}
 
         {chatItems.length === 0 && !isSending ? (
           /* Empty State Hero with Interactive Mouse-Tracking Penguin */
@@ -197,6 +218,45 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                   {s}
                 </button>
               ))}
+            </div>
+
+            <div className="agent-memory-panel">
+              <div className="agent-memory-header">
+                <span>Memória do agente</span>
+                <button type="button" onClick={onEditAgent}>Editar perfil</button>
+              </div>
+
+              <div className="agent-memory-grid">
+                <section>
+                  <h3>Trabalho recente</h3>
+                  {agentTasks.length ? agentTasks.map(task => (
+                    <div className="memory-row" key={task.id}>
+                      <span>{task.title}</span>
+                      <small>{task.status}</small>
+                    </div>
+                  )) : <p>Nenhuma tarefa recente para este agente.</p>}
+                </section>
+
+                <section>
+                  <h3>Artifacts</h3>
+                  {agentArtifacts.length ? agentArtifacts.map(artifact => (
+                    <div className="memory-row" key={artifact.id} title={artifact.path}>
+                      <span>{artifact.filename}</span>
+                      <small>{artifact.bytes ? `${artifact.bytes} bytes` : 'arquivo'}</small>
+                    </div>
+                  )) : <p>Nenhum arquivo gerado ainda.</p>}
+                </section>
+
+                <section>
+                  <h3>Rotinas</h3>
+                  {agentRoutines.length ? agentRoutines.map(routine => (
+                    <div className="memory-row" key={routine.id} title={routine.prompt}>
+                      <span>{routine.name}</span>
+                      <small>{routine.schedule}</small>
+                    </div>
+                  )) : <p>Nenhuma rotina configurada ainda.</p>}
+                </section>
+              </div>
             </div>
           </div>
 
