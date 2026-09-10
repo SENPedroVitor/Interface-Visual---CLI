@@ -128,7 +128,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
       setDescription('');
       setColor('#38bdf8');
       setMarking('none');
-      setCosmetics({ head: 'luffy_hat', face: 'none', body: 'none', hand: 'coffee' });
+      setCosmetics({ head: 'command_module', face: 'none', body: 'status_bar', hand: 'none' });
       setImageUrl(undefined);
       setSoulPrompt('');
       setWhatItDoes('');
@@ -387,14 +387,13 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
 
                 {/* Cosmetics Categories */}
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Cabeça (Head Accessory)</span>
+                  <span className="studio-label">Módulo superior</span>
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
-                      { id: 'sports_headband', label: 'Faixa Esportiva' },
-                      { id: 'luffy_hat', label: 'Chapéu do Luffy' },
-                      { id: 'headphones', label: 'Fone de Ouvido' },
-                      { id: 'crown', label: 'Coroa Real' },
+                      { id: 'command_module', label: 'Comando' },
+                      { id: 'signal_band', label: 'Sinal' },
+                      { id: 'timeline_rig', label: 'Timeline' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -411,13 +410,13 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 </div>
 
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Rosto (Face Details)</span>
+                  <span className="studio-label">Detalhe do rosto</span>
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
-                      { id: 'zoro_scar', label: 'Cicatriz do Zoro' },
-                      { id: 'glasses', label: 'Óculos Nerd' },
-                      { id: 'sunglasses', label: 'Óculos Escuros' },
+                      { id: 'visor', label: 'Visor' },
+                      { id: 'design_nodes', label: 'Design nodes' },
+                      { id: 'code_cursor', label: 'Cursor dev' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -434,15 +433,14 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 </div>
 
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Corpo & Roupa</span>
+                  <span className="studio-label">Marca funcional</span>
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
-                      { id: 'money_tie', label: 'Gravata Dinheiro ($)' },
-                      { id: 'whistle', label: 'Apito de Árbitro' },
-                      { id: 'tie', label: 'Gravata Vermelha' },
-                      { id: 'bowtie', label: 'Gravata Borboleta' },
-                      { id: 'leaf_badge', label: 'Broche Eco' },
+                      { id: 'status_bar', label: 'Status bar' },
+                      { id: 'data_grid', label: 'Data grid' },
+                      { id: 'shield_mark', label: 'Quality mark' },
+                      { id: 'orbit_mark', label: 'Motion orbit' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -459,11 +457,11 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 </div>
 
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Mão & Acessórios</span>
+                  <span className="studio-label">Painel lateral</span>
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
-                      { id: 'coffee', label: 'Café Fumegante' },
+                      { id: 'side_panel', label: 'Painel' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -488,7 +486,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                     value={name}
                     disabled={isEditing}
                     onChange={e => setName(e.target.value)}
-                    placeholder="Ex: Luffy, Zoro, DevSage..."
+                    placeholder="Ex: Pixel, Motion, Data, Ops..."
                     maxLength={32}
                   />
                 </div>
@@ -505,6 +503,10 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                     <option value="Research">Research (Pesquisa, síntese de documentações e web)</option>
                     <option value="Reviewer">Reviewer (Revisão de qualidade e testes)</option>
                     <option value="Investor">Investor (Mercado financeiro, B3 e dividendos)</option>
+                    <option value="Designer">Designer (UI, Figma e direção visual)</option>
+                    <option value="Motion">Motion (Microinterações e animações)</option>
+                    <option value="Data">Data (Análise, métricas e estruturação)</option>
+                    <option value="Operations">Operations (Rotinas, automações e organização)</option>
                   </select>
                 </div>
 

@@ -10,27 +10,38 @@ export interface AgentVisual {
 }
 
 /**
- * One entry per real Waddle agent, mapped onto the same "species marking"
- * idea as the reference flock: a role gets a matching marking, not an
- * arbitrary one — Atlas/Research -> Gentoo's brow chevron, Nero/Código ->
- * Rockhopper's tuft, Iris/QA -> Chinstrap's line. Quinta (Manager) stays
- * plain, same as the reference's own Manager entry.
+ * One entry per real Waddle agent. The family should feel like one product
+ * system: same clean pod face, different role-coded micro details.
  */
 export const AGENT_VISUALS: Record<string, AgentVisual> = {
-  Quinta:  { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'crown' } },
-  Manager: { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'crown' } },
-  Atlas:   { color: '#123f3a', marking: 'chevron',   clickAnim: 'fast',  quote: 'Já pesquisei isso — inclusive ontem.', imageUrl: '/avatars/sabio.png', cosmetics: { face: 'glasses' } },
-  Nero:    { color: '#14284b', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { head: 'headphones' } },
-  Worker:  { color: '#14284b', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { head: 'headphones' } },
-  Iris:    { color: '#16382a', marking: 'chinstrap', clickAnim: 'tilt',  quote: 'Ah, ótimo. O que poderia dar errado?', imageUrl: '/avatars/eco.png', cosmetics: { body: 'leaf_badge' } },
-  Ma:      { color: '#3a2a1d', marking: 'whistle',   clickAnim: 'hop',   quote: 'De olho na B3, dividendos e IBOVESPA. Ma aprova este investimento!', imageUrl: '/avatars/totem.png', cosmetics: { body: 'money_tie', face: 'glasses' } },
-  Livro:   { color: '#1e3a5f', marking: 'whistle',   clickAnim: 'fast',  quote: 'Consultando a enciclopédia esportiva. Futebol, NBA, NFL e MLB na ponta da língua!', imageUrl: '/avatars/livro.png', cosmetics: { head: 'sports_headband', body: 'whistle' } },
+  Quinta:  { color: '#8b5cf6', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'command_module', body: 'status_bar' } },
+  Manager: { color: '#8b5cf6', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'command_module', body: 'status_bar' } },
+  Atlas:   { color: '#0ea5e9', marking: 'chevron',   clickAnim: 'fast',  quote: 'Já pesquisei isso — inclusive ontem.', imageUrl: '/avatars/sabio.png', cosmetics: { face: 'visor', hand: 'side_panel' } },
+  Nero:    { color: '#3b82f6', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { face: 'code_cursor', body: 'status_bar' } },
+  Worker:  { color: '#3b82f6', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { face: 'code_cursor', body: 'status_bar' } },
+  Iris:    { color: '#10b981', marking: 'chinstrap', clickAnim: 'tilt',  quote: 'Ah, ótimo. O que poderia dar errado?', imageUrl: '/avatars/eco.png', cosmetics: { body: 'shield_mark' } },
+  Ma:      { color: '#f59e0b', marking: 'whistle',   clickAnim: 'hop',   quote: 'De olho na B3, dividendos e IBOVESPA. Ma aprova este investimento!', imageUrl: '/avatars/totem.png', cosmetics: { body: 'data_grid', hand: 'side_panel' } },
+  Livro:   { color: '#6366f1', marking: 'whistle',   clickAnim: 'fast',  quote: 'Consultando a enciclopédia esportiva. Futebol, NBA, NFL e MLB na ponta da língua!', imageUrl: '/avatars/livro.png', cosmetics: { head: 'signal_band', body: 'status_bar' } },
+  Pixel:   { color: '#ff7262', marking: 'none',      clickAnim: 'tilt',  quote: 'Ajustando o visual sem enfeitar demais.', imageUrl: '/avatars/brilho.png', cosmetics: { face: 'design_nodes', body: 'status_bar' } },
+  Motion:  { color: '#a259ff', marking: 'none',      clickAnim: 'fast',  quote: 'Deixa comigo, eu coloco isso pra se mover.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'timeline_rig', body: 'orbit_mark' } },
+  Data:    { color: '#14b8a6', marking: 'chevron',   clickAnim: 'hop',   quote: 'Transformei bagunça em leitura.', imageUrl: '/avatars/sabio.png', cosmetics: { face: 'visor', body: 'data_grid' } },
+  Ops:     { color: '#64748b', marking: 'tuft',      clickAnim: 'jump2', quote: 'Rotina criada. Agora deixa rodar.', imageUrl: '/avatars/padrao.png', cosmetics: { head: 'signal_band', hand: 'side_panel' } },
 };
 
 const DEFAULT_VISUAL: AgentVisual = { color: '#1e1e1e', marking: 'none', clickAnim: 'hop', quote: '', imageUrl: '/avatars/padrao.png' };
 
 export function agentVisual(name: string, role?: string, customConfig?: any): AgentVisual {
-  const roleAgent = ({ Research: 'Atlas', Developer: 'Nero', Reviewer: 'Iris', Investor: 'Ma', Sports: 'Livro' } as Record<string, string>)[role || ''];
+  const roleAgent = ({
+    Research: 'Atlas',
+    Developer: 'Nero',
+    Reviewer: 'Iris',
+    Investor: 'Ma',
+    Sports: 'Livro',
+    Designer: 'Pixel',
+    Motion: 'Motion',
+    Data: 'Data',
+    Operations: 'Ops',
+  } as Record<string, string>)[role || ''];
   const base = AGENT_VISUALS[name] || AGENT_VISUALS[roleAgent] || DEFAULT_VISUAL;
   if (!customConfig) return base;
 

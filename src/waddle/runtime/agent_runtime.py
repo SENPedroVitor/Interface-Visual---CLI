@@ -303,13 +303,79 @@ class AgentRuntime:
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
         )
+        pixel = WorkerAgent(
+            name="Pixel",
+            role="Designer",
+            description="Design de interface, direção visual, sistemas de componentes, Figma e refinamento de experiência.",
+            provider_id="ollama",
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+            avatar_config={
+                "color": "#ff7262",
+                "imageUrl": "/avatars/brilho.png",
+                "cosmetics": {"face": "design_nodes", "body": "status_bar"},
+            },
+        )
+        motion = WorkerAgent(
+            name="Motion",
+            role="Motion",
+            description="Microinterações, transições, estados animados e comportamento visual dos agentes.",
+            provider_id="ollama",
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+            avatar_config={
+                "color": "#a259ff",
+                "imageUrl": "/avatars/chefe.png",
+                "cosmetics": {"head": "timeline_rig", "body": "orbit_mark"},
+            },
+        )
+        data = WorkerAgent(
+            name="Data",
+            role="Data",
+            description="Análise de dados, métricas, organização de tabelas e síntese quantitativa.",
+            provider_id="ollama",
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+            avatar_config={
+                "color": "#14b8a6",
+                "imageUrl": "/avatars/sabio.png",
+                "cosmetics": {"face": "visor", "body": "data_grid"},
+            },
+        )
+        ops = WorkerAgent(
+            name="Ops",
+            role="Operations",
+            description="Rotinas, automações, organização operacional, acompanhamento e execução recorrente.",
+            provider_id="ollama",
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+            avatar_config={
+                "color": "#64748b",
+                "imageUrl": "/avatars/padrao.png",
+                "cosmetics": {"head": "signal_band", "hand": "side_panel"},
+            },
+        )
         self.register_agent(quinta)
         self.register_agent(atlas)
         self.register_agent(nero)
         self.register_agent(iris)
         self.register_agent(ma)
         self.register_agent(livro)
-        quinta.collaborators = {"Atlas": atlas, "Nero": nero, "Iris": iris, "Ma": ma, "Livro": livro}
+        self.register_agent(pixel)
+        self.register_agent(motion)
+        self.register_agent(data)
+        self.register_agent(ops)
+        quinta.collaborators = {
+            "Atlas": atlas,
+            "Nero": nero,
+            "Iris": iris,
+            "Ma": ma,
+            "Livro": livro,
+            "Pixel": pixel,
+            "Motion": motion,
+            "Data": data,
+            "Ops": ops,
+        }
 
         # Aliases for backwards compatibility with legacy tests
         self.agents["Manager"] = quinta

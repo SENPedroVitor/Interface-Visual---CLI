@@ -12,7 +12,19 @@ export function agentStateFromStatus(status?: string): AgentState {
 }
 
 export function roleLabel(role: string): string {
-  return ({ Manager: 'Coordenação', Research: 'Pesquisa', Developer: 'Desenvolvimento', Reviewer: 'Revisão', Executor: 'Execução', Investor: 'Investimentos' } as Record<string, string>)[role] || role;
+  return ({
+    Manager: 'Coordenação',
+    Research: 'Pesquisa',
+    Developer: 'Desenvolvimento',
+    Reviewer: 'Revisão',
+    Executor: 'Execução',
+    Investor: 'Investimentos',
+    Sports: 'Esportes',
+    Designer: 'Design',
+    Motion: 'Motion',
+    Data: 'Dados',
+    Operations: 'Operações',
+  } as Record<string, string>)[role] || role;
 }
 
 export function activityTime(timestamp?: string): string {

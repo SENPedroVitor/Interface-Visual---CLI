@@ -497,28 +497,39 @@ export const VectorIcon: React.FC<{ name: string; size?: number | string; color?
     case 'rocket':
       return <IconRocket size={size} color={color} className={className} />;
     case 'shield':
+    case 'shield_mark':
       return <IconShield size={size} color={color} className={className} />;
     case 'chart':
     case 'stock_market':
+    case 'data_grid':
+    case 'data':
       return <IconChart size={size} color={color} className={className} />;
     case 'microscope':
     case 'research':
       return <IconMicroscope size={size} color={color} className={className} />;
     case 'code':
     case 'developer':
+    case 'code_cursor':
       return <IconCode size={size} color={color} className={className} />;
     case 'target':
     case 'executor':
+    case 'command_module':
       return <IconTarget size={size} color={color} className={className} />;
     case 'web_search':
     case 'globe':
       return <IconGlobe size={size} color={color} className={className} />;
     case 'zap':
     case 'bolt':
+    case 'timeline_rig':
+    case 'orbit_mark':
+    case 'motion':
       return <IconZap size={size} color={color} className={className} />;
     case 'brain':
       return <IconBrain size={size} color={color} className={className} />;
     case 'gear':
+    case 'signal_band':
+    case 'side_panel':
+    case 'operations':
       return <IconGear size={size} color={color} className={className} />;
     case 'bot':
       return <IconBot size={size} color={color} className={className} />;
@@ -529,6 +540,9 @@ export const VectorIcon: React.FC<{ name: string; size?: number | string; color?
       return <IconDownload size={size} color={color} className={className} />;
     case 'camera':
       return <IconCamera size={size} color={color} className={className} />;
+    case 'design_nodes':
+    case 'designer':
+      return <IconPalette size={size} color={color} className={className} />;
     case 'close':
     case 'x':
       return <IconClose size={size} color={color} className={className} />;

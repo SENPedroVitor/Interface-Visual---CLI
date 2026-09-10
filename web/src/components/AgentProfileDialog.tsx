@@ -5,6 +5,8 @@ import { WaddleAvatar } from './WaddleAvatar';
 import { agentVisual } from '../utils/agentVisuals';
 import { roleLabel } from '../utils/agentState';
 
+const AGENT_ROLE_OPTIONS = ['Research', 'Developer', 'Reviewer', 'Executor', 'Investor', 'Sports', 'Designer', 'Motion', 'Data', 'Operations'];
+
 export function AgentProfileDialog({
   agent,
   providers,
@@ -51,13 +53,13 @@ export function AgentProfileDialog({
         </div>
 
         <div className="agent-dialog-preview">
-          <WaddleAvatar size={88} color={visual.color} marking={visual.marking} />
+          <WaddleAvatar size={88} color={visual.color} marking={visual.marking} cosmetics={visual.cosmetics} imageUrl={visual.imageUrl} />
           <span>{agent.name}<small>{roleLabel(role)}</small></span>
         </div>
 
         <label>Função
           <select value={role} onChange={e => setRole(e.target.value)} disabled={isSystemAgent}>
-            {['Research', 'Developer', 'Reviewer', 'Executor', 'Investor'].map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}
+            {AGENT_ROLE_OPTIONS.map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}
           </select>
         </label>
 
