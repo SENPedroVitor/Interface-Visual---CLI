@@ -11,6 +11,7 @@ import { GlobalActionMenu } from './components/GlobalActionMenu';
 import { NewGroupDialog } from './components/NewGroupDialog';
 import { RoutineDrawer } from './components/RoutineDrawer';
 import { PluginsModal } from './components/PluginsModal';
+import { ConversationOverview } from './components/ConversationOverview';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -510,6 +511,16 @@ export const App: React.FC = () => {
         }}
         onOpenRoutine={(id) => setOpenRoutineId(id)}
         apiError={apiError}
+      />
+
+      <ConversationOverview
+        currentAgent={currentViewAgent}
+        currentGroup={activeGroup}
+        agents={visibleAgents}
+        tasks={tasks}
+        artifacts={artifacts}
+        routines={routines}
+        onOpenRoutine={(id) => setOpenRoutineId(id)}
       />
 
       <RoutineDrawer
