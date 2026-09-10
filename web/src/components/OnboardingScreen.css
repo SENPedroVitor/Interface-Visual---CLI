@@ -11,6 +11,7 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-main, #ffffff);
+  overflow: hidden;
 }
 
 [data-theme="dark"] .onboarding-root {
@@ -29,6 +30,7 @@
 
 .onboarding-card {
   position: relative;
+  z-index: 2;
   width: min(480px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
@@ -61,50 +63,30 @@
   margin-bottom: 32px;
 }
 
-/* Spin animation on the wrapper */
-.onboarding-mascot.is-spinning > * {
-  animation: obAvatarSpin 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+/* ── Mascot turning towards the button ────────────────────────── */
+.onboarding-mascot.is-turning-to-button {
+  animation: obAvatarTurnToButton 0.48s cubic-bezier(0.34, 1.35, 0.64, 1) forwards;
 }
 
-@keyframes obAvatarSpin {
-  0%   { transform: rotate(0deg)   scale(1);    }
-  30%  { transform: rotate(220deg) scale(1.12); }
-  65%  { transform: rotate(340deg) scale(0.92); }
-  100% { transform: rotate(360deg) scale(1);    }
+.onboarding-mascot.is-turning-to-button .waddle-manual-gaze,
+.onboarding-mascot.is-turning-to-button .waddle-gaze {
+  transform: translate(0px, 4.5px) !important;
+  transition: transform 0.16s ease-out;
 }
 
-/* Motion lines — cartoon style, appear only during spin */
-.onboarding-mascot.is-spinning::before,
-.onboarding-mascot.is-spinning::after {
-  content: "";
-  position: absolute;
-  inset: -18px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  border-top-color: #9159fe;
-  border-right-color: #a87ffe44;
-  animation: obSpinRing 0.6s linear both;
-  pointer-events: none;
-}
-
-.onboarding-mascot.is-spinning::after {
-  inset: -10px;
-  border-width: 2px;
-  border-top-color: #38bdf8;
-  border-left-color: #38bdf844;
-  animation-direction: reverse;
-  animation-duration: 0.5s;
-}
-
-@keyframes obSpinRing {
-  from { transform: rotate(0deg);   opacity: 0.9; }
-  60%  { opacity: 0.6; }
-  to   { transform: rotate(360deg); opacity: 0; }
-}
-
-/* Sparkle dots that burst out during spin */
-.onboarding-mascot.is-spinning .onboarding-mascot-sparkles {
-  display: block;
+@keyframes obAvatarTurnToButton {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  38% {
+    transform: translateY(18px) rotate(8deg) scale(1.08);
+  }
+  75% {
+    transform: translateY(14px) rotate(4deg) scale(1.04);
+  }
+  100% {
+    transform: translateY(16px) rotate(6deg) scale(1.06);
+  }
 }
 
 /* Welcome title */
@@ -215,6 +197,33 @@
   font-size: 13px;
   color: #ef4444;
   margin: 4px 0 0;
+}
+
+/* Personality badge tag */
+.onboarding-hint-wrap {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 24px;
+}
+
+.onboarding-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 15px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 650;
+  border: 1px solid transparent;
+  animation: obBadgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.25s ease;
+}
+
+@keyframes obBadgePop {
+  0% { transform: scale(0.88); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* Title cards grid */

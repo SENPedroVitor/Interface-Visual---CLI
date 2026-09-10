@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { WaddleAvatar } from "./WaddleAvatar";
 import type { AgentState } from "./WaddleAvatar";
 import { Highlighter } from "./Highlighter";
+import { LightRays } from "./LightRays";
 import { createAgent } from "../services/api";
 import "./OnboardingScreen.css";
 
@@ -66,8 +67,102 @@ const TITLE_OPTIONS: TitleOption[] = [
 
 type Step = "welcome" | "name" | "title" | "creating";
 
+/* ── Dynamic Avatar Visuals based on typed name ────────────── */
+export interface BotVisualProfile {
+  imageUrl: string;
+  color: string;
+  accent: string;
+  badge: string;
+}
+
+const PRESETS: Record<string, BotVisualProfile> = {
+  quinta: { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Líder Supremo 👑" },
+  chefe:  { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "O Chefão 👑" },
+  boss:   { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Big Boss 👑" },
+  rei:    { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Majestade 👑" },
+  king:   { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Rei da Equipe 👑" },
+
+  atlas:    { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Mente Brilhante 🧠" },
+  sabio:    { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "O Sábio Ancião 📜" },
+  mestre:   { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Grão-Mestre 🥋" },
+  guru:     { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Guru Estratégico 🔮" },
+  socrates: { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Filósofo 🏛️" },
+  neo:      { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "O Escolhido 🕶️" },
+
+  nero:   { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Mago dos Códigos ⚡" },
+  turbo:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Ultra Veloz 🚀" },
+  flash:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Velocista ⚡" },
+  sonic:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Super Sônico 🌀" },
+  bolt:   { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Raio Elétrico ⚡" },
+  dev:    { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Engenheiro Chefe 💻" },
+  max:    { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Potência Máxima 🔋" },
+
+  iris:   { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Olho Clínico 🌿" },
+  eco:    { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Guardião Natural 🍃" },
+  flora:  { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Espírito Zen 🌸" },
+  jade:   { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Pedra Preciosa 💎" },
+
+  ma:       { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Lobo de Wall Street 💰" },
+  totem:    { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Guardião Ancestral 🗿" },
+  gold:     { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Toque de Midas ✨" },
+  investor: { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Magnata Financeiro 📈" },
+  thor:     { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Força Bruta 🔨" },
+
+  livro:   { imageUrl: "/avatars/livro.png", color: "#6366f1", accent: "#1e3a5f", badge: "Enciclopédia Viva 📚" },
+  kobe:    { imageUrl: "/avatars/livro.png", color: "#8b5cf6", accent: "#1e3a5f", badge: "Mamba Mentality 🏀" },
+  jordan:  { imageUrl: "/avatars/livro.png", color: "#ef4444", accent: "#1e3a5f", badge: "O GOAT 🏆" },
+  campeao: { imageUrl: "/avatars/livro.png", color: "#2563eb", accent: "#1e3a5f", badge: "Espírito Campeão 🥇" },
+
+  luna:   { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Luz Estelar ✨" },
+  brilho: { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Brilho Radiante 💖" },
+  star:   { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Supernova 🌟" },
+  ruby:   { imageUrl: "/avatars/brilho.png", color: "#f43f5e", accent: "#4a1440", badge: "Joia Rara 💎" },
+  aurora: { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Aurora Boreal 🌌" },
+
+  shadow: { imageUrl: "/avatars/padrao.png", color: "#64748b", accent: "#0f172a", badge: "Guerreiro das Sombras 🥷" },
+  batman: { imageUrl: "/avatars/padrao.png", color: "#475569", accent: "#020617", badge: "Cavaleiro das Trevas 🦇" },
+  ninja:  { imageUrl: "/avatars/padrao.png", color: "#475569", accent: "#0f172a", badge: "Silencioso e Preciso ⚔️" },
+};
+
+const PALETTE_ROTATION: BotVisualProfile[] = [
+  { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Estrategista 👑" },
+  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Veloz & Prático ⚡" },
+  { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Analítico 🧠" },
+  { imageUrl: "/avatars/eco.png",   color: "#10b981", accent: "#16382a", badge: "Organizado 🌿" },
+  { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Determinado 🛡️" },
+  { imageUrl: "/avatars/brilho.png",color: "#ec4899", accent: "#4a1440", badge: "Criativo ✨" },
+  { imageUrl: "/avatars/livro.png", color: "#6366f1", accent: "#1e3a5f", badge: "Especialista 📚" },
+];
+
+export function resolveBotVisual(name: string): BotVisualProfile {
+  const clean = name.trim().toLowerCase();
+  if (!clean) {
+    return { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Líder 👑" };
+  }
+
+  // Exact or prefix match in presets
+  for (const [key, val] of Object.entries(PRESETS)) {
+    if (clean === key || (clean.length >= 3 && clean.startsWith(key))) return val;
+  }
+
+  // Deterministic hash based on all characters
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash * 31 + clean.charCodeAt(i)) >>> 0;
+  }
+  return PALETTE_ROTATION[hash % PALETTE_ROTATION.length];
+}
+
 /* ── Mystery avatar flip ────────────────────────────────────── */
-function MysteryAvatar({ revealed, size }: { revealed: boolean; size: number }) {
+function MysteryAvatar({
+  revealed,
+  size,
+  visual,
+}: {
+  revealed: boolean;
+  size: number;
+  visual: BotVisualProfile;
+}) {
   return (
     <div
       className={`onboarding-mystery-wrap ${revealed ? "is-revealed" : ""}`}
@@ -75,21 +170,34 @@ function MysteryAvatar({ revealed, size }: { revealed: boolean; size: number }) 
     >
       <div className="onboarding-mystery-side onboarding-mystery-front">
         <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden>
-          <rect x="14" y="30" width="72" height="42" rx="21" fill="#d1d5db" />
+          <rect
+            x="14"
+            y="30"
+            width="72"
+            height="42"
+            rx="21"
+            fill={revealed ? visual.color : "#d1d5db"}
+            style={{ transition: "fill 0.3s ease" }}
+          />
           <text
-            x="50" y="58"
+            x="50"
+            y="58"
             textAnchor="middle"
             fontSize="28"
             fontWeight="900"
             fontFamily="system-ui, sans-serif"
-            fill="#6b7280"
-          >?</text>
+            fill={revealed ? "#ffffff" : "#6b7280"}
+            style={{ transition: "fill 0.3s ease" }}
+          >
+            ?
+          </text>
         </svg>
       </div>
       <div className="onboarding-mystery-side onboarding-mystery-back">
         <WaddleAvatar
-          imageUrl="/avatars/chefe.png"
-          color="#2d1b4e"
+          key={visual.imageUrl + visual.color}
+          imageUrl={visual.imageUrl}
+          color={visual.accent}
           state="idle"
           size={size}
           gazeX={0.3}
@@ -107,7 +215,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   const [error, setError] = useState("");
   const [highlightReady, setHighlightReady] = useState(false);
   const [wobble, setWobble] = useState(false);
-  const [spinning, setSpinning] = useState(false);
+  const [turningToBtn, setTurningToBtn] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setHighlightReady(true), 400);
@@ -116,17 +224,16 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
 
   const selectedOption = TITLE_OPTIONS.find((o) => o.key === selectedTitle)!;
   const nameRevealed = botName.trim().length >= 1;
+  const botVisual = resolveBotVisual(botName);
 
-  /* Spin avatar briefly, then run callback */
-  const withSpin = useCallback((cb: () => void, delay = 500) => {
-    setSpinning(true);
+  /* Avatar turns towards the button on click, then advances to name step */
+  const handleStartClick = () => {
+    setTurningToBtn(true);
     setTimeout(() => {
-      setSpinning(false);
-      cb();
-    }, delay);
-  }, []);
-
-  const handleStartClick = () => withSpin(() => setStep("name"), 700);
+      setStep("name");
+      setTurningToBtn(false);
+    }, 480);
+  };
 
   const handleNameNext = () => {
     if (!botName.trim()) {
@@ -135,42 +242,55 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
       setTimeout(() => setWobble(false), 600);
       return;
     }
-    withSpin(() => setStep("title"), 400);
+    setStep("title");
   };
 
-  const handleBack = (to: Step) => withSpin(() => setStep(to), 300);
+  const handleBack = (to: Step) => setStep(to);
 
   const handleCreate = async () => {
-    withSpin(async () => {
-      setStep("creating");
-      try {
-        await createAgent({
-          name: botName.trim(),
-          role: "Manager",
-          description: `Bot ${selectedTitle} criado no onboarding. Coordena os outros agentes da equipe.`,
-        });
-      } catch (_) {
-        // Agent already exists or any error — just proceed
-      }
-      localStorage.setItem(ONBOARDING_KEY, "true");
-      onComplete();
-    }, 500);
+    setStep("creating");
+    try {
+      await createAgent({
+        name: botName.trim(),
+        role: "Manager",
+        description: `Bot ${selectedTitle} criado no onboarding. Coordena os outros agentes da equipe.`,
+        avatar_config: {
+          imageUrl: botVisual.imageUrl,
+          color: botVisual.color,
+        },
+      });
+    } catch (_) {
+      // Agent already exists or any error — just proceed
+    }
+    localStorage.setItem(ONBOARDING_KEY, "true");
+    onComplete();
   };
 
   return (
     <div className="onboarding-root">
+      {/* ── Light Rays (MagicUI) for welcome presentation ── */}
+      {step === "welcome" && (
+        <LightRays
+          count={8}
+          color="rgba(145, 89, 254, 0.42)"
+          blur={36}
+          speed={14}
+          length="88vh"
+        />
+      )}
+
       <div className="onboarding-card">
 
         {/* ── Welcome ── */}
         {step === "welcome" && (
           <div className="onboarding-step onboarding-step--welcome">
-            <div className={`onboarding-mascot ${spinning ? "is-spinning" : ""}`}>
+            <div className={`onboarding-mascot ${turningToBtn ? "is-turning-to-button" : ""}`}>
               <WaddleAvatar
                 imageUrl="/avatars/chefe.png"
                 color="#2d1b4e"
                 state="idle"
                 size={110}
-                trackMouse
+                trackMouse={!turningToBtn}
                 interactive
                 clickAnim="jump2"
               />
@@ -201,7 +321,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
             <button
               className="onboarding-btn onboarding-btn--primary"
               onClick={handleStartClick}
-              disabled={spinning}
+              disabled={turningToBtn}
             >
               Começar
             </button>
@@ -211,25 +331,38 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
         {/* ── Name ── */}
         {step === "name" && (
           <div className="onboarding-step">
-            <div className={`onboarding-mascot ${spinning ? "is-spinning" : ""}`}>
-              <MysteryAvatar revealed={nameRevealed} size={90} />
+            <div className="onboarding-mascot">
+              <MysteryAvatar revealed={nameRevealed} size={90} visual={botVisual} />
             </div>
 
             <h2 className="onboarding-heading">
               Como vai se chamar<br />seu bot chefe?
             </h2>
 
-            <p className="onboarding-hint">
-              {nameRevealed
-                ? "Boa escolha! Ele vai adorar esse nome."
-                : "Digite o nome para revelar seu bot."}
-            </p>
+            <div className="onboarding-hint-wrap">
+              {nameRevealed ? (
+                <div
+                  className="onboarding-badge-tag"
+                  style={{
+                    background: `${botVisual.color}18`,
+                    color: botVisual.color,
+                    borderColor: `${botVisual.color}35`,
+                  }}
+                >
+                  <span>{botVisual.badge}</span>
+                </div>
+              ) : (
+                <p className="onboarding-hint">
+                  Digite o nome para revelar seu bot.
+                </p>
+              )}
+            </div>
 
             <div className={`onboarding-input-wrap ${wobble ? "wobble" : ""}`}>
               <input
                 className="onboarding-input"
                 type="text"
-                placeholder="Ex: Quinta, Atlas, Max…"
+                placeholder="Ex: Quinta, Atlas, Nero, Luna…"
                 maxLength={24}
                 value={botName}
                 onChange={(e) => {
@@ -252,7 +385,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
               </button>
               <button
                 className="onboarding-btn onboarding-btn--primary"
-                disabled={!botName.trim() || spinning}
+                disabled={!botName.trim()}
                 onClick={handleNameNext}
               >
                 Continuar
@@ -264,11 +397,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
         {/* ── Title ── */}
         {step === "title" && (
           <div className="onboarding-step">
-            <div className={`onboarding-mascot ${spinning ? "is-spinning" : ""}`}>
+            <div className="onboarding-mascot">
               <WaddleAvatar
-                key={selectedTitle}
-                imageUrl="/avatars/chefe.png"
-                color="#2d1b4e"
+                key={botVisual.imageUrl + botVisual.color + selectedTitle}
+                imageUrl={botVisual.imageUrl}
+                color={botVisual.accent}
                 state={selectedOption.state}
                 size={90}
               />
@@ -276,7 +409,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
 
             <h2 className="onboarding-heading">
               Qual é o papel do{" "}
-              <strong style={{ color: selectedOption.color }}>{botName}</strong>?
+              <strong style={{ color: botVisual.color }}>{botName}</strong>?
             </h2>
             <p className="onboarding-hint">Isso define como ele lidera os outros bots.</p>
 
@@ -316,7 +449,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
               </button>
               <button
                 className="onboarding-btn onboarding-btn--primary"
-                disabled={spinning}
                 onClick={handleCreate}
               >
                 Criar {botName}
@@ -329,8 +461,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
         {step === "creating" && (
           <div className="onboarding-step onboarding-step--creating">
             <WaddleAvatar
-              imageUrl="/avatars/chefe.png"
-              color="#2d1b4e"
+              key={botVisual.imageUrl}
+              imageUrl={botVisual.imageUrl}
+              color={botVisual.accent}
               state="working"
               size={90}
             />

@@ -1,0 +1,80 @@
+/* ================================================================
+   LIGHT RAYS COMPONENT
+   Animated light rays shining down from above (MagicUI inspired)
+   ================================================================ */
+
+.light-rays-wrapper {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: inherit;
+  z-index: 1;
+}
+
+.light-rays-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.light-rays-ambient-1 {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 20% 15%,
+    color-mix(in srgb, var(--light-rays-color) 45%, transparent),
+    transparent 70%
+  );
+}
+
+.light-rays-ambient-2 {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 80% 10%,
+    color-mix(in srgb, var(--light-rays-color) 35%, transparent),
+    transparent 75%
+  );
+}
+
+.light-ray {
+  pointer-events: none;
+  position: absolute;
+  top: -12%;
+  left: var(--ray-left);
+  height: var(--light-rays-length);
+  width: var(--ray-width);
+  transform-origin: top center;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--light-rays-color) 75%, transparent),
+    transparent
+  );
+  opacity: 0;
+  mix-blend-mode: screen;
+  filter: blur(var(--light-rays-blur));
+  will-change: transform, opacity;
+}
+
+/* Light mode adjustments so rays are gently visible on light backdrops */
+[data-theme="light"] .light-ray,
+:root:not([data-theme="dark"]) .light-ray {
+  mix-blend-mode: multiply;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--light-rays-color) 85%, transparent),
+    transparent
+  );
+}
+
+[data-theme="dark"] .light-ray {
+  mix-blend-mode: screen;
+}

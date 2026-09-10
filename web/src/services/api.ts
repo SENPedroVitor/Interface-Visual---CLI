@@ -19,7 +19,13 @@ export async function submitObjective(objective: string, parameters?: Record<str
   return res.json();
 }
 
-export async function createAgent(profile: { name: string; role: string; description: string }): Promise<Agent> {
+export async function createAgent(profile: {
+  name: string;
+  role: string;
+  description: string;
+  avatar_config?: any;
+  provider_id?: string;
+}): Promise<Agent> {
   const res = await fetch(`${API_BASE}/api/agents`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile),
   });
