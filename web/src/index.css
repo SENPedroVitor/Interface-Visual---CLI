@@ -34,8 +34,8 @@
 
   /* Text */
   --text-primary:     var(--gray-900);
-  --text-secondary:   var(--gray-500);
-  --text-muted:       var(--gray-400);
+  --text-secondary:   #525252;
+  --text-muted:       #737373;
   --text-on-dark:     #ffffff;
 
   /* Agent accent colors (for avatars) */
@@ -104,8 +104,8 @@
     --border-input:            rgba(255, 255, 255, 0.14);
 
     --text-primary:            #efeef5;
-    --text-secondary:          #a5a2b3;
-    --text-muted:              #716e80;
+    --text-secondary:          #b8b5c4;
+    --text-muted:              #918e9f;
 
     --surface-neutral:         #2a2836;
     --surface-neutral-strong:  #3a3847;
@@ -140,8 +140,8 @@
   --border-input:            rgba(255, 255, 255, 0.14);
 
   --text-primary:            #efeef5;
-  --text-secondary:          #a5a2b3;
-  --text-muted:              #716e80;
+  --text-secondary:          #b8b5c4;
+  --text-muted:              #918e9f;
 
   --surface-neutral:         #2a2836;
   --surface-neutral-strong:  #3a3847;
