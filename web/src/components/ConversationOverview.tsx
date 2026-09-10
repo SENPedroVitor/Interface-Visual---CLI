@@ -131,6 +131,7 @@ export const ConversationOverview: React.FC<ConversationOverviewProps> = ({
               cosmetics={visual.cosmetics}
               imageUrl={visual.imageUrl}
               showPresence
+              trackMouse
             />
           </div>
         ) : (
@@ -143,6 +144,7 @@ export const ConversationOverview: React.FC<ConversationOverviewProps> = ({
               cosmetics={visual.cosmetics}
               imageUrl={visual.imageUrl}
               showPresence
+              trackMouse
             />
             <div className="conversation-overview__profile-copy">
               <div className="conversation-overview__profile-name-row">

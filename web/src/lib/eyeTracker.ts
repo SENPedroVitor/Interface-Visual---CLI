@@ -33,6 +33,26 @@ let inside = false;
 let reduced = false;
 let listenersAttached = false;
 
+export function calculateGazeOffset(
+  pointerX: number,
+  pointerY: number,
+  originX: number,
+  originY: number,
+  maxOffset: number,
+  activationDistance = 150,
+): { x: number; y: number } {
+  const dx = pointerX - originX;
+  const dy = pointerY - originY;
+  const distance = Math.hypot(dx, dy);
+  if (distance === 0 || maxOffset <= 0) return { x: 0, y: 0 };
+
+  const strength = Math.min(distance / activationDistance, 1) * maxOffset;
+  return {
+    x: (dx / distance) * strength,
+    y: (dy / distance) * strength,
+  };
+}
+
 function updateReducedMotion() {
   reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -85,12 +105,9 @@ function tick() {
     if (inside && !reduced) {
       const pt = toScreenPoint(w.el, w.cx, w.cy);
       if (pt) {
-        const dx = mouse.x - pt.x;
-        const dy = mouse.y - pt.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const f = Math.min(dist / 150, 1) * w.maxOffset;
-        targetTx = (dx / dist) * f;
-        targetTy = (dy / dist) * f;
+        const offset = calculateGazeOffset(mouse.x, mouse.y, pt.x, pt.y, w.maxOffset);
+        targetTx = offset.x;
+        targetTy = offset.y;
       }
     }
     w.tx += (targetTx - w.tx) * 0.1;

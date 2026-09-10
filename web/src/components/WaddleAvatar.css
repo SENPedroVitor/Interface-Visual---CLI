@@ -1,7 +1,16 @@
 .waddle-avatar-wrapper { display: inline-flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; filter: drop-shadow(0 8px 16px rgba(0,0,0,.12)); }
 .waddle-avatar-wrapper svg { display: block; overflow: visible; }
 .waddle-avatar-wrapper[data-interactive] { cursor: pointer; }
-.waddle-body { transform-origin: 60px 101px; }
+.waddle-body { transform-origin: 50px 72px; }
+.waddle-vector-avatar { overflow: visible; }
+.waddle-gaze { will-change: transform; }
+.waddle-eye-state { --eye-open: 1; transform-origin: 50px 52px; }
+.waddle-eye-shape { transform-box: fill-box; transform-origin: center; animation: waddleEyeBlink 5.2s ease-in-out infinite; }
+.waddle-eye-state--working { animation: waddleEyeScan 1.35s ease-in-out infinite; }
+.waddle-eye-state--thinking { transform: translate(1.8px, -1.8px); }
+.waddle-eye-state--waiting { animation: waddleEyeWait 3.2s ease-in-out infinite; }
+.waddle-eye-state--blocked { --eye-open: .48; transform: translateY(1px); }
+.waddle-eye-state--done { --eye-open: .68; transform: translateY(-1px); }
 .waddle-shell { stroke: rgba(255,255,255,.16); stroke-width: 1.2; }
 .waddle-body-shade, .waddle-ground-shadow { pointer-events: none; }
 .waddle-ground-shadow { fill: rgba(0,0,0,.16); transform-origin: 60px 104px; }
@@ -37,6 +46,18 @@
 @keyframes waddleCelebrate { 0%,100% { transform: none; } 20% { transform: scale(1.04,.94); } 50% { transform: translateY(-7px) rotate(-4deg); } 75% { transform: translateY(0) scale(1.03,.97); } }
 @keyframes waddleHop { 0%,100% { transform: none; } 25% { transform: scale(1.03,.95); } 55% { transform: translateY(-5px); } }
 @keyframes waddleShadowPulse { 0%,100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(.82); opacity: .72; } }
+@keyframes waddleEyeBlink {
+  0%, 44%, 48%, 92%, 96%, 100% { transform: scaleY(var(--eye-open)); }
+  46%, 94% { transform: scaleY(.08); }
+}
+@keyframes waddleEyeScan {
+  0%, 18%, 100% { transform: translateX(-2.4px); }
+  45%, 68% { transform: translateX(2.4px); }
+}
+@keyframes waddleEyeWait {
+  0%, 32%, 100% { transform: translateX(0); }
+  42%, 70% { transform: translateX(2px); }
+}
 @media (prefers-reduced-motion: reduce) {
   .waddle-avatar-wrapper *, .waddle-avatar-wrapper[data-reaction] .waddle-body { animation: none !important; transition: none !important; }
 }
