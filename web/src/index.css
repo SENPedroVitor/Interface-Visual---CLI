@@ -187,6 +187,22 @@
   :root:not([data-theme="light"])[data-daypart="night"]   { --daypart-tint: rgba(100, 120, 230, 0.16); }
 }
 
+/* Theme reveal animation. The flag exists only while the toggle is running,
+   so other future view transitions are not affected. */
+html[data-waddle-theme-vt="active"]::view-transition-old(root),
+html[data-waddle-theme-vt="active"]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html[data-waddle-theme-vt="active"]::view-transition-group(root) {
+  animation-duration: var(--waddle-theme-toggle-vt-duration);
+}
+
+html[data-waddle-theme-vt="active"]::view-transition-new(root) {
+  clip-path: var(--waddle-theme-vt-clip-from);
+}
+
 /* ── Reset ────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -1235,6 +1251,166 @@ button, input, textarea {
 .group-summary-line strong {
   color: var(--text-secondary);
   font-weight: 600;
+}
+
+/* Inline team summary for squad chats. It mirrors the visual preview's
+   "Trabalho em equipe" block, but uses live agents/tasks/artifacts. */
+.team-work-card {
+  width: calc(100% - 40px);
+  max-width: 620px;
+  align-self: flex-start;
+  margin: 6px 20px 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-main) 88%, var(--text-primary) 5%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  animation: appleMsgSlideIn 0.32s var(--ease-spring) both;
+}
+
+.team-work-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.team-work-card__header div {
+  display: grid;
+  gap: 3px;
+}
+
+.team-work-card__eyebrow {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.team-work-card__header strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.team-work-card__meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.team-work-card__agents {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.team-work-card__agent {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: center;
+}
+
+.team-work-card__agent .waddle-avatar-wrapper {
+  grid-row: span 2;
+}
+
+.team-work-card__agent span,
+.team-work-card__artifact strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.team-work-card__agent small,
+.team-work-card__artifact small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
+
+.team-work-card__checks {
+  display: grid;
+  gap: 7px;
+  padding-top: 12px;
+}
+
+.team-work-card__check {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.team-work-card__check svg {
+  color: #38a169;
+}
+
+.team-work-card__check span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-work-card__check small {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  text-align: right;
+}
+
+.team-work-card__artifact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-main) 92%, var(--text-primary) 3%);
+}
+
+.team-work-card__artifact div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+@media (max-width: 760px) {
+  .team-work-card {
+    width: calc(100% - 32px);
+    margin-inline: 16px;
+    padding: 13px;
+  }
+
+  .team-work-card__agents {
+    grid-template-columns: 1fr;
+  }
+
+  .team-work-card__check {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+
+  .team-work-card__check small {
+    grid-column: 2;
+    text-align: left;
+  }
 }
 
 /* Created routine / summary pill */

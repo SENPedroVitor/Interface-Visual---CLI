@@ -212,13 +212,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 15px;
-  border-radius: 999px;
+  padding: 0;
+  border-radius: 0;
   font-size: 13px;
   font-weight: 650;
-  border: 1px solid transparent;
+  border: 0;
+  background: transparent;
   animation: obBadgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transition: all 0.25s ease;
+  transition: color 0.25s ease;
 }
 
 @keyframes obBadgePop {
@@ -281,17 +282,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  border: 1.5px solid transparent;
-  margin-bottom: 2px;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transition:
+    color 0.2s ease,
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.onboarding-role-vector {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.onboarding-role-vector-dot {
+  fill: currentColor;
+  stroke: none;
 }
 
 .onboarding-title-card:hover .onboarding-title-icon-badge,
 .onboarding-title-card.is-selected .onboarding-title-icon-badge {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .onboarding-title-name {

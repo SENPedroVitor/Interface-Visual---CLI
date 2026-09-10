@@ -95,6 +95,7 @@ function GroupSummaryLine({ names }: { names: string[] }): React.ReactElement {
 interface ConversationViewProps {
   currentAgent: Agent | null;
   isGroup?: boolean;
+  teamAgents?: Agent[];
   chatItems: ChatItem[];
   onSendMessage: (text: string) => Promise<void>;
   isSending: boolean;
@@ -137,6 +138,107 @@ const SPORTS_SUGGESTIONS = [
   'Próximos jogos do Flamengo e resultados recentes',
 ];
 
+function taskStatusLabel(status: Task['status']): string {
+  const labels: Record<Task['status'], string> = {
+    pending: 'pendente',
+    queued: 'na fila',
+    running: 'em andamento',
+    blocked: 'bloqueada',
+    waiting_review: 'em revisão',
+    completed: 'concluída',
+    failed: 'falhou',
+    cancelled: 'cancelada',
+  };
+  return labels[status] || status;
+}
+
+function TeamWorkCard({
+  agents,
+  tasks,
+  artifacts,
+}: {
+  agents: Agent[];
+  tasks: Task[];
+  artifacts: ArtifactSummary[];
+}): React.ReactElement | null {
+  if (agents.length === 0) return null;
+
+  const teamNames = new Set(agents.map((agent) => agent.name.toLowerCase()));
+  const teamTasks = tasks.filter((task) => teamNames.has((task.assigned_agent || '').toLowerCase()));
+  const recentTasks = [...teamTasks].slice(-3).reverse();
+  const doneCount = teamTasks.filter((task) => task.status === 'completed').length;
+  const teamArtifacts = artifacts.filter((artifact) => teamNames.has((artifact.agent_name || '').toLowerCase())).slice(0, 1);
+  const visibleAgents = agents.slice(0, 3);
+
+  const checklist = recentTasks.length
+    ? recentTasks.map((task) => ({
+        label: task.title,
+        meta: task.assigned_agent || taskStatusLabel(task.status),
+      }))
+    : visibleAgents.map((agent) => ({
+        label: `${agent.name} pronto para colaborar`,
+        meta: roleLabel(agent.role),
+      }));
+
+  return (
+    <section className="team-work-card" aria-label="Resumo do trabalho em equipe">
+      <div className="team-work-card__header">
+        <div>
+          <span className="team-work-card__eyebrow">Trabalho em equipe</span>
+          <strong>{visibleAgents.length} agentes conectados</strong>
+        </div>
+        <span className="team-work-card__meta">
+          {doneCount > 0 ? `${doneCount} concluída${doneCount > 1 ? 's' : ''}` : 'prontos'}
+        </span>
+      </div>
+
+      <div className="team-work-card__agents">
+        {visibleAgents.map((agent) => {
+          const state = agentStateFromStatus(agent.status);
+          const visual = agentVisual(agent.name, agent.role, agent.avatar_config);
+          const activeTask = [...teamTasks].reverse().find((task) => task.assigned_agent === agent.name);
+
+          return (
+            <div className="team-work-card__agent" key={agent.id}>
+              <WaddleAvatar
+                color={visual.color}
+                state={state}
+                size={24}
+                marking={visual.marking}
+                cosmetics={visual.cosmetics}
+                imageUrl={visual.imageUrl}
+                plain
+              />
+              <span>{agent.name}</span>
+              <small>{activeTask ? taskStatusLabel(activeTask.status) : roleLabel(agent.role)}</small>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="team-work-card__checks">
+        {checklist.map((item, index) => (
+          <div className="team-work-card__check" key={`${item.label}-${index}`}>
+            <IconCheck size={13} />
+            <span>{item.label}</span>
+            <small>{item.meta}</small>
+          </div>
+        ))}
+      </div>
+
+      {teamArtifacts.length > 0 && (
+        <div className="team-work-card__artifact">
+          <IconDocument size={16} />
+          <div>
+            <strong>{teamArtifacts[0].filename}</strong>
+            <small>{teamArtifacts[0].agent_name} · arquivo gerado</small>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** Renders `code`-wrapped segments (real file paths/commands) as inline code chips. */
 function renderActivityContent(content: string): React.ReactNode {
   return content.split(/(`[^`]+`)/g).map((part, i) => {
@@ -154,6 +256,7 @@ function renderActivityContent(content: string): React.ReactNode {
 export const ConversationView: React.FC<ConversationViewProps> = ({
   currentAgent,
   isGroup = false,
+  teamAgents = [],
   chatItems,
   onSendMessage,
   isSending,
@@ -380,6 +483,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 weekday: 'long', day: 'numeric', month: 'long',
               })}
             </div>
+
+            {isGroup && (
+              <TeamWorkCard agents={teamAgents} tasks={tasks} artifacts={artifacts} />
+            )}
 
             {chatItems.map((item) => {
 

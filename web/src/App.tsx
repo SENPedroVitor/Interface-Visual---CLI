@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Agent, ArtifactSummary, ProviderInfo, RoutineSummary, Task, ToolInfo, WaddleEvent, SystemStatus, GroupSummary } from './types';
 import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, connectWebSocket } from './services/api';
 import { AgentSidebar } from './components/AgentSidebar';
@@ -13,6 +14,7 @@ import { RoutineDrawer } from './components/RoutineDrawer';
 import { PluginsModal } from './components/PluginsModal';
 import { ConversationOverview } from './components/ConversationOverview';
 import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
+import { getThemeRevealClipPaths } from './lib/themeTransition';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -53,6 +55,8 @@ function useTheme() {
     if (stored === 'light') return false;
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+  const isTransitioningRef = useRef(false);
+  const activeThemeAnimRef = useRef<Animation | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -68,15 +72,81 @@ function useTheme() {
     return () => mq.removeEventListener('change', handleChange);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setIsDark((prev) => {
-      const next = !prev;
+  useEffect(() => {
+    return () => {
+      activeThemeAnimRef.current?.cancel();
+      const root = document.documentElement;
+      if (root.dataset.waddleThemeVt !== 'active') return;
+      delete root.dataset.waddleThemeVt;
+      root.style.removeProperty('--waddle-theme-toggle-vt-duration');
+      root.style.removeProperty('--waddle-theme-vt-clip-from');
+    };
+  }, []);
+
+  const toggleTheme = useCallback((origin?: HTMLElement | null) => {
+    if (isTransitioningRef.current) return;
+
+    const next = !isDark;
+    const applyTheme = () => {
       const value = next ? 'dark' : 'light';
       document.documentElement.dataset.theme = value;
       localStorage.setItem(THEME_STORAGE_KEY, value);
-      return next;
+      setIsDark(next);
+    };
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || typeof document.startViewTransition !== 'function') {
+      applyTheme();
+      return;
+    }
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const rect = origin?.getBoundingClientRect();
+    const cx = rect ? rect.left + rect.width / 2 : viewportWidth / 2;
+    const cy = rect ? rect.top + rect.height / 2 : viewportHeight / 2;
+    const maxRadius = Math.hypot(
+      Math.max(cx, viewportWidth - cx),
+      Math.max(cy, viewportHeight - cy)
+    );
+    const clipPath = getThemeRevealClipPaths({ cx, cy, maxRadius, viewportWidth, viewportHeight });
+    const root = document.documentElement;
+
+    isTransitioningRef.current = true;
+    activeThemeAnimRef.current?.cancel();
+    root.dataset.waddleThemeVt = 'active';
+    root.style.setProperty('--waddle-theme-toggle-vt-duration', '520ms');
+    root.style.setProperty('--waddle-theme-vt-clip-from', clipPath[0]);
+
+    const cleanup = () => {
+      isTransitioningRef.current = false;
+      delete root.dataset.waddleThemeVt;
+      root.style.removeProperty('--waddle-theme-toggle-vt-duration');
+      root.style.removeProperty('--waddle-theme-vt-clip-from');
+      activeThemeAnimRef.current?.cancel();
+      activeThemeAnimRef.current = null;
+    };
+
+    const transition = document.startViewTransition(() => {
+      flushSync(applyTheme);
     });
-  }, []);
+
+    transition.ready
+      ?.then(() => {
+        activeThemeAnimRef.current = root.animate(
+          { clipPath },
+          {
+            duration: 520,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            fill: 'forwards',
+            pseudoElement: '::view-transition-new(root)',
+          }
+        );
+      })
+      .catch(() => {});
+
+    transition.finished?.finally(cleanup).catch(() => {});
+  }, [isDark]);
 
   return { isDark, toggleTheme };
 }
@@ -482,6 +552,9 @@ export const App: React.FC = () => {
         item.agentKey === activeGroup.id
       )
     : chatItems.filter(item => item.agentKey === (selectedAgent?.name || 'Quinta').toLowerCase());
+  const activeGroupAgents = activeGroup
+    ? visibleAgents.filter(agent => activeGroup.members.includes(agent.name))
+    : [];
 
   if (needsOnboarding) {
     return (
@@ -528,6 +601,7 @@ export const App: React.FC = () => {
         key={selectedGroupId || selectedAgent?.id}
         currentAgent={currentViewAgent}
         isGroup={!!activeGroup}
+        teamAgents={activeGroupAgents}
         chatItems={filteredChatItems}
         onSendMessage={handleSendMessage}
         isSending={isSending}

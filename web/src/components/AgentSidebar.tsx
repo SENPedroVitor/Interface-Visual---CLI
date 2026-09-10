@@ -20,7 +20,7 @@ export interface AgentSidebarProps {
   systemStatus: 'active' | 'stopped';
   agentPreviews: Record<string, string>;
   isDarkTheme: boolean;
-  onToggleTheme: () => void;
+  onToggleTheme: (origin?: HTMLElement | null) => void;
   onOpenActionMenu: (rect: DOMRect) => void;
 }
 
@@ -184,8 +184,9 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
       <div className="sidebar-footer">
         <button
           className={`sidebar-footer-btn theme-toggle-btn ${isDarkTheme ? 'is-dark' : ''}`}
-          onClick={onToggleTheme}
+          onClick={(e) => onToggleTheme(e.currentTarget)}
           title={isDarkTheme ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+          aria-pressed={isDarkTheme}
         >
           <span className="theme-toggle-icon">
             <svg className="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
