@@ -171,6 +171,16 @@ export const IconClose: React.FC<IconProps> = ({ size = 16, color = 'currentColo
   </svg>
 );
 
+export const IconPanelCompact: React.FC<IconProps> = ({ size = 16, color = 'currentColor', className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <rect x="3" y="3" width="18" height="18" rx="3.5" />
+    <line x1="9.5" y1="3" x2="9.5" y2="21" />
+    <line x1="5.5" y1="7.5" x2="7.5" y2="7.5" strokeWidth="2.5" />
+    <line x1="5.5" y1="11.5" x2="7.5" y2="11.5" strokeWidth="2.5" />
+  </svg>
+);
+
+
 export const IconPenguin: React.FC<IconProps> = ({ size = 20, color = 'currentColor', className, ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className} {...props}>
     <path d="M12 2C8.69 2 6 4.69 6 8v5c0 3.87 2.69 7 6 7s6-3.13 6-7V8c0-3.31-2.69-6-6-6zm0 16c-2.21 0-4-2.24-4-5V8c0-1.66 1.79-3 4-3s4 1.34 4 3v5c0 2.76-1.79 5-4 5zm-1-8.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm2 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1 3.5c-.83 0-1.5-.45-1.5-1h3c0 .55-.67 1-1.5 1z" />
@@ -528,6 +538,10 @@ export const VectorIcon: React.FC<{ name: string; size?: number | string; color?
       return <IconStop size={size} color={color} className={className} />;
     case 'document':
       return <IconDocument size={size} color={color} className={className} />;
+    case 'panel_compact':
+    case 'sidebar_toggle':
+      return <IconPanelCompact size={size} color={color} className={className} />;
+
 
     // Cosmetics
     case 'luffy_hat':

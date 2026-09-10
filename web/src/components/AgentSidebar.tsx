@@ -3,7 +3,7 @@ import { Agent, Task, GroupSummary } from '../types';
 import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
 import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
-import { VectorIcon, IconPalette, IconPlug } from './Icons';
+import { VectorIcon, IconPlug } from './Icons';
 
 export interface AgentSidebarProps {
   agents: Agent[];
@@ -22,7 +22,6 @@ export interface AgentSidebarProps {
   isDarkTheme: boolean;
   onToggleTheme: () => void;
   onOpenActionMenu: (rect: DOMRect) => void;
-  onCustomizeAgent?: (agent: Agent) => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
@@ -39,7 +38,6 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   isDarkTheme,
   onToggleTheme,
   onOpenActionMenu,
-  onCustomizeAgent,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -169,16 +167,6 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
                 <div className="agent-list-row1">
                   <span className="agent-list-name">{agent.name}</span>
                   {avatarState !== 'idle' && <span className={`agent-state-chip ${avatarState}`}>{STATE_LABELS[avatarState]}</span>}
-                  <span
-                    style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', opacity: 0.6, cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCustomizeAgent?.(agent);
-                    }}
-                    title="Personalizar Bot"
-                  >
-                    <IconPalette size={14} />
-                  </span>
                 </div>
                 <div className="agent-list-row2">
                   <span className="agent-list-preview">{preview}</span>

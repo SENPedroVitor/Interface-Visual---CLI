@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Conceitos de Mascote — Waddle</title>
+<style>
+  body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; padding: 32px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { color: #94a3b8; font-size: 13px; margin: 0 0 28px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; max-width: 1200px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 20px; }
+  .card h2 { font-size: 15px; margin: 0 0 2px; }
+  .card .desc { color: #94a3b8; font-size: 12px; margin: 0 0 14px; }
+  .row { display: flex; gap: 8px; }
+  .cell { flex: 1; text-align: center; }
+  .cell .img { background: #f8fafc; border-radius: 12px; padding: 8px; }
+  .cell img { width: 100%; display: block; }
+  .cell span { display: block; font-size: 11px; color: #94a3b8; margin-top: 6px; }
+  .ref { opacity: 0.7; }
+</style>
+</head>
+<body>
+<h1>Formato escolhido — v3 (ref. GIF)</h1>
+<p class="sub">Corpo preenchendo o quadro inteiro, como no GIF. No app, o Image fica com cantos arredondados via clip no QML.</p>
+<div class="grid">
+  <div class="card">
+    <h2>Fiel — proporções do GIF</h2>
+    <p class="desc">Placa centralizada um pouco abaixo do meio, olhinhos espaçados.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_fiel_idle.svg"></div><span>idle</span></div>
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_fiel_thinking.svg"></div><span>thinking</span></div>
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_fiel_happy.svg"></div><span>happy</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Grande — placa maior</h2>
+    <p class="desc">Placa maior e olhos maiores; mais legível em tamanho pequeno.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_grande_idle.svg"></div><span>idle</span></div>
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_grande_thinking.svg"></div><span>thinking</span></div>
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_grande_happy.svg"></div><span>happy</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Pílula — baixinho</h2>
+    <p class="desc">Placa mais larga e baixa, colada embaixo; silhouette achatada.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_pill_idle.svg"></div><span>idle</span></div>
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_pill_thinking.svg"></div><span>thinking</span></div>
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v3_pill_happy.svg"></div><span>happy</span></div>
+    </div>
+  </div>
+</div>
+
+<h1 style="margin-top:48px;">Equipe v4 — cores por agente &amp; cosméticos</h1>
+<p class="sub">Formato v3 (full-bleed) com paleta e acessório próprios por agente. Escolhidos os favoritos, gero todos os estados.</p>
+<div class="grid">
+  <div class="card">
+    <h2>Padrão — Waddle</h2>
+    <p class="desc">O agente padrão: carvão + branco, sem cosmético.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#1e1e1e;"><img src="v4_padrao_idle.svg"></div><span>idle</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Chefe — gerente</h2>
+    <p class="desc">Roxo profundo, cartola e gravata-borboleta lavanda.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#2d1b4e;"><img src="v4_chefe_idle.svg"></div><span>idle</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Sábio — analista</h2>
+    <p class="desc">Verde-petróleo, placa menta e óculos redondos dourados.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#123f3a;"><img src="v4_sabio_idle.svg"></div><span>idle</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Turbo — worker</h2>
+    <p class="desc">Azul-marinho e boné laranja; o que executa tarefas.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#14284b;"><img src="v4_turbo_idle.svg"></div><span>idle</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Eco — vigilante</h2>
+    <p class="desc">Verde-musgo escuro, placa menta clara e fones laranja.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#16382a;"><img src="v4_eco_idle.svg"></div><span>idle</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Brilho — criativo</h2>
+    <p class="desc">Vinho-magenta, placa rosa-claro e laço rosa.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#4a1440;"><img src="v4_brilho_idle.svg"></div><span>idle</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Tótem — guardião</h2>
+    <p class="desc">Marrom-café, placa creme e antena laranja.</p>
+    <div class="row">
+      <div class="cell"><div class="img" style="background:#3a2a1d;"><img src="v4_totem_idle.svg"></div><span>idle</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

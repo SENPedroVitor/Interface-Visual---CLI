@@ -3,12 +3,23 @@
   min-width: 320px;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   border-left: 1px solid var(--border);
   background: var(--bg-sidebar);
   padding: 18px 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
+  transition: width 0.22s var(--ease-spring), min-width 0.22s var(--ease-spring), padding 0.22s ease;
+}
+
+.conversation-overview.is-compact {
+  width: 58px;
+  min-width: 58px;
+  padding: 14px 8px;
+  align-items: center;
+  gap: 12px;
 }
 
 .conversation-overview__header {
@@ -16,6 +27,17 @@
   align-items: center;
   justify-content: space-between;
   min-height: 36px;
+  gap: 8px;
+}
+
+.conversation-overview.is-compact .conversation-overview__header {
+  justify-content: center;
+  min-height: auto;
+  width: 100%;
+}
+
+.conversation-overview__header-text {
+  min-width: 0;
 }
 
 .conversation-overview__eyebrow {
@@ -35,6 +57,34 @@
   color: var(--text-primary);
 }
 
+.conversation-overview__toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.08));
+  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.conversation-overview__toggle-btn:hover {
+  background: var(--bg-active, rgba(255, 255, 255, 0.08));
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.18));
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.conversation-overview.is-compact .conversation-overview__toggle-btn {
+  color: var(--accent, #9159fe);
+  background: rgba(145, 89, 254, 0.12);
+  border-color: rgba(145, 89, 254, 0.28);
+}
+
 .conversation-overview__profile {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -50,6 +100,35 @@
   min-width: 0;
 }
 
+.conversation-overview__profile-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conversation-overview__profile-gear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.conversation-overview__profile-gear-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
 .conversation-overview__profile-copy h3 {
   font-size: 16px;
   line-height: 1.25;
@@ -59,6 +138,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 
 .conversation-overview__profile-copy p {
   margin-top: 3px;
@@ -97,6 +177,71 @@
   border-color: rgba(220, 123, 115, 0.25);
 }
 
+/* Compact Mode Items */
+.conversation-overview__compact-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  transition: transform 0.18s var(--ease-spring);
+}
+
+.conversation-overview__compact-avatar:hover {
+  transform: scale(1.08);
+}
+
+.conversation-overview__compact-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.conversation-overview__compact-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--hairline);
+  background: var(--bg-main);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.conversation-overview__compact-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.conversation-overview__compact-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--accent, #9159fe);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Full Mode Sections */
 .conversation-overview__section {
   display: grid;
   gap: 10px;
@@ -201,7 +346,7 @@
 }
 
 @media (max-width: 1180px) {
-  .conversation-overview {
+  .conversation-overview:not(.is-compact) {
     display: none;
   }
 }

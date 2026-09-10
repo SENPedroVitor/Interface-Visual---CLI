@@ -1,0 +1,21 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cartola Elegante -->
+  <rect x="36" y="3" width="28" height="16" rx="3" fill="#0a0a0a" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" />
+  <rect x="36" y="14" width="28" height="4" fill="#b18cff" />
+  <rect x="27" y="19" width="46" height="4.5" rx="2" fill="#0a0a0a" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" />
+  
+  <!-- Corpo Squircle Roxo -->
+  <rect x="8" y="21" width="84" height="74" rx="32" fill="#2d1b4e" />
+  
+  <!-- Placa Lavanda Grande & Centralizada -->
+  <rect x="18" y="31" width="64" height="48" rx="22" fill="#d6c5ff" />
+  
+  <!-- Olhos Expressivos -->
+  <ellipse cx="37" cy="53" rx="4.2" ry="5.8" fill="#2d1b4e" />
+  <ellipse cx="63" cy="53" rx="4.2" ry="5.8" fill="#2d1b4e" />
+  
+  <!-- Gravata Borboleta Lavanda -->
+  <polygon points="40,84 50,88 40,92" fill="#b18cff" />
+  <polygon points="60,84 50,88 60,92" fill="#b18cff" />
+  <circle cx="50" cy="88" r="2.8" fill="#d6c5ff" />
+</svg>

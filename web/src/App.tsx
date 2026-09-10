@@ -122,6 +122,17 @@ export const App: React.FC = () => {
 
   // Track last message per agent for sidebar preview
   const [agentPreviews, setAgentPreviews] = useState<Record<string, string>>({});
+  const [isOverviewCompact, setIsOverviewCompact] = useState<boolean>(() => {
+    return localStorage.getItem('waddle-overview-compact') === 'true';
+  });
+
+  const handleToggleOverviewCompact = useCallback(() => {
+    setIsOverviewCompact((prev) => {
+      const next = !prev;
+      localStorage.setItem('waddle-overview-compact', String(next));
+      return next;
+    });
+  }, []);
 
   const visibleAgents = useAgentPresence(agents, events);
   const selectedAgent = visibleAgents.find((a) => a.id === selectedAgentId) || visibleAgents[0] || null;
@@ -487,11 +498,8 @@ export const App: React.FC = () => {
           setActionMenuAnchor(rect);
           setIsActionMenuOpen(true);
         }}
-        onCustomizeAgent={(agent) => {
-          setStudioAgent(agent);
-          setIsStudioOpen(true);
-        }}
       />
+
 
       <ConversationView
         key={selectedGroupId || selectedAgent?.id}
@@ -521,6 +529,12 @@ export const App: React.FC = () => {
         artifacts={artifacts}
         routines={routines}
         onOpenRoutine={(id) => setOpenRoutineId(id)}
+        isCompact={isOverviewCompact}
+        onToggleCompact={handleToggleOverviewCompact}
+        onCustomizeAgent={(agent) => {
+          setStudioAgent(agent);
+          setIsStudioOpen(true);
+        }}
       />
 
       <RoutineDrawer

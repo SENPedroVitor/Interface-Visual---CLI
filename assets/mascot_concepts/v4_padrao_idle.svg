@@ -1,0 +1,11 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Corpo Squircle Carvão -->
+  <rect x="6" y="7" width="88" height="86" rx="36" fill="#1e1e1e" />
+  
+  <!-- Placa Branca Neve Grande & Centralizada -->
+  <rect x="15" y="21" width="70" height="54" rx="25" fill="#ffffff" />
+  
+  <!-- Olhos Expressivos -->
+  <ellipse cx="36" cy="48" rx="4.5" ry="6.2" fill="#1e1e1e" />
+  <ellipse cx="64" cy="48" rx="4.5" ry="6.2" fill="#1e1e1e" />
+</svg>

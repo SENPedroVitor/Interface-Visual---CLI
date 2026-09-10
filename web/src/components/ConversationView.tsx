@@ -4,7 +4,7 @@ import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
 import { RevealText } from './RevealText';
 import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
-import { VectorIcon, IconDocument, IconCheck, IconAlert } from './Icons';
+import { VectorIcon, IconDocument, IconCheck, IconAlert, IconGear } from './Icons';
 import { MarkdownMessage, looksLikeMarkdown, CopyButton } from './MarkdownMessage';
 
 export interface ChatItem {
@@ -235,13 +235,26 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
       {/* ── Panel Header ── */}
       <header className="panel-header">
-        <div className="panel-header-left">
+        <div
+          className="panel-header-left is-clickable"
+          onClick={onEditAgent}
+          title={isGroup ? `Configurações do squad ${agentName}` : `Configurações de ${agentName}`}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onEditAgent();
+            }
+          }}
+        >
           <WaddleAvatar
             color={agentVis.color}
             state={headerState}
             size={26}
             marking={agentVis.marking}
             clickAnim={agentVis.clickAnim}
+            imageUrl={agentVis.imageUrl}
             trackMouse
             interactive
           />
@@ -249,6 +262,15 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         </div>
 
         <div className="panel-header-right">
+          <button
+            className="panel-icon-btn"
+            title={isGroup ? 'Configurações do squad' : `Configurações de ${agentName}`}
+            aria-label={isGroup ? 'Configurações do squad' : `Configurações de ${agentName}`}
+            onClick={onEditAgent}
+          >
+            <IconGear size={17} />
+          </button>
+
           <button className="panel-icon-btn" title={presentation ? 'Sair da apresentação (Esc)' : 'Modo apresentação'} aria-pressed={presentation} onClick={onTogglePresentation}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <rect x="2" y="4" width="20" height="14" rx="2" />
@@ -274,6 +296,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 marking={agentVis.marking}
                 clickAnim={agentVis.clickAnim}
                 quote={agentVis.quote}
+                imageUrl={agentVis.imageUrl}
                 trackMouse={true}
                 interactive={true}
                 className="hero-penguin"
@@ -430,6 +453,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                         state="idle"
                         size={16}
                         marking={senderVis.marking}
+                        imageUrl={senderVis.imageUrl}
                         plain
                       />
                       {item.senderName || agentName}
@@ -464,7 +488,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             {isSending && (
               <div className="msg-row agent-msg">
                 <div className={`msg-sender-name ${SENDER_COLOR_CLASS[agentName.toLowerCase()] || 'quinta'}`}>
-                  <WaddleAvatar color={agentVis.color} state="working" size={16} marking={agentVis.marking} plain />
+                  <WaddleAvatar color={agentVis.color} state="working" size={16} marking={agentVis.marking} imageUrl={agentVis.imageUrl} plain />
                   {agentName}
                 </div>
                 <div className="typing-indicator">
@@ -490,6 +514,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               state="idle"
               size={112}
               marking={agentVis.marking}
+              imageUrl={agentVis.imageUrl}
               plain={false}
             />
           </div>
@@ -501,6 +526,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             state="idle"
             size={40}
             marking={agentVis.marking}
+            imageUrl={agentVis.imageUrl}
             gazeX={gazeX}
           />
         </div>

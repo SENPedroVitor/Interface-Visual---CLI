@@ -1,0 +1,16 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Boné Laranja Esportivo -->
+  <path d="M 28 17 A 22 15 0 0 1 72 17 Z" fill="#ff7a18" />
+  <rect x="18" y="16.5" width="64" height="4.8" rx="2.4" fill="#e06a10" />
+  <circle cx="50" cy="7" r="2.8" fill="#ffffff" />
+
+  <!-- Corpo Squircle Azul Marinho -->
+  <rect x="7" y="18" width="86" height="76" rx="34" fill="#14284b" />
+  
+  <!-- Placa Azul Celeste Grande & Centralizada -->
+  <rect x="16" y="30" width="68" height="52" rx="24" fill="#cfe0ff" />
+  
+  <!-- Olhos -->
+  <ellipse cx="36" cy="55" rx="4.2" ry="5.8" fill="#14284b" />
+  <ellipse cx="64" cy="55" rx="4.2" ry="5.8" fill="#14284b" />
+</svg>
