@@ -84,7 +84,6 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
           height: size,
           objectFit: 'contain',
           display: 'block',
-          filter: 'drop-shadow(0 2px 6px rgba(0, 0, 0, 0.32))',
         }}
       />
       {showPresence && state !== 'idle' && <span className="waddle-presence-dot" />}

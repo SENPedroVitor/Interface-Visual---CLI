@@ -1,18 +1,5 @@
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <!-- Corpo Squircle Verde-Petróleo -->
-  <rect x="6" y="7" width="88" height="86" rx="36" fill="#123f3a" />
-  
-  <!-- Placa Menta Suave Grande & Centralizada -->
-  <rect x="15" y="21" width="70" height="54" rx="25" fill="#b8f0e0" />
-  
-  <!-- Olhos -->
-  <ellipse cx="36" cy="48" rx="4.2" ry="5.8" fill="#123f3a" />
-  <ellipse cx="64" cy="48" rx="4.2" ry="5.8" fill="#123f3a" />
-  
-  <!-- Óculos Redondos Dourados do Sábio -->
-  <circle cx="36" cy="48" r="9.5" fill="none" stroke="#ffb347" stroke-width="2.6" />
-  <circle cx="64" cy="48" r="9.5" fill="none" stroke="#ffb347" stroke-width="2.6" />
-  <path d="M 45.5 45.5 Q 50 42 54.5 45.5" fill="none" stroke="#ffb347" stroke-width="2.6" />
-  <line x1="26.5" y1="48" x2="16" y2="44" stroke="#ffb347" stroke-width="2.6" stroke-linecap="round" />
-  <line x1="73.5" y1="48" x2="84" y2="44" stroke="#ffb347" stroke-width="2.6" stroke-linecap="round" />
+  <rect x="14" y="30" width="72" height="42" rx="21" fill="#bfe8db" />
+  <ellipse cx="37" cy="52" rx="4.4" ry="5.8" fill="#123f3a" />
+  <ellipse cx="63" cy="52" rx="4.4" ry="5.8" fill="#123f3a" />
 </svg>
