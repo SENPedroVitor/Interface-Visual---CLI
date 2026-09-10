@@ -303,7 +303,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   };
 
   const agentName   = currentAgent?.name || 'Quinta';
-  const agentVis    = agentVisual(agentName, currentAgent?.role);
+  const agentVis    = agentVisual(agentName, currentAgent?.role, currentAgent?.avatar_config);
   const headerState: AgentState = isSending ? 'working' : agentStateFromStatus(currentAgent?.status);
 
   // Sweeps the composer-peek avatar's gaze left-to-right as you type,
@@ -351,6 +351,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             size={26}
             marking={agentVis.marking}
             clickAnim={agentVis.clickAnim}
+            cosmetics={agentVis.cosmetics}
             imageUrl={agentVis.imageUrl}
             trackMouse
             interactive
@@ -393,6 +394,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 marking={agentVis.marking}
                 clickAnim={agentVis.clickAnim}
                 quote={agentVis.quote}
+                cosmetics={agentVis.cosmetics}
                 imageUrl={agentVis.imageUrl}
                 trackMouse={!isTyping}
                 interactive={true}
@@ -556,7 +558,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               /* Chat message bubble */
               const isUser     = item.sender === 'user';
               const colorClass = SENDER_COLOR_CLASS[item.sender] || 'system';
-              const senderVis  = agentVisual(item.senderName || '');
+              const senderAgent = teamAgents.find(agent => agent.name === item.senderName) || (
+                currentAgent?.name === item.senderName ? currentAgent : undefined
+              );
+              const senderVis  = agentVisual(item.senderName || '', senderAgent?.role, senderAgent?.avatar_config);
               const summaryNames = groupSummaryPoints.get(item.id);
 
               return (
@@ -569,6 +574,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                         state="idle"
                         size={16}
                         marking={senderVis.marking}
+                        cosmetics={senderVis.cosmetics}
                         imageUrl={senderVis.imageUrl}
                         plain
                       />
@@ -604,7 +610,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             {isSending && (
               <div className="msg-row agent-msg">
                 <div className={`msg-sender-name ${SENDER_COLOR_CLASS[agentName.toLowerCase()] || 'quinta'}`}>
-                  <WaddleAvatar color={agentVis.color} state="working" size={16} marking={agentVis.marking} imageUrl={agentVis.imageUrl} plain />
+                  <WaddleAvatar color={agentVis.color} state="working" size={16} marking={agentVis.marking} cosmetics={agentVis.cosmetics} imageUrl={agentVis.imageUrl} plain />
                   {agentName}
                 </div>
                 <div className="typing-indicator">
@@ -630,6 +636,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               state="idle"
               size={40}
               marking={agentVis.marking}
+              cosmetics={agentVis.cosmetics}
               imageUrl={agentVis.imageUrl}
               gazeX={gazeX}
             />
