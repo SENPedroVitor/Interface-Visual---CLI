@@ -110,8 +110,16 @@ function tick() {
         targetTy = offset.y;
       }
     }
-    w.tx += (targetTx - w.tx) * 0.1;
-    w.ty += (targetTy - w.ty) * 0.1;
+    const lerp = 0.20;
+    const dx = targetTx - w.tx;
+    const dy = targetTy - w.ty;
+    if (Math.abs(dx) < 0.005 && Math.abs(dy) < 0.005) {
+      w.tx = targetTx;
+      w.ty = targetTy;
+    } else {
+      w.tx += dx * lerp;
+      w.ty += dy * lerp;
+    }
     w.el.setAttribute('transform', `translate(${w.tx.toFixed(2)} ${w.ty.toFixed(2)})`);
   }
   rafId = watchers.length > 0 ? requestAnimationFrame(tick) : null;

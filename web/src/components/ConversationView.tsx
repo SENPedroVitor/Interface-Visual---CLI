@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Agent, ArtifactSummary, RoutineSummary, Task } from '../types';
 import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
 import { RevealText } from './RevealText';
+import { TypingAnimation } from './TypingAnimation';
 import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconDocument, IconCheck, IconAlert, IconGear } from './Icons';
@@ -129,6 +130,13 @@ const INVESTOR_SUGGESTIONS = [
   'Como está o saldo e rentabilidade da minha carteira?',
 ];
 
+const SPORTS_SUGGESTIONS = [
+  'Tabela de classificação do Brasileirão atualizada',
+  'Próximos jogos e classificação da NBA',
+  'Tabela da NFL e conferências para o Super Bowl',
+  'Próximos jogos do Flamengo e resultados recentes',
+];
+
 /** Renders `code`-wrapped segments (real file paths/commands) as inline code chips. */
 function renderActivityContent(content: string): React.ReactNode {
   return content.split(/(`[^`]+`)/g).map((part, i) => {
@@ -160,10 +168,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
-  const [avatarFlight, setAvatarFlight] = useState(false);
   const endRef    = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const wasTypingRef = useRef(false);
 
   useEffect(() => {
     if (chatItems.length || isSending) endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -202,8 +208,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   // caret tracker. Backspacing naturally pulls the gaze back too, for free.
   const isTyping = inputText.length > 0;
   const gazeX = isTyping ? ((inputText.length % 30) / 30) * 2 - 1 : 0;
-  const hasEmptyHero = chatItems.length === 0 && !isSending;
-  const showComposerPeek = isTyping && (!hasEmptyHero || avatarFlight);
+  const showComposerPeek = isTyping;
   const agentTasks = tasks
     .filter(task => task.assigned_agent === agentName)
     .slice(-3)
@@ -219,19 +224,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
     [isGroup, chatItems]
   );
 
-  useEffect(() => {
-    if (isTyping && !wasTypingRef.current && hasEmptyHero) {
-      setAvatarFlight(true);
-      const timer = window.setTimeout(() => setAvatarFlight(false), 950);
-      wasTypingRef.current = true;
-      return () => window.clearTimeout(timer);
-    }
-
-    if (!isTyping) wasTypingRef.current = false;
-  }, [hasEmptyHero, isTyping]);
-
   return (
-    <div className={`main-panel ${avatarFlight ? 'is-avatar-flight' : ''}`}>
+    <div className="main-panel">
 
       {/* ── Panel Header ── */}
       <header className="panel-header">
@@ -288,7 +282,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         {chatItems.length === 0 && !isSending ? (
           /* Empty State Hero with Interactive Mouse-Tracking Penguin */
           <div className="empty-state">
-            <div className={`empty-avatar-hero ${avatarFlight ? 'is-departing' : ''} ${isTyping ? 'is-parked-in-composer' : ''}`}>
+            <div className="empty-avatar-hero">
               <WaddleAvatar
                 color={agentVis.color}
                 state={headerState}
@@ -297,20 +291,35 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 clickAnim={agentVis.clickAnim}
                 quote={agentVis.quote}
                 imageUrl={agentVis.imageUrl}
-                trackMouse={true}
+                trackMouse={!isTyping}
                 interactive={true}
                 className="hero-penguin"
+                gazeX={gazeX}
               />
             </div>
             <h2 className="empty-title">{agentName}</h2>
             <div className="empty-role-badge">{roleLabel(currentAgent?.role || 'Agente')}</div>
             <p className="empty-desc">
-              {agentName === 'Quinta'
-                ? 'Coordeno a equipe para pesquisar, escrever código e validar resultados. O que fazemos hoje?'
-                : currentAgent?.description || 'Pronto para trabalhar.'}
+              <TypingAnimation
+                key={agentName}
+                typeSpeed={20}
+                delay={180}
+                showCursor={true}
+                blinkCursor={true}
+                cursorStyle="line"
+              >
+                {agentName === 'Quinta'
+                  ? 'Coordeno a equipe para pesquisar, escrever código e validar resultados. O que fazemos hoje?'
+                  : currentAgent?.description || 'Pronto para trabalhar.'}
+              </TypingAnimation>
             </p>
             <div className="quick-actions">
-              {(agentName === 'Ma' || currentAgent?.role === 'Investor' ? INVESTOR_SUGGESTIONS : QUICK_SUGGESTIONS).map((s, i) => (
+              {(agentName === 'Ma' || currentAgent?.role === 'Investor'
+                ? INVESTOR_SUGGESTIONS
+                : agentName === 'Livro' || currentAgent?.role === 'Sports'
+                ? SPORTS_SUGGESTIONS
+                : QUICK_SUGGESTIONS
+              ).map((s, i) => (
                 <button key={i} className="quick-action-btn" onClick={() => setInputText(s)}>
                   {s}
                 </button>
@@ -507,112 +516,59 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
       {/* ── Composer ── */}
       <div className="composer-area">
-        {avatarFlight && (
-          <div className="hero-to-composer-flight" aria-hidden="true">
+        <div className="composer-box-wrapper">
+          <div className={`composer-peek ${showComposerPeek ? 'is-typing' : ''}`} aria-hidden="true">
             <WaddleAvatar
               color={agentVis.color}
               state="idle"
-              size={112}
+              size={40}
               marking={agentVis.marking}
               imageUrl={agentVis.imageUrl}
-              plain={false}
+              gazeX={gazeX}
             />
           </div>
-        )}
 
-        <div className={`composer-peek ${showComposerPeek ? 'is-typing' : ''}`}>
-          <WaddleAvatar
-            color={agentVis.color}
-            state="idle"
-            size={40}
-            marking={agentVis.marking}
-            imageUrl={agentVis.imageUrl}
-            gazeX={gazeX}
-          />
+          <form onSubmit={handleSubmit} className="composer-box">
+            <button type="button" className="btn-composer-attach" title="Anexar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <textarea
+              ref={textareaRef}
+              className="composer-input"
+              placeholder={`Mensagem para ${agentName}`}
+              aria-label={`Mensagem para ${agentName}`}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              disabled={isSending}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+
+            <button type="button" className="btn-composer-mic" title="Microfone">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="9" y="2" width="6" height="13" rx="3" />
+                <path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <button
+              type="submit"
+              className="btn-composer-send"
+              disabled={!inputText.trim() || isSending}
+              title="Enviar"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </form>
         </div>
-
-        {agentName === 'Livro' && (
-          <div className="quick-action-chips" style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => setInputText("Tabela de classificação do Brasileirão")}
-              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-            >
-              <VectorIcon name="trophy" size={13} color="#059669" /> Tabela Brasileirão
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => setInputText("Classificação da NBA")}
-              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-            >
-              <VectorIcon name="basketball" size={13} color="#ea580c" /> Classificação NBA
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => setInputText("Tabela da NFL e conferências")}
-              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-            >
-              <VectorIcon name="football" size={13} color="#d97706" /> NFL & Super Bowl
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => setInputText("Classificação da MLB e beisebol")}
-              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-            >
-              <VectorIcon name="baseball" size={13} color="#3b82f6" /> MLB Beisebol
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => setInputText("Próximos jogos do Flamengo")}
-              style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', background: 'var(--bg-secondary, #1a1a24)', color: 'var(--text-primary, #fff)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-            >
-              <VectorIcon name="ball" size={13} color="#ef4444" /> Próximos Jogos
-            </button>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="composer-box">
-          <button type="button" className="btn-composer-attach" title="Anexar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-            </svg>
-          </button>
-
-          <textarea
-            ref={textareaRef}
-            className="composer-input"
-            placeholder={`Mensagem para ${agentName}`}
-            aria-label={`Mensagem para ${agentName}`}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            disabled={isSending}
-          />
-
-          <button type="button" className="btn-composer-mic" title="Microfone">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="9" y="2" width="6" height="13" rx="3" />
-              <path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6" strokeLinecap="round" />
-            </svg>
-          </button>
-
-          <button
-            type="submit"
-            className="btn-composer-send"
-            disabled={!inputText.trim() || isSending}
-            title="Enviar"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </form>
       </div>
     </div>
   );

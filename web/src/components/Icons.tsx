@@ -560,6 +560,8 @@ export const VectorIcon: React.FC<{ name: string; size?: number | string; color?
       return <IconSunglasses size={size} color={color} className={className} />;
     case 'tie':
       return <IconTie size={size} color={color} className={className} />;
+    case 'money_tie':
+      return <IconTie size={size} color="#10b981" className={className} />;
     case 'bowtie':
       return <IconBowtie size={size} color={color} className={className} />;
     case 'coffee':
@@ -567,6 +569,10 @@ export const VectorIcon: React.FC<{ name: string; size?: number | string; color?
     case 'whistle':
     case 'sports':
       return <IconWhistle size={size} color={color} className={className} />;
+    case 'sports_headband':
+      return <IconTrophy size={size} color="#3b82f6" className={className} />;
+    case 'leaf_badge':
+      return <IconCheck size={size} color="#10b981" className={className} />;
     case 'trophy':
     case 'champion':
       return <IconTrophy size={size} color={color} className={className} />;

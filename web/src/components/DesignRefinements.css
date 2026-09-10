@@ -50,6 +50,19 @@
 .memory-row small { color: var(--text-muted); font-size: 11px; }
 .connection-banner { align-self: center; width: min(520px, calc(100% - 32px)); margin: 0 16px 12px; padding: 9px 12px; border: 1px solid rgba(220,123,115,.28); border-radius: 12px; background: rgba(220,123,115,.10); color: #dc7b73; font-size: 12px; text-align: center; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #a587ef; outline-offset: 3px; }
+.composer-input,
+.composer-input:focus,
+.composer-input:focus-visible,
+.composer-box textarea,
+.composer-box textarea:focus,
+.composer-box textarea:focus-visible,
+.composer-textarea,
+.composer-textarea:focus,
+.composer-textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
 .agent-dialog { margin: auto; width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); padding: 24px; color: var(--text-primary); background: var(--bg-main); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 24px 80px var(--shadow-strong); }
 .agent-dialog::backdrop { background: rgba(12,12,18,.6); backdrop-filter: blur(4px); }
 .agent-dialog-heading { display: flex; align-items: center; justify-content: space-between; }

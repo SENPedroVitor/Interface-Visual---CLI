@@ -17,14 +17,14 @@ export interface AgentVisual {
  * plain, same as the reference's own Manager entry.
  */
 export const AGENT_VISUALS: Record<string, AgentVisual> = {
-  Quinta:  { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png' },
-  Manager: { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png' },
-  Atlas:   { color: '#123f3a', marking: 'chevron',   clickAnim: 'fast',  quote: 'Já pesquisei isso — inclusive ontem.', imageUrl: '/avatars/sabio.png' },
-  Nero:    { color: '#14284b', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png' },
-  Worker:  { color: '#14284b', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png' },
-  Iris:    { color: '#16382a', marking: 'chinstrap', clickAnim: 'tilt',  quote: 'Ah, ótimo. O que poderia dar errado?', imageUrl: '/avatars/eco.png' },
-  Ma:      { color: '#3a2a1d', marking: 'whistle',   clickAnim: 'hop',   quote: 'De olho na B3, dividendos e IBOVESPA. Ma aprova este investimento!', imageUrl: '/avatars/totem.png' },
-  Livro:   { color: '#1e3a5f', marking: 'whistle',   clickAnim: 'fast',  quote: 'Consultando a enciclopédia esportiva. Futebol, NBA, NFL e MLB na ponta da língua!', imageUrl: '/avatars/livro.png' },
+  Quinta:  { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'crown' } },
+  Manager: { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'crown' } },
+  Atlas:   { color: '#123f3a', marking: 'chevron',   clickAnim: 'fast',  quote: 'Já pesquisei isso — inclusive ontem.', imageUrl: '/avatars/sabio.png', cosmetics: { face: 'glasses' } },
+  Nero:    { color: '#14284b', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { head: 'headphones' } },
+  Worker:  { color: '#14284b', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { head: 'headphones' } },
+  Iris:    { color: '#16382a', marking: 'chinstrap', clickAnim: 'tilt',  quote: 'Ah, ótimo. O que poderia dar errado?', imageUrl: '/avatars/eco.png', cosmetics: { body: 'leaf_badge' } },
+  Ma:      { color: '#3a2a1d', marking: 'whistle',   clickAnim: 'hop',   quote: 'De olho na B3, dividendos e IBOVESPA. Ma aprova este investimento!', imageUrl: '/avatars/totem.png', cosmetics: { body: 'money_tie', face: 'glasses' } },
+  Livro:   { color: '#1e3a5f', marking: 'whistle',   clickAnim: 'fast',  quote: 'Consultando a enciclopédia esportiva. Futebol, NBA, NFL e MLB na ponta da língua!', imageUrl: '/avatars/livro.png', cosmetics: { head: 'sports_headband', body: 'whistle' } },
 };
 
 const DEFAULT_VISUAL: AgentVisual = { color: '#1e1e1e', marking: 'none', clickAnim: 'hop', quote: '', imageUrl: '/avatars/padrao.png' };

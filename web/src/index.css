@@ -694,35 +694,6 @@ button, input, textarea {
   }
 }
 
-@keyframes heroAvatarDepart {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(10px) scale(0.82);
-  }
-}
-
-@keyframes heroToComposerFlight {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, 0) scale(1);
-  }
-  10% {
-    opacity: 1;
-  }
-  58% {
-    opacity: 1;
-    transform: translate(calc(-50vw + 148px), calc(50vh - 132px)) scale(0.54) rotate(-7deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(calc(-50vw + 76px), calc(50vh - 72px)) scale(0.28) rotate(0deg);
-  }
-}
-
 .empty-avatar-hero {
   position: relative;
   flex-shrink: 0;
@@ -731,15 +702,6 @@ button, input, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.empty-avatar-hero.is-departing {
-  animation: heroAvatarDepart 0.55s cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-.empty-avatar-hero.is-parked-in-composer {
-  opacity: 0;
-  transform: translateY(12px) scale(0.82);
 }
 
 .empty-title {
@@ -1299,36 +1261,29 @@ button, input, textarea {
   padding: 12px 20px 16px;
 }
 
-.hero-to-composer-flight {
-  position: fixed;
-  z-index: 8;
-  left: calc(50% + 104px);
-  bottom: 50%;
-  width: 112px;
-  height: 112px;
-  pointer-events: none;
-  transform-origin: center;
-  animation: heroToComposerFlight 0.95s cubic-bezier(0.2, 0.85, 0.2, 1) both;
+.composer-box-wrapper {
+  position: relative;
+  width: 100%;
 }
 
 /* Peeks up over the composer's edge when you start typing, eyes following
-   along — tucked out of sight (translated down, faded, non-interactive)
-   the rest of the time. */
+   along — stays looking at the text being typed on the side */
 .composer-peek {
   position: absolute;
-  left: 28px;
+  left: 24px;
   bottom: 100%;
-  transform: translateY(18px) scale(0.72);
+  transform: translateY(22px) scale(0.75);
   transform-origin: bottom center;
   opacity: 0;
   pointer-events: none;
-  transition: transform 0.4s var(--ease-spring), opacity 0.25s ease;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  z-index: 5;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.16));
 }
 
 .composer-peek.is-typing {
-  transform: translateY(4px) scale(1);
+  transform: translateY(6px) scale(1);
   opacity: 1;
-  transition-delay: 0.55s;
 }
 
 .composer-box {
@@ -1378,11 +1333,13 @@ button, input, textarea {
   height: 18px;
 }
 
-.composer-input {
+.composer-input,
+.composer-textarea {
   flex: 1;
   background: transparent;
-  border: none;
-  outline: none;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   resize: none;
   font-size: 14px;
   color: var(--text-primary);
@@ -1391,7 +1348,17 @@ button, input, textarea {
   padding: 2px 0;
 }
 
-.composer-input::placeholder {
+.composer-input:focus,
+.composer-input:focus-visible,
+.composer-textarea:focus,
+.composer-textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.composer-input::placeholder,
+.composer-textarea::placeholder {
   color: var(--text-muted);
 }
 

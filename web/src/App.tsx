@@ -12,6 +12,7 @@ import { NewGroupDialog } from './components/NewGroupDialog';
 import { RoutineDrawer } from './components/RoutineDrawer';
 import { PluginsModal } from './components/PluginsModal';
 import { ConversationOverview } from './components/ConversationOverview';
+import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -81,6 +82,17 @@ function useTheme() {
 }
 
 export const App: React.FC = () => {
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('reset') || params.has('onboarding')) {
+      try {
+        localStorage.removeItem(ONBOARDING_KEY);
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (_) {}
+      return true;
+    }
+    return localStorage.getItem(ONBOARDING_KEY) !== 'true';
+  });
   const { isDark, toggleTheme } = useTheme();
   const dayPart = useTimeOfDay();
   useEffect(() => {
@@ -470,6 +482,17 @@ export const App: React.FC = () => {
         item.agentKey === activeGroup.id
       )
     : chatItems.filter(item => item.agentKey === (selectedAgent?.name || 'Quinta').toLowerCase());
+
+  if (needsOnboarding) {
+    return (
+      <OnboardingScreen
+        onComplete={() => {
+          setNeedsOnboarding(false);
+          refreshData();
+        }}
+      />
+    );
+  }
 
   return (
     <div className={`app-shell ${presentation ? 'is-presentation' : ''}`}>

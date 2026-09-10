@@ -17,7 +17,7 @@
 .waddle-belly { stroke: rgba(0,0,0,.05); stroke-width: .8; }
 .waddle-beak { filter: drop-shadow(0 1px 0 rgba(0,0,0,.16)); }
 .waddle-accessory { filter: drop-shadow(0 1px 1px rgba(0,0,0,.18)); }
-.waddle-gaze { transition: transform 160ms cubic-bezier(.2,.8,.2,1); }
+.waddle-manual-gaze { transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
 .waddle-eye { transition: transform 120ms ease; }
 .waddle-eye-minimal { filter: drop-shadow(0 .8px .8px rgba(0,0,0,.18)); }
 .waddle-eye-ink { fill: #111116; }

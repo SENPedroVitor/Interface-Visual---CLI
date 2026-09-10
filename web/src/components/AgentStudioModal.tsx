@@ -391,6 +391,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
+                      { id: 'sports_headband', label: 'Faixa Esportiva' },
                       { id: 'luffy_hat', label: 'Chapéu do Luffy' },
                       { id: 'headphones', label: 'Fone de Ouvido' },
                       { id: 'crown', label: 'Coroa Real' },
@@ -437,8 +438,11 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
+                      { id: 'money_tie', label: 'Gravata Dinheiro ($)' },
+                      { id: 'whistle', label: 'Apito de Árbitro' },
                       { id: 'tie', label: 'Gravata Vermelha' },
                       { id: 'bowtie', label: 'Gravata Borboleta' },
+                      { id: 'leaf_badge', label: 'Broche Eco' },
                     ].map(item => (
                       <button
                         key={item.id}

@@ -121,7 +121,7 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
             <rect x="14" y="30" width="72" height="42" rx="21" fill={palette.face} />
             <g className={`waddle-eye-state waddle-eye-state--${state}`}>
               <g ref={gazeRef} className="waddle-gaze">
-                <g transform={`translate(${manualGazeX} 0)`}>
+                <g className="waddle-manual-gaze" transform={`translate(${manualGazeX} 0)`}>
                   <ellipse className="waddle-eye-shape" cx="37" cy="52" rx="4.4" ry="5.8" fill={palette.eyes} />
                   <ellipse className="waddle-eye-shape" cx="63" cy="52" rx="4.4" ry="5.8" fill={palette.eyes} />
                 </g>
