@@ -222,7 +222,6 @@
   background: #ffffff;
 }
 
-/* Error banner */
 .studio-error-banner {
   padding: 10px 14px;
   background: rgba(239, 68, 68, 0.12);
@@ -232,6 +231,12 @@
   margin-bottom: 16px;
   font-size: 0.82rem;
   font-weight: 500;
+}
+
+[data-theme="light"] .studio-error-banner {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }
 
 /* Section Common Styles */

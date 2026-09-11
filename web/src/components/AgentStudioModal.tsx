@@ -174,10 +174,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
 
   const handleColorSelect = (newColor: string) => {
     setColor(newColor);
-    // If a stock image was present, clear it so the vector mascot color shows immediately
-    if (imageUrl && !imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:')) {
-      setImageUrl(undefined);
-    }
+    setImageUrl(undefined);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,7 +259,8 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
         color,
         marking,
         cosmetics,
-        imageUrl,
+        imageUrl: imageUrl || '',
+        useMascot: !imageUrl,
       };
 
       const payload = {

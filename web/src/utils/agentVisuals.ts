@@ -35,11 +35,20 @@ export function agentVisual(name: string, role?: string, customConfig?: any): Ag
   if (!customConfig) return base;
 
   const cfg = customConfig.avatar_config || customConfig;
+  let resolvedImageUrl: string | undefined = base.imageUrl;
+  if (cfg.imageUrl === null || cfg.imageUrl === '' || cfg.imageUrl === 'mascot' || cfg.useMascot) {
+    resolvedImageUrl = undefined;
+  } else if (cfg.imageUrl && (cfg.imageUrl.startsWith('data:') || cfg.imageUrl.startsWith('http') || cfg.imageUrl.startsWith('blob:') || cfg.imageUrl.startsWith('/'))) {
+    resolvedImageUrl = cfg.imageUrl;
+  } else if (cfg.color || cfg.cosmetics || cfg.marking) {
+    resolvedImageUrl = undefined;
+  }
+
   return {
     ...base,
     color: cfg.color || base.color,
     marking: cfg.marking || base.marking,
     cosmetics: cfg.cosmetics !== undefined ? cfg.cosmetics : base.cosmetics,
-    imageUrl: cfg.imageUrl || base.imageUrl,
+    imageUrl: resolvedImageUrl,
   };
 }

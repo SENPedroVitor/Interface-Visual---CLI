@@ -104,33 +104,9 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
 
   const stockPalette = imageUrl ? officialPalette(imageUrl) : null;
 
-  if (color && color !== '#1e1e1e') {
-    const normalizedColor = color.toLowerCase();
-    if (normalizedColor === '#2d1b4e' || normalizedColor === '#9159fe') {
-      faceColor = '#d6c5ff';
-      eyeColor = '#2d1b4e';
-    } else if (normalizedColor === '#123f3a' || normalizedColor === '#3b82f6') {
-      faceColor = '#bfe8db';
-      eyeColor = '#123f3a';
-    } else if (normalizedColor === '#14284b' || normalizedColor === '#22c55e') {
-      faceColor = '#bed5ff';
-      eyeColor = '#14284b';
-    } else if (normalizedColor === '#16382a' || normalizedColor === '#f97316') {
-      faceColor = '#bce7cb';
-      eyeColor = '#16382a';
-    } else if (normalizedColor === '#3a2a1d' || normalizedColor === '#1f6aa5') {
-      faceColor = '#e7d1b8';
-      eyeColor = '#3a2a1d';
-    } else if (normalizedColor === '#1e3a5f' || normalizedColor === '#059669') {
-      faceColor = '#bfdcff';
-      eyeColor = '#1e3a5f';
-    } else if (normalizedColor === '#4a1440') {
-      faceColor = '#f2bfdf';
-      eyeColor = '#4a1440';
-    } else {
-      faceColor = color;
-      eyeColor = getContrastEyeColor(color);
-    }
+  if (color) {
+    faceColor = color;
+    eyeColor = getContrastEyeColor(color);
   } else if (stockPalette) {
     faceColor = stockPalette.face;
     eyeColor = stockPalette.eyes;

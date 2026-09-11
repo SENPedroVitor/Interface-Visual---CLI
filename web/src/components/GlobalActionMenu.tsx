@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { IconBot, IconUsers, IconSave, IconDownload } from './Icons';
+import { User } from 'lucide-react';
 import './GlobalActionMenu.css';
 
 export interface GlobalActionMenuProps {
@@ -9,6 +10,7 @@ export interface GlobalActionMenuProps {
   onNewGroup: () => void;
   onExportBackup: () => void;
   onImportBackup: (file: File) => void;
+  onOpenUserConfig?: () => void;
   anchorRect?: DOMRect | null;
 }
 
@@ -19,6 +21,7 @@ export const GlobalActionMenu: React.FC<GlobalActionMenuProps> = ({
   onNewGroup,
   onExportBackup,
   onImportBackup,
+  onOpenUserConfig,
   anchorRect,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +65,19 @@ export const GlobalActionMenu: React.FC<GlobalActionMenuProps> = ({
           <span className="menu-icon"><IconUsers size={16} /></span>
           <span>Novo Grupo / Squad</span>
         </button>
+
+        {onOpenUserConfig && (
+          <button
+            className="global-menu-item"
+            onClick={() => {
+              onClose();
+              onOpenUserConfig();
+            }}
+          >
+            <span className="menu-icon"><User size={16} /></span>
+            <span>Meu Perfil</span>
+          </button>
+        )}
 
         <div className="global-menu-divider" />
 

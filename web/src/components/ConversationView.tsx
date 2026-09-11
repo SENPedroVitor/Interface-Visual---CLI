@@ -13,7 +13,8 @@ import { formatBytes } from '../hooks/use-dropzone';
 import { getAgentGreetings } from '../utils/agentGreetings';
 import { StatusBadge, getAgentStatusBadge } from './StatusBadge';
 import { DatePicker } from './DatePicker';
-import { Paperclip, FileText, Image as ImageIcon, X, Calendar as CalendarIcon } from 'lucide-react';
+import { Paperclip, FileText, Image as ImageIcon, X, Plus, Calendar, UploadCloud, User } from 'lucide-react';
+import { UserProfile } from './UserConfigModal';
 
 export interface ChatItem {
   id: string;
@@ -114,6 +115,8 @@ interface ConversationViewProps {
   onOpenRoutine?: (routineId: string) => void;
   onOpenDeveloperMode?: () => void;
   apiError?: string;
+  userProfile?: UserProfile;
+  onOpenUserConfig?: () => void;
 }
 
 const SENDER_COLOR_CLASS: Record<string, string> = {
@@ -173,16 +176,40 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   onEditAgent,
   onOpenRoutine = () => {},
   apiError,
+  userProfile,
+  onOpenUserConfig,
 }) => {
   const [inputText, setInputText] = useState('');
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
   const [isDropzoneOpen, setIsDropzoneOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
-  const endRef    = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+  const filePickerRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
+
+  useEffect(() => {
+    if (!isPlusMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setIsPlusMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isPlusMenuOpen]);
+
+  const handleNativeFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      const newFiles = Array.from(e.target.files);
+      setAttachedFiles((prev) => [...prev, ...newFiles]);
+      e.target.value = '';
+    }
+  };
 
 
   useEffect(() => {
@@ -571,7 +598,17 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               return (
                 <React.Fragment key={item.id}>
                 <div className={`msg-row ${isUser ? 'user-msg' : 'agent-msg'}`}>
-                  {!isUser && (
+                  {isUser ? (
+                    <div className="msg-sender-name user-sender-name">
+                      <WaddleAvatar
+                        color={userProfile?.avatarColor || '#38bdf8'}
+                        imageUrl={userProfile?.avatarImage}
+                        size={16}
+                        plain
+                      />
+                      <span>{userProfile?.name || 'Você'}</span>
+                    </div>
+                  ) : (
                     <div className={`msg-sender-name ${colorClass}`}>
                       <WaddleAvatar
                         color={senderVis.color}
@@ -581,7 +618,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                         imageUrl={senderVis.imageUrl}
                         plain
                       />
-                      {item.senderName || agentName}
+                      <span>{item.senderName || agentName}</span>
                     </div>
                   )}
                   <div className="msg-bubble">
@@ -699,26 +736,81 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
 
             <div className="composer-input-row">
-              <button
-                type="button"
-                className={`btn-composer-attach ${isDropzoneOpen ? 'is-active' : ''}`}
-                title={isDropzoneOpen ? 'Fechar área de arquivos' : 'Anexar arquivos (Dropzone)'}
-                onClick={() => setIsDropzoneOpen((prev) => !prev)}
-              >
-                {isDropzoneOpen ? <X size={17} /> : <Paperclip size={17} />}
-              </button>
-
-              {/* DatePicker calendar button & popover */}
-              <div className="composer-datepicker-anchor">
+              {/* Consolidated '+' Actions Button & Menu */}
+              <div className="composer-plus-anchor" ref={plusMenuRef}>
                 <button
                   type="button"
-                  className={`btn-composer-calendar ${isDatePickerOpen ? 'is-active' : ''}`}
-                  title={isDatePickerOpen ? 'Fechar calendário' : 'Escolher data / Agendar'}
-                  onClick={() => setIsDatePickerOpen(prev => !prev)}
+                  className={`btn-composer-plus ${isPlusMenuOpen ? 'is-active' : ''}`}
+                  title={isPlusMenuOpen ? 'Fechar menu de ações' : 'Ações e ferramentas (+)'}
+                  onClick={() => setIsPlusMenuOpen((prev) => !prev)}
                 >
-                  <CalendarIcon size={17} />
+                  <Plus size={18} />
                 </button>
 
+                {isPlusMenuOpen && (
+                  <div className="composer-plus-menu" onMouseDown={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        setIsDatePickerOpen(true);
+                      }}
+                    >
+                      <Calendar size={15} />
+                      <span>Data & Agendamento</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        filePickerRef.current?.click();
+                      }}
+                    >
+                      <Paperclip size={15} />
+                      <span>Enviar Arquivo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        setIsDropzoneOpen((prev) => !prev);
+                      }}
+                    >
+                      <UploadCloud size={15} />
+                      <span>{isDropzoneOpen ? 'Fechar Dropzone' : 'Área Dropzone'}</span>
+                    </button>
+
+                    <div className="composer-menu-divider" />
+
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        onOpenUserConfig?.();
+                      }}
+                    >
+                      <User size={15} />
+                      <span>Meu Perfil</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Hidden native file input */}
+                <input
+                  ref={filePickerRef}
+                  type="file"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleNativeFileSelect}
+                />
+
+                {/* Minimalist DatePicker Popover */}
                 {isDatePickerOpen && (
                   <DatePicker
                     hideTrigger={true}

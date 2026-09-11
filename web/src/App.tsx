@@ -11,6 +11,7 @@ import { GlobalActionMenu } from './components/GlobalActionMenu';
 import { NewGroupDialog } from './components/NewGroupDialog';
 import { RoutineDrawer } from './components/RoutineDrawer';
 import { PluginsModal } from './components/PluginsModal';
+import { UserConfigModal, UserProfile, DEFAULT_USER_PROFILE } from './components/UserConfigModal';
 import { ConversationOverview } from './components/ConversationOverview';
 import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
 import { formatBytes } from './hooks/use-dropzone';
@@ -126,6 +127,21 @@ export const App: React.FC = () => {
   const [openRoutineId, setOpenRoutineId] = useState<string | null>(null);
   const [isPluginsOpen, setIsPluginsOpen] = useState(false);
   const [presentation, setPresentation] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    try {
+      const stored = localStorage.getItem('waddle-user-profile');
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+    return DEFAULT_USER_PROFILE;
+  });
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+
+  const handleSaveUserProfile = (newProf: UserProfile) => {
+    setUserProfile(newProf);
+    try {
+      localStorage.setItem('waddle-user-profile', JSON.stringify(newProf));
+    } catch (_) {}
+  };
 
   useEffect(() => {
     const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setPresentation(false); };
@@ -508,10 +524,18 @@ export const App: React.FC = () => {
   const filteredChatItems = activeGroup
     ? chatItems.filter(item =>
         activeGroup.members.some(m => m.toLowerCase() === item.agentKey) ||
+        activeGroup.members.some(m => m.toLowerCase() === item.sender) ||
         item.agentKey === activeGroup.name.toLowerCase() ||
-        item.agentKey === activeGroup.id
+        item.agentKey === activeGroup.id ||
+        item.agentKey === 'squad'
       )
-    : chatItems.filter(item => item.agentKey === (selectedAgent?.name || 'Quinta').toLowerCase());
+    : chatItems.filter(item => {
+        const selectedKey = (selectedAgent?.name || 'Quinta').toLowerCase();
+        if (item.agentKey !== selectedKey) return false;
+        // In direct 1-on-1 chat with a bot (like Quinta), only show user, system, and that bot's replies
+        // Never show internal discussion bubbles from other bots (Atlas, Nero, Iris)
+        return item.sender === 'user' || item.sender === 'system' || item.sender === selectedKey;
+      });
 
   if (needsOnboarding) {
     return (
@@ -551,6 +575,8 @@ export const App: React.FC = () => {
           setActionMenuAnchor(rect);
           setIsActionMenuOpen(true);
         }}
+        userProfile={userProfile}
+        onOpenUserConfig={() => setIsUserModalOpen(true)}
       />
 
 
@@ -573,6 +599,8 @@ export const App: React.FC = () => {
         onOpenRoutine={(id) => setOpenRoutineId(id)}
         onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
         apiError={apiError}
+        userProfile={userProfile}
+        onOpenUserConfig={() => setIsUserModalOpen(true)}
       />
 
       <ConversationOverview
@@ -617,6 +645,7 @@ export const App: React.FC = () => {
         onNewGroup={() => setIsNewGroupOpen(true)}
         onExportBackup={handleExportBackup}
         onImportBackup={handleImportBackup}
+        onOpenUserConfig={() => setIsUserModalOpen(true)}
       />
 
       {isStudioOpen && (
@@ -631,6 +660,15 @@ export const App: React.FC = () => {
               if (found) setSelectedAgentId(found.id);
             }
           }}
+        />
+      )}
+
+      {isUserModalOpen && (
+        <UserConfigModal
+          isOpen={isUserModalOpen}
+          profile={userProfile}
+          onClose={() => setIsUserModalOpen(false)}
+          onSave={handleSaveUserProfile}
         />
       )}
 

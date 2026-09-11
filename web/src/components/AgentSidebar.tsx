@@ -4,6 +4,7 @@ import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
 import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconPlug } from './Icons';
+import { UserProfile } from './UserConfigModal';
 
 export interface AgentSidebarProps {
   agents: Agent[];
@@ -22,6 +23,8 @@ export interface AgentSidebarProps {
   isDarkTheme: boolean;
   onToggleTheme: () => void;
   onOpenActionMenu: (rect: DOMRect) => void;
+  userProfile?: UserProfile;
+  onOpenUserConfig?: () => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
@@ -38,6 +41,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   isDarkTheme,
   onToggleTheme,
   onOpenActionMenu,
+  userProfile,
+  onOpenUserConfig,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -212,10 +217,23 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           Desenvolvedor
         </button>
 
-        <div className="sidebar-footer-btn" style={{ cursor: 'default' }}>
-          <div className="user-avatar-placeholder">U</div>
-          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Usuário</span>
-        </div>
+        <button
+          type="button"
+          className="sidebar-footer-btn sidebar-user-btn"
+          onClick={onOpenUserConfig}
+          title="Configurar Perfil de Usuário"
+          style={{ cursor: 'pointer', textAlign: 'left', width: '100%' }}
+        >
+          <WaddleAvatar
+            size={20}
+            color={userProfile?.avatarColor || '#38bdf8'}
+            imageUrl={userProfile?.avatarImage}
+            plain
+          />
+          <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+            {userProfile?.name || 'Meu Perfil'}
+          </span>
+        </button>
       </div>
     </aside>
   );
