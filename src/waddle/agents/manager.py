@@ -77,7 +77,13 @@ class ManagerAgent(Agent):
                 if no_api_keys else ""
             )
             +
-            "Responda em português do Brasil, de forma útil e curta, como um agente colaborando com o usuário.\n\n"
+            "Quando você for apresentar status, progresso, pipeline ou etapas de execução ao usuário, use SEMPRE o padrão StatusTimeline com bloco de código ```status contendo itens como:\n"
+            "```status\n"
+            "- [succeeded] Etapa 1 (1.2s)\n"
+            "- [running] Etapa 2 em andamento\n"
+            "- [pending] Etapa 3 pendente\n"
+            "```\n"
+            "Responda em português do Brasil, de forma útil e direta, como um agente colaborando com o usuário.\n\n"
             f"Usuário: {objective}"
         )
         body = json.dumps({

@@ -179,6 +179,7 @@ Configurações da interface sincronizadas e persistidas:
 | Canal dedicado Equipe Waddle / Inter-bots | Alta | [x] Concluído |
 | Transições animadas entre abas do AgentStudioModal | Baixa | [x] Concluído |
 | Animação de carregamento / presença de escrita | Baixa | [x] Concluído |
+| StatusTimeline estilo pipeline de etapas / CI/CD | Alta | [x] Concluído |
 
 ---
 
@@ -194,3 +195,5 @@ Configurações da interface sincronizadas e persistidas:
 8. [x] Persistência de configurações (item 9) — Concluído  
 9. [x] Group Chat / Arquitetura Inter-Bots (item 4) — Concluído  
 10. [x] Refinamentos visuais (abas animadas) (item 10) — Concluído    
+11. [x] StatusTimeline animado para pipelines e etapas (item 11) — Concluído
+

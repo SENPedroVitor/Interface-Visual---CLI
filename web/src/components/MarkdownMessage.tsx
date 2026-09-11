@@ -3,6 +3,8 @@ import { IconCopy, IconCheck } from './Icons';
 import { HeroVideoDialog } from './HeroVideoDialog';
 import { TerminalOutput } from './TerminalOutput';
 import { FileTree, looksLikeFileTree } from './FileTree';
+import { StatusTimeline } from './StatusTimeline';
+import { looksLikeStatusTimeline, parseStatusTimeline } from '../utils/statusTimelineParser';
 
 /**
  * Check if a URL or text contains a video link (YouTube, Vimeo, direct MP4/WebM).
@@ -23,6 +25,7 @@ export function looksLikeMarkdown(text: string): boolean {
   return (
     /```|(^|\n)\s*[-*]\s+\S|(^|\n)\s*\d+\.\s+\S|\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|(^|\n)\s*#{1,3}\s+\S|(^|\n)\s*>\s+\S|(^|\n)\|.+\|/.test(text) ||
     looksLikeFileTree(text) ||
+    looksLikeStatusTimeline(undefined, text) ||
     isVideoUrl(text)
   );
 }
@@ -412,6 +415,16 @@ export const MarkdownMessage: React.FC<{ text: string }> = ({ text }) => {
     <>
       {blocks.map((block, i) => {
         if (block.type === 'code') {
+          if (looksLikeStatusTimeline(block.lang, block.content)) {
+            const stages = parseStatusTimeline(block.content);
+            if (stages.length > 0) {
+              return (
+                <div key={i} className="my-3">
+                  <StatusTimeline stages={stages} />
+                </div>
+              );
+            }
+          }
           if (isTreeBlock(block.lang, block.content)) {
             return <FileTree key={i} data={block.content} />;
           }
@@ -425,6 +438,16 @@ export const MarkdownMessage: React.FC<{ text: string }> = ({ text }) => {
             );
           }
           return <CodeBlock key={i} code={block.content} lang={block.lang} />;
+        }
+        if (looksLikeStatusTimeline(undefined, block.content)) {
+          const stages = parseStatusTimeline(block.content);
+          if (stages.length >= 2) {
+            return (
+              <div key={i} className="my-3">
+                <StatusTimeline stages={stages} />
+              </div>
+            );
+          }
         }
         return <React.Fragment key={i}>{renderTextBlock(block.content, `b${i}`)}</React.Fragment>;
       })}
