@@ -179,13 +179,16 @@
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.14);
   color: #10b981;
-  letter-spacing: 0.05em;
   pointer-events: none;
-  animation: obCheckIn 0.25s ease;
-  text-transform: uppercase;
+  animation: obCheckIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes obCheckIn {
@@ -211,14 +214,36 @@
 .onboarding-badge-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 15px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 650;
-  border: 1px solid transparent;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  background: transparent;
+  border: none;
   animation: obBadgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   transition: all 0.25s ease;
+}
+
+.onboarding-badge-text {
+  color: #ffffff;
+}
+
+[data-theme="light"] .onboarding-badge-text {
+  color: var(--text-primary, #111116);
+}
+
+.onboarding-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.onboarding-badge-icon svg {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 @keyframes obBadgePop {
@@ -314,6 +339,29 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Shimmer Start Button */
+.onboarding-start-btn {
+  font-size: 15.5px;
+  font-weight: 650;
+  padding: 13px 36px;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.28), 0 0 14px -2px rgba(255, 255, 255, 0.16);
+}
+
+.onboarding-start-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px -2px rgba(0, 0, 0, 0.36), 0 0 22px 0 rgba(255, 255, 255, 0.25);
+}
+
+.onboarding-start-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+[data-theme="dark"] .onboarding-start-btn {
+  --bg: #0c0c11;
+  box-shadow: 0 4px 22px -2px rgba(0, 0, 0, 0.5), 0 0 18px -2px rgba(255, 255, 255, 0.2);
 }
 
 .onboarding-btn {

@@ -1,0 +1,233 @@
+/* ==========================================================================
+   DROPZONE COMPONENT STYLES
+   Modern drag-and-drop file area with responsive sizes & rich interactions
+   ========================================================================== */
+
+.dropzone-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border-radius: 16px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text-primary, #ffffff);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+  box-sizing: border-box;
+  overflow: hidden;
+  user-select: none;
+}
+
+[data-theme="light"] .dropzone-root {
+  border-color: rgba(0, 0, 0, 0.16);
+  background: rgba(0, 0, 0, 0.02);
+  color: #111116;
+}
+
+/* ── Hover State ── */
+.dropzone-root[data-state="idle"]:hover {
+  border-color: rgba(145, 89, 254, 0.6);
+  background: rgba(145, 89, 254, 0.04);
+  box-shadow: 0 4px 20px -4px rgba(145, 89, 254, 0.15);
+}
+
+.dropzone-root:focus-visible {
+  border-color: #9159fe;
+  box-shadow: 0 0 0 3px rgba(145, 89, 254, 0.25);
+}
+
+/* ── Dragging State (Active Drop Target) ── */
+.dropzone-root[data-state="dragging"] {
+  border-color: #9159fe !important;
+  border-style: solid;
+  background: rgba(145, 89, 254, 0.08) !important;
+  transform: scale(1.008);
+  box-shadow: 0 0 0 4px rgba(145, 89, 254, 0.22), 0 8px 32px rgba(145, 89, 254, 0.2);
+}
+
+.dropzone-root[data-state="dragging"] .dropzone-icon-box {
+  transform: translateY(-4px) scale(1.12);
+  background: rgba(145, 89, 254, 0.25);
+  color: #a87ffe;
+  box-shadow: 0 0 20px rgba(145, 89, 254, 0.4);
+}
+
+/* ── Error State ── */
+.dropzone-root[data-state="error"] {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.dropzone-root[data-state="error"] .dropzone-icon-box {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ── Disabled State ── */
+.dropzone-root[data-state="disabled"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(0.6);
+}
+
+/* ── Sizes ── */
+/* Large (Default Stack) */
+.dropzone-root[data-size="lg"] {
+  min-height: 160px;
+  padding: 24px 20px;
+  gap: 12px;
+}
+
+/* Medium (Inline Bar) */
+.dropzone-root[data-size="md"] {
+  min-height: 80px;
+  padding: 14px 18px;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dropzone-root[data-size="md"] .dropzone-header {
+  flex-direction: row;
+  text-align: left;
+}
+
+/* Small (Dense Row) */
+.dropzone-root[data-size="sm"] {
+  min-height: 52px;
+  padding: 8px 14px;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 12px;
+}
+
+.dropzone-root[data-size="sm"] .dropzone-header {
+  flex-direction: row;
+  text-align: left;
+  gap: 10px;
+}
+
+.dropzone-root[data-size="sm"] .dropzone-title {
+  font-size: 13px;
+}
+
+.dropzone-root[data-size="sm"] .dropzone-description {
+  display: none;
+}
+
+/* ── Content Slots ── */
+.dropzone-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.dropzone-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #9159fe;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-theme="light"] .dropzone-icon-box {
+  background: rgba(145, 89, 254, 0.08);
+  border-color: rgba(145, 89, 254, 0.15);
+}
+
+.dropzone-root[data-size="sm"] .dropzone-icon-box {
+  width: 32px;
+  height: 32px;
+}
+
+.dropzone-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dropzone-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: inherit;
+}
+
+.dropzone-description {
+  font-size: 12.5px;
+  color: var(--text-muted, #9ca3af);
+  line-height: 1.4;
+}
+
+.dropzone-error-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #ef4444;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.dropzone-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-muted, #6b7280);
+}
+
+.dropzone-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(145, 89, 254, 0.14);
+  color: #c084fc;
+  border: 1px solid rgba(145, 89, 254, 0.28);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  outline: none;
+}
+
+.dropzone-trigger-btn:hover {
+  background: #9159fe;
+  color: #ffffff;
+  border-color: #9159fe;
+  box-shadow: 0 4px 14px rgba(145, 89, 254, 0.35);
+  transform: translateY(-1px);
+}
+
+.dropzone-trigger-btn:active {
+  transform: translateY(1px);
+}
+
+.dropzone-root[data-size="sm"] .dropzone-trigger-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+}

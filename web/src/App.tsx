@@ -13,6 +13,7 @@ import { RoutineDrawer } from './components/RoutineDrawer';
 import { PluginsModal } from './components/PluginsModal';
 import { ConversationOverview } from './components/ConversationOverview';
 import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
+import { formatBytes } from './hooks/use-dropzone';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -433,12 +434,41 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (text: string) => {
-    if (!text.trim() || isSending) return;
+  const handleSendMessage = async (text: string, files?: File[]) => {
+    const hasText = Boolean(text.trim());
+    const hasFiles = Boolean(files && files.length > 0);
+    if ((!hasText && !hasFiles) || isSending) return;
 
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const targetAgentName = activeGroup ? activeGroup.members[0] || 'Quinta' : selectedAgent?.name || 'Quinta';
     const conversationKey = activeGroup ? activeGroup.name.toLowerCase() : (selectedAgent?.name || 'Quinta').toLowerCase();
+
+    let displayText = text;
+    let objectiveText = text;
+
+    if (hasFiles && files) {
+      const fileNames = files.map((f) => `📎 ${f.name} (${formatBytes(f.size)})`).join('\n');
+      displayText = text ? `${text}\n\n${fileNames}` : fileNames;
+
+      const fileDetails: string[] = [];
+      for (const file of files) {
+        const isText =
+          file.type.startsWith('text/') ||
+          /\.(txt|md|json|csv|py|js|ts|tsx|jsx|html|css|yaml|yml|sh|bat|ps1|xml|sql)$/i.test(file.name);
+
+        if (isText && file.size <= 500 * 1024) {
+          try {
+            const content = await file.text();
+            fileDetails.push(`\n\n📄 **Conteúdo do arquivo \`${file.name}\`** (${formatBytes(file.size)}):\n\`\`\`\n${content}\n\`\`\``);
+          } catch {
+            fileDetails.push(`\n\n📎 **Arquivo anexado: \`${file.name}\`** (${formatBytes(file.size)})`);
+          }
+        } else {
+          fileDetails.push(`\n\n📎 **Arquivo anexado: \`${file.name}\`** (${formatBytes(file.size)}, tipo: ${file.type || 'binário'})`);
+        }
+      }
+      objectiveText = text ? `${text}\n${fileDetails.join('')}` : fileDetails.join('').trim();
+    }
 
     setChatItems((prev) => [
       ...prev,
@@ -447,14 +477,14 @@ export const App: React.FC = () => {
         type: 'message',
         sender: 'user',
         agentKey: conversationKey,
-        content: text,
+        content: displayText,
         timestamp: ts,
       },
     ]);
 
     setIsSending(true);
     try {
-      await submitObjective(text, undefined, targetAgentName);
+      await submitObjective(objectiveText, undefined, targetAgentName);
       await refreshData();
     } catch (err) {
       setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: conversationKey, content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);

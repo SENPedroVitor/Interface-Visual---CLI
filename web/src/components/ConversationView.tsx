@@ -7,6 +7,9 @@ import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconDocument, IconCheck, IconAlert, IconGear } from './Icons';
 import { MarkdownMessage, looksLikeMarkdown, CopyButton } from './MarkdownMessage';
+import { Dropzone } from './Dropzone';
+import { formatBytes } from '../hooks/use-dropzone';
+import { Paperclip, FileText, Image as ImageIcon, X } from 'lucide-react';
 
 export interface ChatItem {
   id: string;
@@ -96,7 +99,7 @@ interface ConversationViewProps {
   currentAgent: Agent | null;
   isGroup?: boolean;
   chatItems: ChatItem[];
-  onSendMessage: (text: string) => Promise<void>;
+  onSendMessage: (text: string, files?: File[]) => Promise<void>;
   isSending: boolean;
   presentation: boolean;
   onTogglePresentation: () => void;
@@ -167,9 +170,13 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   apiError,
 }) => {
   const [inputText, setInputText] = useState('');
+  const [isDropzoneOpen, setIsDropzoneOpen] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
   const endRef    = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dragCounterRef = useRef(0);
 
   useEffect(() => {
     if (chatItems.length || isSending) endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -186,16 +193,51 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const text = inputText.trim();
-    if (!text || isSending) return;
+    if ((!text && attachedFiles.length === 0) || isSending) return;
+    const filesToSend = [...attachedFiles];
     setInputText('');
+    setAttachedFiles([]);
+    setIsDropzoneOpen(false);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    await onSendMessage(text);
+    await onSendMessage(text, filesToSend);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    }
+  };
+
+  const handleContainerDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer?.types?.includes('Files')) {
+      dragCounterRef.current += 1;
+      setIsDraggingOverChat(true);
+    }
+  };
+
+  const handleContainerDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleContainerDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingOverChat(false);
+    }
+  };
+
+  const handleContainerDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDraggingOverChat(false);
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      setAttachedFiles((prev) => [...prev, ...files]);
     }
   };
 
@@ -225,7 +267,31 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   );
 
   return (
-    <div className="main-panel">
+    <div
+      className="main-panel"
+      onDragEnter={handleContainerDragEnter}
+      onDragOver={handleContainerDragOver}
+      onDragLeave={handleContainerDragLeave}
+      onDrop={handleContainerDrop}
+    >
+      {/* Full-panel Drag Overlay */}
+      {isDraggingOverChat && (
+        <div className="conversation-drop-overlay">
+          <div className="conversation-drop-modal">
+            <Dropzone
+              size="lg"
+              multiple
+              maxSize={50 * 1024 * 1024}
+              title="Solte os arquivos para anexar"
+              description="Eles serão incluídos na sua próxima mensagem"
+              onFilesAccepted={(files) => {
+                setAttachedFiles((prev) => [...prev, ...files]);
+                setIsDraggingOverChat(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Panel Header ── */}
       <header className="panel-header">
@@ -517,6 +583,24 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
       {/* ── Composer ── */}
       <div className="composer-area">
         <div className="composer-box-wrapper">
+          {/* Dropzone expandable panel */}
+          {isDropzoneOpen && (
+            <div className="composer-dropzone-panel">
+              <Dropzone
+                size="md"
+                multiple
+                maxSize={50 * 1024 * 1024}
+                accept=".pdf,.doc,.docx,.txt,.md,.json,.csv,.py,.ts,.tsx,.js,.jsx,.zip,image/*"
+                title="Solte arquivos aqui ou clique para selecionar"
+                description="Suporta código, PDFs, imagens e documentos até 50 MB"
+                onFilesAccepted={(newFiles) => {
+                  setAttachedFiles((prev) => [...prev, ...newFiles]);
+                  setIsDropzoneOpen(false);
+                }}
+              />
+            </div>
+          )}
+
           <div className={`composer-peek ${showComposerPeek ? 'is-typing' : ''}`} aria-hidden="true">
             <WaddleAvatar
               color={agentVis.color}
@@ -529,44 +613,80 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="composer-box">
-            <button type="button" className="btn-composer-attach" title="Anexar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
-            </button>
+            {/* Attachment preview pills */}
+            {attachedFiles.length > 0 && (
+              <div className="composer-attachments-row">
+                {attachedFiles.map((file, idx) => (
+                  <div key={`${file.name}-${idx}`} className="composer-attachment-pill">
+                    <span className="attachment-pill-icon">
+                      {file.type.startsWith('image/') ? (
+                        <ImageIcon size={13} />
+                      ) : (
+                        <FileText size={13} />
+                      )}
+                    </span>
+                    <span className="attachment-pill-name" title={file.name}>
+                      {file.name}
+                    </span>
+                    <span className="attachment-pill-size">
+                      {formatBytes(file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      className="attachment-pill-remove"
+                      title="Remover arquivo"
+                      onClick={() => setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <textarea
-              ref={textareaRef}
-              className="composer-input"
-              placeholder={`Mensagem para ${agentName}`}
-              aria-label={`Mensagem para ${agentName}`}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              disabled={isSending}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
+            <div className="composer-input-row">
+              <button
+                type="button"
+                className={`btn-composer-attach ${isDropzoneOpen ? 'is-active' : ''}`}
+                title={isDropzoneOpen ? 'Fechar área de arquivos' : 'Anexar arquivos (Dropzone)'}
+                onClick={() => setIsDropzoneOpen((prev) => !prev)}
+              >
+                {isDropzoneOpen ? <X size={17} /> : <Paperclip size={17} />}
+              </button>
 
-            <button type="button" className="btn-composer-mic" title="Microfone">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <rect x="9" y="2" width="6" height="13" rx="3" />
-                <path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6" strokeLinecap="round" />
-              </svg>
-            </button>
+              <textarea
+                ref={textareaRef}
+                className="composer-input"
+                placeholder={attachedFiles.length > 0 ? `Adicione uma mensagem com os ${attachedFiles.length} arquivo(s)...` : `Mensagem para ${agentName}`}
+                aria-label={`Mensagem para ${agentName}`}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                disabled={isSending}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
 
-            <button
-              type="submit"
-              className="btn-composer-send"
-              disabled={!inputText.trim() || isSending}
-              title="Enviar"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+              <button type="button" className="btn-composer-mic" title="Microfone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <rect x="9" y="2" width="6" height="13" rx="3" />
+                  <path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6" strokeLinecap="round" />
+                </svg>
+              </button>
+
+              <button
+                type="submit"
+                className="btn-composer-send"
+                disabled={(!inputText.trim() && attachedFiles.length === 0) || isSending}
+                title="Enviar"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
           </form>
         </div>
       </div>

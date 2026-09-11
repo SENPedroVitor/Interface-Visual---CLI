@@ -1288,14 +1288,126 @@ button, input, textarea {
 
 .composer-box {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   background: var(--bg-main);
   border: 1px solid var(--border-input-glass);
   border-radius: var(--radius-xl);
   padding: 8px 10px 8px 14px;
   box-shadow: 0 1px 3px var(--shadow-soft);
   transition: all 0.25s var(--ease-spring);
+}
+
+.composer-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.composer-dropzone-panel {
+  margin-bottom: 12px;
+  width: 100%;
+  animation: dropzoneSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropzoneSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.composer-attachments-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .composer-attachments-row {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+.composer-attachment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(145, 89, 254, 0.12);
+  border: 1px solid rgba(145, 89, 254, 0.24);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-primary);
+  max-width: 260px;
+  animation: obBadgePop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.attachment-pill-icon {
+  display: flex;
+  align-items: center;
+  color: #a87ffe;
+  flex-shrink: 0;
+}
+
+.attachment-pill-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 550;
+}
+
+.attachment-pill-size {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.attachment-pill-remove {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  transition: all 0.15s ease;
+}
+
+.attachment-pill-remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Full-conversation Drag Overlay */
+.conversation-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 15, 23, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px;
+  animation: obBadgePop 0.22s ease;
+}
+
+.conversation-drop-modal {
+  width: 100%;
+  max-width: 520px;
+  pointer-events: auto;
 }
 
 .composer-box:focus-within {
@@ -1312,8 +1424,8 @@ button, input, textarea {
   cursor: pointer;
   color: var(--text-muted);
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-full);
   transition: all 0.2s var(--ease-spring);
 }
@@ -1322,6 +1434,12 @@ button, input, textarea {
   background: var(--bg-hover);
   color: var(--text-primary);
   transform: translateY(-2px);
+}
+
+.btn-composer-attach.is-active {
+  background: rgba(145, 89, 254, 0.18);
+  color: #a87ffe;
+  border: 1px solid rgba(145, 89, 254, 0.35);
 }
 
 .btn-composer-attach:active {
@@ -1859,3 +1977,22 @@ button, input, textarea {
     color: var(--text-primary) !important;
   }
 }
+
+/* Markdown Video Embeds & Links */
+.md-video-card-wrap {
+  width: 100%;
+  max-width: 540px;
+  margin: 10px 0;
+}
+
+.md-link {
+  color: #9159fe;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+
+.md-link:hover {
+  color: #a87ffe;
+}
+

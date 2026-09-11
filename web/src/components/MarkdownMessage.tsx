@@ -1,15 +1,27 @@
 import React, { useState } from 'react';
 import { IconCopy, IconCheck } from './Icons';
+import { HeroVideoDialog } from './HeroVideoDialog';
+
+/**
+ * Check if a URL or text contains a video link (YouTube, Vimeo, direct MP4/WebM).
+ */
+export function isVideoUrl(text: string): boolean {
+  return (
+    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/|vimeo\.com\/(?:video\/)?\d+)/i.test(text) ||
+    /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(text)
+  );
+}
 
 /**
  * Quick heuristic used by ConversationView to decide whether a message is
  * worth running through the block parser below, or can stay as plain
- * word-by-word RevealText. Kept intentionally narrow — this is not a full
- * CommonMark implementation, just the handful of patterns models actually
- * produce (fenced code, bullet/numbered lists, bold/italic, inline code).
+ * word-by-word RevealText.
  */
 export function looksLikeMarkdown(text: string): boolean {
-  return /```|(^|\n)\s*[-*]\s+\S|(^|\n)\s*\d+\.\s+\S|\*\*[^*\n]+\*\*|`[^`\n]+`/.test(text);
+  return (
+    /```|(^|\n)\s*[-*]\s+\S|(^|\n)\s*\d+\.\s+\S|\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\)/.test(text) ||
+    isVideoUrl(text)
+  );
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -58,10 +70,10 @@ const CodeBlock: React.FC<{ code: string; lang?: string }> = ({ code, lang }) =>
   </div>
 );
 
-/** Inline formatting: **bold**, *italic*, `code` — applied within one line/paragraph run. */
+/** Inline formatting: **bold**, *italic*, `code`, [link](url) — applied within one line/paragraph run. */
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
-  const re = /(\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\n]+\*)/g;
+  const re = /(\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\n]+\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let i = 0;
@@ -76,6 +88,23 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
           {token.slice(1, -1)}
         </code>
       );
+    } else if (token.startsWith('[')) {
+      const linkMatch = /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/.exec(token);
+      if (linkMatch) {
+        nodes.push(
+          <a
+            key={`${keyPrefix}-a-${i}`}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="md-link"
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      } else {
+        nodes.push(token);
+      }
     } else {
       nodes.push(<em key={`${keyPrefix}-i-${i}`}>{token.slice(1, -1)}</em>);
     }
@@ -86,7 +115,55 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   return nodes;
 }
 
-/** Splits a non-code text block into paragraphs and bullet/numbered lists. */
+function parseLineWithVideo(line: string): {
+  textBefore?: string;
+  videoUrl: string;
+  thumbUrl?: string;
+  title?: string;
+  textAfter?: string;
+} | null {
+  const trimmed = line.trim();
+
+  // 1. Markdown image-link: [![title](thumb)](video)
+  const mdImgLink = /^([\s\S]*?)\[!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)\]\((https?:\/\/[^\s)]+)\)([\s\S]*)$/.exec(trimmed);
+  if (mdImgLink && isVideoUrl(mdImgLink[4])) {
+    return {
+      textBefore: mdImgLink[1].trim() || undefined,
+      title: mdImgLink[2].trim() || undefined,
+      thumbUrl: mdImgLink[3].trim(),
+      videoUrl: mdImgLink[4].trim(),
+      textAfter: mdImgLink[5].trim() || undefined,
+    };
+  }
+
+  // 2. Markdown link: [title](video)
+  const mdLink = /^([\s\S]*?)\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)([\s\S]*)$/.exec(trimmed);
+  if (mdLink && isVideoUrl(mdLink[3])) {
+    return {
+      textBefore: mdLink[1].trim() || undefined,
+      title: mdLink[2].trim() || undefined,
+      videoUrl: mdLink[3].trim(),
+      textAfter: mdLink[4].trim() || undefined,
+    };
+  }
+
+  // 3. Raw video URL anywhere in line
+  const rawVideoRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=[a-zA-Z0-9_-]{11}|embed\/[a-zA-Z0-9_-]{11}|shorts\/[a-zA-Z0-9_-]{11})|youtu\.be\/[a-zA-Z0-9_-]{11}|vimeo\.com\/(?:video\/)?\d+|(?:[^\s)]+\.(?:mp4|webm|ogg|mov)(?:\?[^\s)]*)?)))/i;
+  const rawMatch = rawVideoRegex.exec(trimmed);
+  if (rawMatch) {
+    const before = trimmed.slice(0, rawMatch.index).trim();
+    const after = trimmed.slice(rawMatch.index + rawMatch[0].length).trim();
+    return {
+      textBefore: before || undefined,
+      videoUrl: rawMatch[0],
+      textAfter: after || undefined,
+    };
+  }
+
+  return null;
+}
+
+/** Splits a non-code text block into paragraphs, lists, and HeroVideoDialog cards. */
 function renderTextBlock(content: string, keyPrefix: string): React.ReactNode[] {
   const lines = content.split('\n');
   const out: React.ReactNode[] = [];
@@ -129,6 +206,26 @@ function renderTextBlock(content: string, keyPrefix: string): React.ReactNode[] 
   };
 
   for (const rawLine of lines) {
+    // Check if line contains a video to render as HeroVideoDialog
+    const videoData = parseLineWithVideo(rawLine);
+    if (videoData) {
+      flushList();
+      if (videoData.textBefore) buffer.push(videoData.textBefore);
+      flushBuffer();
+      out.push(
+        <div key={`${keyPrefix}-v-${idx++}`} className="md-video-card-wrap">
+          <HeroVideoDialog
+            videoSrc={videoData.videoUrl}
+            thumbnailSrc={videoData.thumbUrl}
+            thumbnailAlt={videoData.title || 'Assistir vídeo'}
+            animationStyle="from-center"
+          />
+        </div>
+      );
+      if (videoData.textAfter) buffer.push(videoData.textAfter);
+      continue;
+    }
+
     const bulletMatch = /^\s*[-*]\s+(.*)$/.exec(rawLine);
     const numberMatch = /^\s*\d+\.\s+(.*)$/.exec(rawLine);
     if (bulletMatch) {
