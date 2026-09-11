@@ -1,6 +1,17 @@
 # Waddle Agent OS
 
-![Waddle mascot](assets/waddle.svg)
+<p align="center">
+  <img src="web/public/avatars/chefe.png" width="90" alt="Quinta (Chefe)" title="Quinta - Manager" />
+  <img src="web/public/avatars/sabio.png" width="90" alt="Atlas (Sábio)" title="Atlas - Research" />
+  <img src="web/public/avatars/turbo.png" width="90" alt="Nero (Turbo)" title="Nero - Developer" />
+  <img src="web/public/avatars/eco.png" width="90" alt="Iris (Eco)" title="Iris - Reviewer" />
+  <img src="web/public/avatars/totem.png" width="90" alt="Ma (Totem)" title="Ma - Investor" />
+  <img src="web/public/avatars/livro.png" width="90" alt="Livro (Livro)" title="Livro - Sports" />
+</p>
+
+<p align="center">
+  <strong>Ecossistema Multiagente com Mascotes Especialistas e Interface Visual Local</strong>
+</p>
 
 **Waddle Agent OS** é uma plataforma local para coordenar agentes de IA em uma interface visual. O projeto combina um frontend web em React, uma API em FastAPI, persistência em SQLite e motores locais/CLI como Ollama, Codex e Claude Code.
 
@@ -16,7 +27,7 @@ O objetivo é oferecer uma experiência parecida com um painel de trabalho multi
 | Multiagentes & Squads | [OK] | Quinta coordena Atlas, Nero, Iris, Ma e Livro em rodadas de discussão ou comandos individuais. |
 | Agent Studio | [OK] | Customização visual (cores, cosméticos, fotos), alma/personalidade, skills, ferramentas e memória. |
 | Perfil de Usuário | [OK] | Perfil humano dedicado com upload de avatar próprio, iniciais dinâmicas e preferências. |
-| Mascotes Interativos | [OK] | Avatares Waddle procedurais em SVG com eye-tracking dinâmico e reações táteis. |
+| Mascotes Interativos | [OK] | Avatares procedurais com personalidades, acessórios SVG temáticos e reações dinâmicas. |
 | Ferramentas Especializadas | [OK] | Mercado financeiro (B3, FIIs, ações) via Ma e Enciclopédia Esportiva (Futebol, NBA, NFL) via Livro. |
 | Ollama local | [OK] | Respostas locais com modelo leve, sem exigir API key. |
 | Codex & Claude CLI | [OK] | Motores detectados e reservados para tarefas de implementação e revisão arquitetural. |
@@ -47,16 +58,16 @@ O ecossistema visual do Waddle conta com um sistema de mascotes em duas camadas:
 
 ### 1. Mascotes Ilustrados (`web/public/avatars/`)
 
-| Mascote | Imagem | Agente | Conceito |
-| --- | --- | --- | --- |
-| **Chefe** | `/avatars/chefe.png` | Quinta | Líder da equipe, focado em estratégia e orquestração. |
-| **Sábio** | `/avatars/sabio.png` | Atlas | Pesquisador meticuloso, intelectual e analítico. |
-| **Turbo** | `/avatars/turbo.png` | Nero | Desenvolvedor ágil, direto ao ponto na automação e código. |
-| **Eco** | `/avatars/eco.png` | Iris | Guardiã da sustentabilidade, arquitetura limpa e testes. |
-| **Totem** | `/avatars/totem.png` | Ma | Analista de mercado, focado em valor, B3 e dividendos. |
-| **Livro** | `/avatars/livro.png` | Livro | Técnico e enciclopédia viva de esportes mundiais. |
-| **Brilho** | `/avatars/brilho.png` | Studio | Modelo de inspiração com aura luminosa. |
-| **Padrão** | `/avatars/padrao.png` | Studio | Base clássica minimalista do pinguim Waddle. |
+| Mascote | Visual | Agente | Conceito |
+| --- | :---: | --- | --- |
+| **Chefe** | <img src="web/public/avatars/chefe.png" width="48" alt="Chefe" /> | Quinta | Líder da equipe, focado em estratégia e orquestração. |
+| **Sábio** | <img src="web/public/avatars/sabio.png" width="48" alt="Sábio" /> | Atlas | Pesquisador meticuloso, intelectual e analítico. |
+| **Turbo** | <img src="web/public/avatars/turbo.png" width="48" alt="Turbo" /> | Nero | Desenvolvedor ágil, direto ao ponto na automação e código. |
+| **Eco** | <img src="web/public/avatars/eco.png" width="48" alt="Eco" /> | Iris | Guardiã da sustentabilidade, arquitetura limpa e testes. |
+| **Totem** | <img src="web/public/avatars/totem.png" width="48" alt="Totem" /> | Ma | Analista de mercado, focado em valor, B3 e dividendos. |
+| **Livro** | <img src="web/public/avatars/livro.png" width="48" alt="Livro" /> | Livro | Técnico e enciclopédia viva de esportes mundiais. |
+| **Brilho** | <img src="web/public/avatars/brilho.png" width="48" alt="Brilho" /> | Studio | Modelo de inspiração com aura luminosa. |
+| **Padrão** | <img src="web/public/avatars/padrao.png" width="48" alt="Padrão" /> | Studio | Base moderna expressiva para novos agentes. |
 
 ### 2. Mascote Procedural Vetorial (`WaddleAvatar`)
 
