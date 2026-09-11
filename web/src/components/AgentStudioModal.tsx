@@ -2,17 +2,36 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Agent } from '../types';
 import { WaddleAvatar, AvatarCosmetics, MarkingType } from './WaddleAvatar';
 import { ModelSelectorDrawer } from './ModelSelectorDrawer';
+import { agentVisual } from '../utils/agentVisuals';
 import {
-  IconPalette,
-  IconClose,
-  IconMask,
-  IconBrain,
-  IconWrench,
-  IconSave,
-  IconBot,
-  IconCamera,
-  VectorIcon,
-} from './Icons';
+  Palette,
+  X,
+  Brain,
+  Wrench,
+  Database,
+  Cpu,
+  Camera,
+  Check,
+  Trash2,
+  Plus,
+  Sparkles,
+  Terminal,
+  FolderCode,
+  TrendingUp,
+  Globe,
+  Crown,
+  Sun,
+  Headphones,
+  Trophy,
+  Swords,
+  Glasses,
+  Briefcase,
+  DollarSign,
+  Award,
+  Leaf,
+  Coffee,
+  Activity,
+} from 'lucide-react';
 import './AgentStudioModal.css';
 
 export interface AgentStudioModalProps {
@@ -92,6 +111,16 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
       setRole(agent.role || 'Executor');
       setDescription(agent.description || '');
 
+      const baseVis = agentVisual(agent.name, agent.role, agent.avatar_config);
+      setColor(baseVis.color || '#9159FE');
+      setMarking(baseVis.marking || 'none');
+      if (baseVis.cosmetics) setCosmetics(baseVis.cosmetics);
+      if (baseVis.imageUrl && (baseVis.imageUrl.startsWith('data:') || baseVis.imageUrl.startsWith('http'))) {
+        setImageUrl(baseVis.imageUrl);
+      } else {
+        setImageUrl(undefined);
+      }
+
       // Fetch deep details
       fetch(`/api/agents/${agent.name}/details`)
         .then(res => (res.ok ? res.json() : null))
@@ -109,7 +138,9 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
               if (details.avatar_config.color) setColor(details.avatar_config.color);
               if (details.avatar_config.marking) setMarking(details.avatar_config.marking);
               if (details.avatar_config.cosmetics) setCosmetics(details.avatar_config.cosmetics);
-              if (details.avatar_config.imageUrl) setImageUrl(details.avatar_config.imageUrl);
+              if (details.avatar_config.imageUrl && (details.avatar_config.imageUrl.startsWith('data:') || details.avatar_config.imageUrl.startsWith('http'))) {
+                setImageUrl(details.avatar_config.imageUrl);
+              }
             }
             if (details.model_config) {
               setModelConfig({
@@ -141,6 +172,14 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleColorSelect = (newColor: string) => {
+    setColor(newColor);
+    // If a stock image was present, clear it so the vector mascot color shows immediately
+    if (imageUrl && !imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:')) {
+      setImageUrl(undefined);
+    }
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -168,6 +207,35 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
     setSkills(prev =>
       prev.includes(skillId) ? prev.filter(s => s !== skillId) : [...prev, skillId]
     );
+  };
+
+  const renderSkillIcon = (id: string) => {
+    switch (id) {
+      case 'terminal_run': return <Terminal size={18} />;
+      case 'file_system': return <FolderCode size={18} />;
+      case 'stock_market': return <TrendingUp size={18} />;
+      case 'web_search': return <Globe size={18} />;
+      default: return <Wrench size={18} />;
+    }
+  };
+
+  const renderCosmeticIcon = (id: string) => {
+    switch (id) {
+      case 'crown': return <Crown size={14} />;
+      case 'luffy_hat': return <Sun size={14} />;
+      case 'headphones': return <Headphones size={14} />;
+      case 'sports_headband': return <Trophy size={14} />;
+      case 'zoro_scar': return <Swords size={14} />;
+      case 'glasses':
+      case 'sunglasses': return <Glasses size={14} />;
+      case 'tie': return <Briefcase size={14} />;
+      case 'money_tie': return <DollarSign size={14} />;
+      case 'bowtie': return <Award size={14} />;
+      case 'leaf_badge': return <Leaf size={14} />;
+      case 'whistle': return <Activity size={14} />;
+      case 'coffee': return <Coffee size={14} />;
+      default: return null;
+    }
   };
 
   const handleSave = async () => {
@@ -245,8 +313,8 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
         {/* Header */}
         <div className="studio-header">
           <div className="studio-header-title-row">
-            <div className="studio-header-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IconPalette size={20} />
+            <div className="studio-header-icon">
+              <Sparkles size={18} />
             </div>
             <div>
               <h2 className="studio-header-title">
@@ -258,7 +326,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
             </div>
           </div>
           <button className="studio-close-btn" onClick={onClose} title="Fechar">
-            <IconClose size={18} />
+            <X size={18} />
           </button>
         </div>
 
@@ -270,7 +338,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
               className={`studio-tab-btn ${activeTab === 'identity' ? 'active' : ''}`}
               onClick={() => setActiveTab('identity')}
             >
-              <span className="tab-icon"><IconMask size={16} /></span>
+              <span className="tab-icon"><Palette size={16} /></span>
               <span>Identidade</span>
             </button>
 
@@ -278,7 +346,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
               className={`studio-tab-btn ${activeTab === 'soul' ? 'active' : ''}`}
               onClick={() => setActiveTab('soul')}
             >
-              <span className="tab-icon"><IconBrain size={16} /></span>
+              <span className="tab-icon"><Brain size={16} /></span>
               <span>Alma & Regras</span>
             </button>
 
@@ -286,7 +354,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
               className={`studio-tab-btn ${activeTab === 'skills' ? 'active' : ''}`}
               onClick={() => setActiveTab('skills')}
             >
-              <span className="tab-icon"><IconWrench size={16} /></span>
+              <span className="tab-icon"><Wrench size={16} /></span>
               <span>Habilidades</span>
             </button>
 
@@ -294,7 +362,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
               className={`studio-tab-btn ${activeTab === 'memory' ? 'active' : ''}`}
               onClick={() => setActiveTab('memory')}
             >
-              <span className="tab-icon"><IconSave size={16} /></span>
+              <span className="tab-icon"><Database size={16} /></span>
               <span>Memória</span>
             </button>
 
@@ -302,7 +370,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
               className={`studio-tab-btn ${activeTab === 'model' ? 'active' : ''}`}
               onClick={() => setActiveTab('model')}
             >
-              <span className="tab-icon"><IconBot size={16} /></span>
+              <span className="tab-icon"><Cpu size={16} /></span>
               <span>Modelo & IA</span>
             </button>
           </div>
@@ -310,7 +378,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
           {/* Right Tab Content */}
           <div className="studio-content-area">
             {errorMsg && (
-              <div style={{ padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '10px', color: '#fca5a5', marginBottom: '16px', fontSize: '0.82rem' }}>
+              <div className="studio-error-banner">
                 {errorMsg}
               </div>
             )}
@@ -333,13 +401,13 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                     <span className="avatar-hint">Clique para pular</span>
                   </div>
 
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div className="preview-controls-box">
+                    <div className="preview-controls-header">
                       <span className="studio-label">Cores do Mascote</span>
                       {imageUrl && (
                         <button
                           type="button"
-                          style={{ fontSize: '0.72rem', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                          className="remove-photo-btn"
                           onClick={() => setImageUrl(undefined)}
                         >
                           Remover foto e usar mascote
@@ -351,16 +419,16 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                         <button
                           key={c}
                           type="button"
-                          className={`color-swatch-btn ${color === c ? 'active' : ''}`}
+                          className={`color-swatch-btn ${color.toLowerCase() === c.toLowerCase() ? 'active' : ''}`}
                           style={{ backgroundColor: c }}
-                          onClick={() => setColor(c)}
+                          onClick={() => handleColorSelect(c)}
                         />
                       ))}
                       <input
                         type="color"
                         value={color}
-                        onChange={e => setColor(e.target.value)}
-                        style={{ width: '28px', height: '28px', border: 'none', borderRadius: '8px', cursor: 'pointer', background: 'transparent' }}
+                        onChange={e => handleColorSelect(e.target.value)}
+                        className="color-custom-input"
                         title="Cor personalizada"
                       />
                     </div>
@@ -369,10 +437,10 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                       <button
                         type="button"
                         className="cosmetic-pill-btn"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        <IconCamera size={14} /> Enviar Foto Personalizada
+                        <Camera size={14} />
+                        <span>Enviar Foto Personalizada</span>
                       </button>
                       <input
                         ref={fileInputRef}
@@ -400,10 +468,9 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                         key={item.id}
                         type="button"
                         className={`cosmetic-pill-btn ${(cosmetics.head || 'none') === item.id ? 'active' : ''}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         onClick={() => setCosmetics(prev => ({ ...prev, head: item.id }))}
                       >
-                        {item.id !== 'none' && <VectorIcon name={item.id} size={14} />}
+                        {renderCosmeticIcon(item.id)}
                         <span>{item.label}</span>
                       </button>
                     ))}
@@ -423,10 +490,9 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                         key={item.id}
                         type="button"
                         className={`cosmetic-pill-btn ${(cosmetics.face || 'none') === item.id ? 'active' : ''}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         onClick={() => setCosmetics(prev => ({ ...prev, face: item.id }))}
                       >
-                        {item.id !== 'none' && <VectorIcon name={item.id} size={14} />}
+                        {renderCosmeticIcon(item.id)}
                         <span>{item.label}</span>
                       </button>
                     ))}
@@ -448,10 +514,9 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                         key={item.id}
                         type="button"
                         className={`cosmetic-pill-btn ${(cosmetics.body || 'none') === item.id ? 'active' : ''}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         onClick={() => setCosmetics(prev => ({ ...prev, body: item.id }))}
                       >
-                        {item.id !== 'none' && <VectorIcon name={item.id} size={14} />}
+                        {renderCosmeticIcon(item.id)}
                         <span>{item.label}</span>
                       </button>
                     ))}
@@ -469,10 +534,9 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                         key={item.id}
                         type="button"
                         className={`cosmetic-pill-btn ${(cosmetics.hand || 'none') === item.id ? 'active' : ''}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         onClick={() => setCosmetics(prev => ({ ...prev, hand: item.id }))}
                       >
-                        {item.id !== 'none' && <VectorIcon name={item.id} size={14} />}
+                        {renderCosmeticIcon(item.id)}
                         <span>{item.label}</span>
                       </button>
                     ))}
@@ -570,7 +634,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 <div className="studio-field-group">
                   <label className="studio-label">Tom de Voz</label>
                   <div className="cosmetics-pills-row">
-                    {['Direto e ágil', 'Formal e analítico', 'Descontraído / Anime', 'Educador paciente', 'Prudente financeiro'].map(t => (
+                    {['Direto e ágil', 'Formal e analítico', 'Descontraído', 'Educador paciente', 'Prudente financeiro'].map(t => (
                       <button
                         key={t}
                         type="button"
@@ -602,8 +666,8 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                         className={`skill-toggle-card ${isEnabled ? 'enabled' : ''}`}
                         onClick={() => toggleSkill(sk.id)}
                       >
-                        <div className="skill-icon-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <VectorIcon name={sk.icon} size={20} />
+                        <div className="skill-icon-box">
+                          {renderSkillIcon(sk.id)}
                         </div>
                         <div className="skill-info">
                           <div className="skill-name">{sk.name}</div>
@@ -613,7 +677,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                           type="checkbox"
                           checked={isEnabled}
                           onChange={() => {}}
-                          style={{ accentColor: '#38bdf8' }}
+                          className="skill-checkbox"
                         />
                       </div>
                     );
@@ -639,14 +703,15 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                     onKeyDown={e => e.key === 'Enter' && handleAddMemory()}
                     placeholder="Ex: O usuário prefere respostas em português com bullet points."
                   />
-                  <button type="button" className="studio-save-btn" onClick={handleAddMemory}>
-                    + Adicionar
+                  <button type="button" className="memory-add-btn" onClick={handleAddMemory}>
+                    <Plus size={14} />
+                    <span>Adicionar</span>
                   </button>
                 </div>
 
                 <div className="memory-items-list">
                   {memories.length === 0 ? (
-                    <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '0.8rem' }}>
+                    <div className="memory-empty-notice">
                       Nenhum fato memorizado ainda. Adicione regras ou notas contextuais acima.
                     </div>
                   ) : (
@@ -659,7 +724,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                           onClick={() => handleDeleteMemory(m.id)}
                           title="Excluir memória"
                         >
-                          <IconClose size={12} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     ))
@@ -685,10 +750,12 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
         {/* Footer */}
         <div className="studio-footer">
           <button className="studio-cancel-btn" onClick={onClose}>
-            Cancelar
+            <X size={14} />
+            <span>Cancelar</span>
           </button>
           <button className="studio-save-btn" onClick={handleSave} disabled={saving}>
-            {saving ? 'Salvando...' : isEditing ? 'Salvar Alterações' : 'Criar Bot'}
+            <Check size={15} />
+            <span>{saving ? 'Salvando...' : isEditing ? 'Salvar Alterações' : 'Criar Bot'}</span>
           </button>
         </div>
       </div>

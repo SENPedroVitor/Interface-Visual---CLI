@@ -150,23 +150,23 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
               aria-current={isActive ? 'page' : undefined}
               title={`${agent.name} · ${STATE_LABELS[avatarState]}`}
             >
-              {/* Minimalist circular penguin avatar with cosmetics and custom images */}
-              <WaddleAvatar
-                color={visual.color}
-                state={avatarState}
-                size={36}
-                marking={visual.marking}
-                cosmetics={visual.cosmetics}
-                imageUrl={visual.imageUrl}
-                clickAnim={visual.clickAnim}
-                trackMouse
-                interactive
-              />
+              <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                <WaddleAvatar
+                  color={visual.color}
+                  state={avatarState}
+                  size={36}
+                  marking={visual.marking}
+                  cosmetics={visual.cosmetics}
+                  imageUrl={visual.imageUrl}
+                  clickAnim={visual.clickAnim}
+                  trackMouse
+                  interactive
+                />
+              </div>
 
               <div className="agent-list-info">
                 <div className="agent-list-row1">
                   <span className="agent-list-name">{agent.name}</span>
-                  {avatarState !== 'idle' && <span className={`agent-state-chip ${avatarState}`}>{STATE_LABELS[avatarState]}</span>}
                 </div>
                 <div className="agent-list-row2">
                   <span className="agent-list-preview">{preview}</span>

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Agent, ArtifactSummary, RoutineSummary, Task } from '../types';
-import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
+import { WaddleAvatar, AgentState } from './WaddleAvatar';
 import { RevealText } from './RevealText';
 import { TypingAnimation } from './TypingAnimation';
 import { agentStateFromStatus, roleLabel } from '../utils/agentState';
@@ -8,8 +8,12 @@ import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconDocument, IconCheck, IconAlert, IconGear } from './Icons';
 import { MarkdownMessage, looksLikeMarkdown, CopyButton } from './MarkdownMessage';
 import { Dropzone } from './Dropzone';
+import { TypingIndicator } from './TypingIndicator';
 import { formatBytes } from '../hooks/use-dropzone';
-import { Paperclip, FileText, Image as ImageIcon, X } from 'lucide-react';
+import { getAgentGreetings } from '../utils/agentGreetings';
+import { StatusBadge, getAgentStatusBadge } from './StatusBadge';
+import { DatePicker } from './DatePicker';
+import { Paperclip, FileText, Image as ImageIcon, X, Calendar as CalendarIcon } from 'lucide-react';
 
 export interface ChatItem {
   id: string;
@@ -103,11 +107,12 @@ interface ConversationViewProps {
   isSending: boolean;
   presentation: boolean;
   onTogglePresentation: () => void;
-  tasks: Task[];
-  artifacts: ArtifactSummary[];
-  routines: RoutineSummary[];
+  tasks?: Task[];
+  artifacts?: ArtifactSummary[];
+  routines?: RoutineSummary[];
   onEditAgent: () => void;
-  onOpenRoutine: (routineId: string) => void;
+  onOpenRoutine?: (routineId: string) => void;
+  onOpenDeveloperMode?: () => void;
   apiError?: string;
 }
 
@@ -162,21 +167,23 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   isSending,
   presentation,
   onTogglePresentation,
-  tasks,
-  artifacts,
-  routines,
+  tasks = [],
+  artifacts = [],
+  routines = [],
   onEditAgent,
-  onOpenRoutine,
+  onOpenRoutine = () => {},
   apiError,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isDropzoneOpen, setIsDropzoneOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
   const endRef    = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounterRef = useRef(0);
+
 
   useEffect(() => {
     if (chatItems.length || isSending) endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -244,6 +251,29 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   const agentName   = currentAgent?.name || 'Quinta';
   const agentVis    = agentVisual(agentName, currentAgent?.role);
   const headerState: AgentState = isSending ? 'working' : agentStateFromStatus(currentAgent?.status);
+  const agentStatusInfo = getAgentStatusBadge(currentAgent?.status || (isSending ? 'working' : 'idle'));
+
+  const agentGreetings = useMemo(
+    () => getAgentGreetings(agentName, currentAgent?.role),
+    [agentName, currentAgent?.role]
+  );
+
+  const [greetingIndex, setGreetingIndex] = useState(() =>
+    Math.floor(Math.random() * (agentGreetings.length || 1))
+  );
+
+  useEffect(() => {
+    setGreetingIndex(Math.floor(Math.random() * (agentGreetings.length || 1)));
+  }, [agentName, agentGreetings.length]);
+
+  const currentGreeting =
+    agentGreetings[greetingIndex % agentGreetings.length] ||
+    currentAgent?.description ||
+    'Pronto para trabalhar.';
+
+  const handleNextGreeting = () => {
+    setGreetingIndex((prev) => (prev + 1) % agentGreetings.length);
+  };
 
   // Sweeps the composer-peek avatar's gaze left-to-right as you type,
   // resetting every ~30 characters — a "reading" illusion, not a pixel-exact
@@ -318,7 +348,17 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             trackMouse
             interactive
           />
-          <span className="panel-agent-name">{agentName}<small className="panel-presence-label" role="status">{STATE_LABELS[headerState]}</small></span>
+          <span className="panel-agent-name">
+            {agentName}
+            <StatusBadge
+              variant={agentStatusInfo.variant}
+              pulse={agentStatusInfo.dotPulse}
+              size="sm"
+              label={agentStatusInfo.label}
+              isPill={false}
+              style={{ marginLeft: '8px' }}
+            />
+          </span>
         </div>
 
         <div className="panel-header-right">
@@ -348,14 +388,19 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         {chatItems.length === 0 && !isSending ? (
           /* Empty State Hero with Interactive Mouse-Tracking Penguin */
           <div className="empty-state">
-            <div className="empty-avatar-hero">
+            <div
+              className="empty-avatar-hero"
+              onClick={handleNextGreeting}
+              title="Clique no mascote para trocar a frase"
+              style={{ cursor: 'pointer' }}
+            >
               <WaddleAvatar
                 color={agentVis.color}
                 state={headerState}
                 size={112}
                 marking={agentVis.marking}
                 clickAnim={agentVis.clickAnim}
-                quote={agentVis.quote}
+                quote={currentGreeting}
                 imageUrl={agentVis.imageUrl}
                 trackMouse={!isTyping}
                 interactive={true}
@@ -364,19 +409,24 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               />
             </div>
             <h2 className="empty-title">{agentName}</h2>
-            <div className="empty-role-badge">{roleLabel(currentAgent?.role || 'Agente')}</div>
-            <p className="empty-desc">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 12px' }}>
+              <div className="empty-role-badge">{roleLabel(currentAgent?.role || 'Agente')}</div>
+            </div>
+            <p
+              className="empty-desc"
+              onClick={handleNextGreeting}
+              title="Clique para trocar a frase"
+              style={{ cursor: 'pointer' }}
+            >
               <TypingAnimation
-                key={agentName}
-                typeSpeed={20}
-                delay={180}
+                key={`${agentName}-${greetingIndex}`}
+                typeSpeed={18}
+                delay={120}
                 showCursor={true}
                 blinkCursor={true}
                 cursorStyle="line"
               >
-                {agentName === 'Quinta'
-                  ? 'Coordeno a equipe para pesquisar, escrever código e validar resultados. O que fazemos hoje?'
-                  : currentAgent?.description || 'Pronto para trabalhar.'}
+                {currentGreeting}
               </TypingAnimation>
             </p>
             <div className="quick-actions">
@@ -427,7 +477,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                       className="memory-row memory-row-clickable"
                       key={routine.id}
                       title={routine.prompt}
-                      onClick={() => onOpenRoutine(routine.id)}
+                      onClick={() => onOpenRoutine?.(routine.id)}
                     >
                       <span>{routine.name}</span>
                       <small>{routine.schedule}</small>
@@ -559,18 +609,20 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               );
             })}
 
-            {/* Typing indicator — classic WhatsApp/iMessage-style three dots */}
+            {/* Typing indicator — accessible presence indicator with wave animation */}
             {isSending && (
-              <div className="msg-row agent-msg">
-                <div className={`msg-sender-name ${SENDER_COLOR_CLASS[agentName.toLowerCase()] || 'quinta'}`}>
-                  <WaddleAvatar color={agentVis.color} state="working" size={16} marking={agentVis.marking} imageUrl={agentVis.imageUrl} plain />
-                  {agentName}
-                </div>
-                <div className="typing-indicator">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </div>
+              <div className="msg-row agent-msg" style={{ marginTop: '4px' }}>
+                <TypingIndicator
+                  variant="bubble"
+                  size="md"
+                  name={agentName}
+                  avatar={
+                    agentVis.imageUrl
+                      ? { src: agentVis.imageUrl, alt: agentName }
+                      : undefined
+                  }
+                  locale="pt"
+                />
               </div>
             )}
           </>
@@ -579,6 +631,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         <div ref={endRef} />
        </div>
       </div>
+
 
       {/* ── Composer ── */}
       <div className="composer-area">
@@ -644,6 +697,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               </div>
             )}
 
+
             <div className="composer-input-row">
               <button
                 type="button"
@@ -653,6 +707,36 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               >
                 {isDropzoneOpen ? <X size={17} /> : <Paperclip size={17} />}
               </button>
+
+              {/* DatePicker calendar button & popover */}
+              <div className="composer-datepicker-anchor">
+                <button
+                  type="button"
+                  className={`btn-composer-calendar ${isDatePickerOpen ? 'is-active' : ''}`}
+                  title={isDatePickerOpen ? 'Fechar calendário' : 'Escolher data / Agendar'}
+                  onClick={() => setIsDatePickerOpen(prev => !prev)}
+                >
+                  <CalendarIcon size={17} />
+                </button>
+
+                {isDatePickerOpen && (
+                  <DatePicker
+                    hideTrigger={true}
+                    open={true}
+                    placement="top"
+                    align="left"
+                    onInsert={(formatted) => {
+                      setInputText(prev => {
+                        const trimmed = prev.trim();
+                        return trimmed ? `${trimmed} (Data: ${formatted})` : `Agendar para ${formatted}`;
+                      });
+                      setIsDatePickerOpen(false);
+                      textareaRef.current?.focus();
+                    }}
+                    onClose={() => setIsDatePickerOpen(false)}
+                  />
+                )}
+              </div>
 
               <textarea
                 ref={textareaRef}

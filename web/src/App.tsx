@@ -571,6 +571,7 @@ export const App: React.FC = () => {
           setIsStudioOpen(true);
         }}
         onOpenRoutine={(id) => setOpenRoutineId(id)}
+        onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
         apiError={apiError}
       />
 
@@ -588,6 +589,7 @@ export const App: React.FC = () => {
           setStudioAgent(agent);
           setIsStudioOpen(true);
         }}
+        onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
       />
 
       <RoutineDrawer
