@@ -150,13 +150,14 @@ export const UserConfigModal: React.FC<UserConfigModalProps> = ({
                         title={`Selecionar cor ${c}`}
                       />
                     ))}
-                    <input
-                      type="color"
-                      value={avatarColor}
-                      onChange={(e) => setAvatarColor(e.target.value)}
-                      className="user-color-input"
-                      title="Cor personalizada"
-                    />
+                    <div className="user-color-input-wrapper" title="Cor personalizada">
+                      <input
+                        type="color"
+                        value={avatarColor}
+                        onChange={(e) => setAvatarColor(e.target.value)}
+                        className="user-color-input"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
