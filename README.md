@@ -12,45 +12,69 @@ O objetivo é oferecer uma experiência parecida com um painel de trabalho multi
 
 | Área | Status | Descrição |
 | --- | --- | --- |
-| Interface visual | [OK] | UI web com painel de conversa, agentes, histórico, tarefas e modo desenvolvedor. |
-| Multiagentes | [OK] | Quinta coordena Atlas, Nero e Iris em rodadas locais de discussão. |
+| Interface visual | [OK] | UI web moderna inspirada em workspaces modernos (canais de squad, chats diretos, upload de arquivos). |
+| Multiagentes & Squads | [OK] | Quinta coordena Atlas, Nero, Iris, Ma e Livro em rodadas de discussão ou comandos individuais. |
+| Agent Studio | [OK] | Customização visual (cores, cosméticos, fotos), alma/personalidade, skills, ferramentas e memória. |
+| Perfil de Usuário | [OK] | Perfil humano dedicado com upload de avatar próprio, iniciais dinâmicas e preferências. |
+| Mascotes Interativos | [OK] | Avatares Waddle procedurais em SVG com eye-tracking dinâmico e reações táteis. |
+| Ferramentas Especializadas | [OK] | Mercado financeiro (B3, FIIs, ações) via Ma e Enciclopédia Esportiva (Futebol, NBA, NFL) via Livro. |
 | Ollama local | [OK] | Respostas locais com modelo leve, sem exigir API key. |
-| Codex CLI | [OK] | Motor detectado e reservado para tarefas de implementação quando autenticado. |
-| Claude Code | [OK] | Motor detectado e reservado para revisão/arquitetura quando autenticado. |
-| Histórico | [OK] | Mensagens, eventos, tarefas, artefatos e rotinas persistidos em SQLite. |
-| WebSocket | [OK] | Eventos da equipe transmitidos em tempo real para a interface. |
-| Kill switch | [OK] | Controle para interromper execuções ativas com segurança. |
+| Codex & Claude CLI | [OK] | Motores detectados e reservados para tarefas de implementação e revisão arquitetural. |
+| Histórico & SQLite | [OK] | Mensagens, eventos, tarefas, grupos, rotinas e perfis persistidos localmente. |
+| WebSocket | [OK] | Eventos de status, tarefas e mensagens transmitidos em tempo real. |
+| Kill switch | [OK] | Interrupção imediata e segura de tarefas ativas. |
 
 ---
 
 ## Agentes padrão
 
-| Agente | Função | Motor padrão | Papel no sistema |
-| --- | --- | --- | --- |
-| **Quinta** | Manager | Ollama | Coordena a equipe, consolida respostas e decide o próximo passo. |
-| **Atlas** | Research | Ollama | Analisa contexto local, levanta caminhos e organiza descobertas. |
-| **Nero** | Developer | Codex | Responsável por implementação e mudanças testáveis no código. |
-| **Iris** | Reviewer | Claude Code | Foca em revisão, qualidade, riscos e validação. |
+| Agente | Função | Mascote / Avatar | Motor padrão | Papel no sistema |
+| --- | --- | --- | --- | --- |
+| **Quinta** | Manager | **Chefe** (Coroa Real) | Ollama | Coordena a equipe, consolida respostas e lidera o planejamento. |
+| **Atlas** | Research | **Sábio** (Óculos & Chevron) | Ollama | Pesquisa de informações, análise de fontes, documentação e síntese. |
+| **Nero** | Developer | **Turbo** (Fones & Tufo) | Codex CLI | Implementação de código, automação de terminal e comandos shell. |
+| **Iris** | Reviewer | **Eco** (Folha & Chinstrap) | Claude Code | Revisão de qualidade, segurança, detecção de riscos e validação. |
+| **Ma** | Investor | **Totem** (Gravata de Dinheiro) | Ollama | Análise de mercado financeiro, cotações da B3, FIIs, indicadores e carteira. |
+| **Livro** | Sports | **Livro** (Headband & Apito) | Ollama | Especialista esportivo em Futebol, Basquete (NBA), NFL, MLB e estatísticas. |
 
-Quando não há autenticação/API key disponível para Codex ou Claude Code, o Waddle mantém esses agentes na conversa com respostas seguras de fallback. Assim o fluxo continua funcionando localmente com Ollama.
+Quando não há autenticação/API key disponível para Codex ou Claude Code, o Waddle mantém os agentes operando com fallbacks locais inteligentes via Ollama.
 
 ---
 
-## Mascote e ícones
+## Mascotes e Identidade Visual
 
-O projeto usa o Waddle, um pinguim minimalista inspirado em bots assistivos modernos. Os SVGs ficam em `assets/` e também em `web/public/`.
+O ecossistema visual do Waddle conta com um sistema de mascotes em duas camadas:
 
-| Estado | Ícone |
-| --- | --- |
-| Padrão | ![default](assets/waddle.svg) |
-| Digitando | ![typing](assets/waddle_typing.svg) |
-| Pensando | ![thinking](assets/waddle_thinking.svg) |
-| Sucesso | ![success](assets/waddle_success.svg) |
-| Erro | ![error](assets/waddle_error.svg) |
-| Piscando | ![blink](assets/waddle_blink.svg) |
-| Caminhada 1 | ![walk 1](assets/waddle_walk_1.svg) |
-| Caminhada 2 | ![walk 2](assets/waddle_walk_2.svg) |
-| Caminhada 3 | ![walk 3](assets/waddle_walk_3.svg) |
+### 1. Mascotes Ilustrados (`web/public/avatars/`)
+
+| Mascote | Imagem | Agente | Conceito |
+| --- | --- | --- | --- |
+| **Chefe** | `/avatars/chefe.png` | Quinta | Líder da equipe, focado em estratégia e orquestração. |
+| **Sábio** | `/avatars/sabio.png` | Atlas | Pesquisador meticuloso, intelectual e analítico. |
+| **Turbo** | `/avatars/turbo.png` | Nero | Desenvolvedor ágil, direto ao ponto na automação e código. |
+| **Eco** | `/avatars/eco.png` | Iris | Guardiã da sustentabilidade, arquitetura limpa e testes. |
+| **Totem** | `/avatars/totem.png` | Ma | Analista de mercado, focado em valor, B3 e dividendos. |
+| **Livro** | `/avatars/livro.png` | Livro | Técnico e enciclopédia viva de esportes mundiais. |
+| **Brilho** | `/avatars/brilho.png` | Studio | Modelo de inspiração com aura luminosa. |
+| **Padrão** | `/avatars/padrao.png` | Studio | Base clássica minimalista do pinguim Waddle. |
+
+### 2. Mascote Procedural Vetorial (`WaddleAvatar`)
+
+- **Eye-Tracking Dinâmico**: Os olhos do mascote acompanham a posição do cursor do mouse em tempo real através de cálculos trigonométricos com amortecimento suave.
+- **Animações de Estado**: Expressões táteis e visuais para estados `idle`, `thinking`, `working`, `waiting`, `done`, `blocked` e `stopped`.
+- **Cosméticos SVG Modulares**:
+  - *Cabeça*: Coroa (`crown`), Fones de ouvido (`headphones`), Faixa esportiva (`sports_headband`), Boné (`cap`).
+  - *Rosto*: Óculos (`glasses`), Máscara (`monocle`).
+  - *Corpo*: Gravata de dinheiro (`money_tie`), Gravata clássica (`tie`), Crachá ecológico (`leaf_badge`), Apito (`whistle`).
+- **Marcações de Espécie**: Chevron (Gentoo), Tufo (Rockhopper), Barba Chinstrap e Apito de Treinador.
+- **Reações ao Clique**: Saltos e inclinações com balões de fala temáticos para cada personalidade.
+
+### 3. Perfil do Usuário Humano (`UserAvatar`)
+
+Para garantir clareza entre humanos e agentes de IA, o perfil do usuário possui identidade própria:
+- Suporte a upload de foto personalizada (JPEG, PNG, WebP) com armazenamento local.
+- Fallback elegante com gradiente moderno e iniciais tipográficas.
+- Sem confusão: o usuário humano nunca utiliza o mascote Waddle.
 
 ---
 
@@ -66,7 +90,7 @@ Frontend React/Vite
 FastAPI backend ─┬── AgentRuntime
                  ├── EventBus
                  ├── TaskManager
-                 ├── ToolRegistry
+                 ├── ToolRegistry (Filesystem, Shell, Stocks, Sports)
                  ├── ProviderRegistry
                  └── SQLite
                         │
@@ -79,15 +103,17 @@ FastAPI backend ─┬── AgentRuntime
 
 | Caminho | Responsabilidade |
 | --- | --- |
-| `src/waddle/api/server.py` | API FastAPI e WebSocket de eventos. |
-| `src/waddle/runtime/agent_runtime.py` | Registro de agentes, execução de objetivos e rotinas. |
-| `src/waddle/agents/manager.py` | Lógica da Quinta, discussão multiagente e integração Ollama. |
-| `src/waddle/providers.py` | Detecção de Ollama, Codex CLI e Claude Code. |
-| `src/waddle/storage/database.py` | Persistência SQLite de agentes, mensagens, tarefas, rotinas e artefatos. |
-| `web/src/App.tsx` | Estado principal da interface web. |
-| `web/src/components/DeveloperDrawer.tsx` | Modo desenvolvedor com tarefas, ferramentas, motores e eventos. |
-| `web/src/components/AgentProfileDialog.tsx` | Edição de perfil e motor preferido de agentes customizados. |
-| `web/src/components/WaddleAvatar.tsx` | Mascote SVG animado na interface. |
+| `src/waddle/api/server.py` | API FastAPI e WebSocket de eventos em tempo real. |
+| `src/waddle/runtime/agent_runtime.py` | Coordenação multiagente, ciclo de vida de tarefas e ferramentas. |
+| `src/waddle/agents/manager.py` | Orquestração da Quinta, rodadas de discussão multiagente e Ollama. |
+| `src/waddle/tools/stocks.py` | Ferramentas financeiras (B3, FIIs, indicadores de mercado). |
+| `src/waddle/tools/sports.py` | Ferramentas de estatísticas e enciclopédia esportiva. |
+| `web/src/App.tsx` | Hub principal com navegação entre squads, chats diretos e modais. |
+| `web/src/components/ConversationView.tsx` | Painel de conversa interativo, drag & drop de arquivos e terminal. |
+| `web/src/components/AgentStudioModal.tsx` | Agent Studio: edição de alma, habilidades, cosméticos e ferramentas. |
+| `web/src/components/UserConfigModal.tsx` | Configurações da conta, nome de exibição e foto do usuário humano. |
+| `web/src/components/WaddleAvatar.tsx` | Mascote procedural interativo com eye-tracking e cosméticos SVG. |
+| `web/src/components/UserAvatar.tsx` | Componente dedicado para avatar humano com fotos e iniciais. |
 
 ---
 
