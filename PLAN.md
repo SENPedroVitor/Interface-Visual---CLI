@@ -64,16 +64,16 @@ Criar um espaço de grupo separado onde os bots se comunicam entre si. O chat do
 
 **Mudanças de arquitetura:**
 - Novo tipo de conversa: group vs direct  
-- ConversationView suporta renderização de grupo com identificação visual de cada bot  
-- Sidebar esquerda: chats diretos + item fixo "Grupo" no topo
+- ConversationView suporta renderização de grupo com identificação visual de cada bot (Quinta Líder, Atlas Pesquisa, Nero Execução, Iris Revisão)  
+- Sidebar esquerda: canal fixo "Equipe Waddle (Inter-Bots)" no topo das equipes + suporte a múltiplos squads customizados
 
 **Arquivos afetados:**
 - web/src/components/ConversationView.tsx  
 - web/src/components/AgentSidebar.tsx  
 - web/src/App.tsx  
-- src/ (backend — roteamento de mensagens)
+- web/src/index.css
 
-**Status:** [ ] Pendente
+**Status:** [x] Concluído
 
 ---
 
@@ -176,9 +176,10 @@ Configurações da interface sincronizadas e persistidas:
 | Visualizador de File Tree estilo VS Code no chat | Média | [x] Concluído |
 | Suporte a tabelas, blockquotes e títulos no MarkdownMessage | Média | [x] Concluído |
 | Persistência de tema e configurações no localStorage/backend | Alta | [x] Concluído |
-| Mensagens do manager "Quinta" com estilo diferenciado | Média | [ ] Pendente |
-| Animação de carregamento enquanto bot está pensando | Baixa | [ ] Pendente |
-| Transições animadas entre abas do AgentStudioModal | Baixa | [ ] Pendente |
+| Canal dedicado Equipe Waddle / Inter-bots | Alta | [x] Concluído |
+| Mensagens da Quinta com estilo diferenciado e badge de Líder | Média | [x] Concluído |
+| Transições animadas entre abas do AgentStudioModal | Baixa | [x] Concluído |
+| Animação de carregamento / presença de escrita | Baixa | [x] Concluído |
 
 ---
 
@@ -192,4 +193,5 @@ Configurações da interface sincronizadas e persistidas:
 6. [x] File Tree estilo VS Code (item 3) — Concluído  
 7. [x] Melhorias no MarkdownMessage (item 8) — Concluído  
 8. [x] Persistência de configurações (item 9) — Concluído  
-9. [ ] Group Chat / Arquitetura (item 4) — próximo passo estrutural    
+9. [x] Group Chat / Arquitetura Inter-Bots (item 4) — Concluído  
+10. [x] Refinamentos visuais (Líder Quinta e abas animadas) (item 10) — Concluído    

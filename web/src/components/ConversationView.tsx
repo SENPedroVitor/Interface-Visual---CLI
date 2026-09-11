@@ -293,12 +293,14 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
     setGreetingIndex(Math.floor(Math.random() * (agentGreetings.length || 1)));
   }, [agentName, agentGreetings.length]);
 
-  const currentGreeting =
-    agentGreetings[greetingIndex % agentGreetings.length] ||
-    currentAgent?.description ||
-    'Pronto para trabalhar.';
+  const currentGreeting = isGroup
+    ? 'Canal coletivo da Equipe. Toda a discussão inter-bots e cooperação acontecem aqui.'
+    : agentGreetings[greetingIndex % agentGreetings.length] ||
+      currentAgent?.description ||
+      'Pronto para trabalhar.';
 
   const handleNextGreeting = () => {
+    if (isGroup) return;
     setGreetingIndex((prev) => (prev + 1) % agentGreetings.length);
   };
 
@@ -457,7 +459,14 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               </TypingAnimation>
             </p>
             <div className="quick-actions">
-              {(agentName === 'Ma' || currentAgent?.role === 'Investor'
+              {(isGroup
+                ? [
+                    'Planejar e executar uma análise do projeto',
+                    'Discutir melhorias de performance na equipe',
+                    'Auditar testes automatizados e segurança',
+                    'Documentar arquitetura do sistema',
+                  ]
+                : agentName === 'Ma' || currentAgent?.role === 'Investor'
                 ? INVESTOR_SUGGESTIONS
                 : agentName === 'Livro' || currentAgent?.role === 'Sports'
                 ? SPORTS_SUGGESTIONS
@@ -469,11 +478,25 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               ))}
             </div>
 
-            <div className="agent-memory-panel">
-              <div className="agent-memory-header">
-                <span>Memória do agente</span>
-                <button type="button" onClick={onEditAgent}>Editar perfil</button>
+            {isGroup ? (
+              <div className="agent-memory-panel">
+                <div className="agent-memory-header">
+                  <span>Membros do Squad</span>
+                  <button type="button" onClick={onEditAgent}>Configurações do Squad</button>
+                </div>
+                <div style={{ padding: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span className="msg-role-badge manager-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>👑 Quinta (Líder)</span>
+                  <span className="msg-role-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>🔬 Atlas (Pesquisa)</span>
+                  <span className="msg-role-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>⚡ Nero (Execução)</span>
+                  <span className="msg-role-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>🛡️ Iris (Revisão)</span>
+                </div>
               </div>
+            ) : (
+              <div className="agent-memory-panel">
+                <div className="agent-memory-header">
+                  <span>Memória do agente</span>
+                  <button type="button" onClick={onEditAgent}>Editar perfil</button>
+                </div>
 
               <div className="agent-memory-grid">
                 <section>
@@ -513,6 +536,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 </section>
               </div>
             </div>
+            )}
           </div>
 
         ) : (
@@ -594,6 +618,17 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               const colorClass = SENDER_COLOR_CLASS[item.sender] || 'system';
               const senderVis  = agentVisual(item.senderName || '');
               const summaryNames = groupSummaryPoints.get(item.id);
+              const senderEffective = item.senderName || agentName || '';
+              const isManager = senderEffective.toLowerCase() === 'quinta';
+              const roleBadge = isManager
+                ? 'Líder'
+                : senderEffective === 'Atlas'
+                ? 'Pesquisa'
+                : senderEffective === 'Nero'
+                ? 'Execução'
+                : senderEffective === 'Iris'
+                ? 'Revisão'
+                : undefined;
 
               return (
                 <React.Fragment key={item.id}>
@@ -609,7 +644,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                       <span>{userProfile?.name || 'Você'}</span>
                     </div>
                   ) : (
-                    <div className={`msg-sender-name ${colorClass}`}>
+                    <div className={`msg-sender-name ${colorClass} ${isManager ? 'manager-sender-name' : ''}`}>
                       <WaddleAvatar
                         color={senderVis.color}
                         state="idle"
@@ -618,10 +653,15 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                         imageUrl={senderVis.imageUrl}
                         plain
                       />
-                      <span>{item.senderName || agentName}</span>
+                      <span>{senderEffective}</span>
+                      {roleBadge && (
+                        <span className={`msg-role-badge ${isManager ? 'manager-badge' : ''}`}>
+                          {roleBadge}
+                        </span>
+                      )}
                     </div>
                   )}
-                  <div className="msg-bubble">
+                  <div className={`msg-bubble ${isManager ? 'manager-bubble' : ''}`}>
                     {isUser ? (
                       item.content
                     ) : looksLikeMarkdown(item.content) ? (

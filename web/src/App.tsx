@@ -83,6 +83,14 @@ function useTheme() {
   return { isDark, toggleTheme };
 }
 
+export const DEFAULT_TEAM_GROUP: GroupSummary = {
+  id: 'team-squad',
+  name: 'Equipe Waddle',
+  description: 'Canal coletivo e discussão inter-bots da equipe.',
+  members: ['Quinta', 'Atlas', 'Nero', 'Iris'],
+  avatar_icon: 'users',
+};
+
 export const App: React.FC = () => {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -165,7 +173,7 @@ export const App: React.FC = () => {
 
   const visibleAgents = useAgentPresence(agents, events);
   const selectedAgent = visibleAgents.find((a) => a.id === selectedAgentId) || visibleAgents[0] || null;
-  const activeGroup = groups.find((g) => g.id === selectedGroupId);
+  const activeGroup = groups.find((g) => g.id === selectedGroupId) || (selectedGroupId === 'team-squad' ? DEFAULT_TEAM_GROUP : undefined);
 
   const currentViewAgent: Agent | null = activeGroup
     ? {
@@ -457,7 +465,11 @@ export const App: React.FC = () => {
 
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const targetAgentName = activeGroup ? activeGroup.members[0] || 'Quinta' : selectedAgent?.name || 'Quinta';
-    const conversationKey = activeGroup ? activeGroup.name.toLowerCase() : (selectedAgent?.name || 'Quinta').toLowerCase();
+    const conversationKey = selectedGroupId === 'team-squad'
+      ? 'team-squad'
+      : activeGroup
+      ? activeGroup.name.toLowerCase()
+      : (selectedAgent?.name || 'Quinta').toLowerCase();
 
     let displayText = text;
     let objectiveText = text;
@@ -521,7 +533,16 @@ export const App: React.FC = () => {
     }
   };
 
-  const filteredChatItems = activeGroup
+  const filteredChatItems = selectedGroupId === 'team-squad'
+    ? chatItems.filter(item =>
+        item.agentKey === 'team-squad' ||
+        item.agentKey === 'quinta' ||
+        item.agentKey === 'squad' ||
+        item.type === 'context_activity' ||
+        item.type === 'artifact' ||
+        ['atlas', 'nero', 'iris', 'quinta', 'user', 'system'].includes(item.sender.toLowerCase())
+      )
+    : activeGroup
     ? chatItems.filter(item =>
         activeGroup.members.some(m => m.toLowerCase() === item.agentKey) ||
         activeGroup.members.some(m => m.toLowerCase() === item.sender) ||

@@ -1050,6 +1050,47 @@ button, input, textarea {
 .msg-sender-name.ma     { color: var(--ma-color); }
 .msg-sender-name.system { color: var(--text-muted); }
 
+/* Role Badges in Chat */
+.msg-role-badge {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.msg-role-badge.manager-badge {
+  background: rgba(234, 179, 8, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(234, 179, 8, 0.28);
+}
+
+.msg-bubble.manager-bubble {
+  border-left: 2.5px solid #eab308;
+}
+
+.sidebar-new-squad-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebar-new-squad-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 /* Typing indicator — classic WhatsApp/iMessage-style three dots */
 .typing-indicator {
   display: flex;

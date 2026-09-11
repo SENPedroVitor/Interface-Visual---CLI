@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Agent } from '../types';
 import { WaddleAvatar, AvatarCosmetics, MarkingType } from './WaddleAvatar';
 import { ModelSelectorDrawer } from './ModelSelectorDrawer';
@@ -381,7 +382,15 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
               </div>
             )}
 
-            {/* TAB 1: IDENTIDADE */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+              >
+                {/* TAB 1: IDENTIDADE */}
             {activeTab === 'identity' && (
               <div className="studio-section">
                 {/* Live Mascot Avatar Preview Card */}
@@ -742,6 +751,8 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 />
               </div>
             )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
