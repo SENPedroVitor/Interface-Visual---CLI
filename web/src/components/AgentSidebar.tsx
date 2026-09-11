@@ -5,6 +5,7 @@ import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentSta
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconPlug } from './Icons';
 import { UserProfile } from './UserConfigModal';
+import { UserAvatar } from './UserAvatar';
 
 export interface AgentSidebarProps {
   agents: Agent[];
@@ -257,13 +258,13 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           className="sidebar-footer-btn sidebar-user-btn"
           onClick={onOpenUserConfig}
           title="Configurar Perfil de Usuário"
-          style={{ cursor: 'pointer', textAlign: 'left', width: '100%' }}
+          style={{ cursor: 'pointer', textAlign: 'left', width: '100%', display: 'flex', alignItems: 'center', gap: '10px' }}
         >
-          <WaddleAvatar
-            size={20}
-            color={userProfile?.avatarColor || '#38bdf8'}
+          <UserAvatar
+            size={24}
+            name={userProfile?.name}
+            color={userProfile?.avatarColor || '#6366f1'}
             imageUrl={userProfile?.avatarImage}
-            plain
           />
           <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
             {userProfile?.name || 'Meu Perfil'}

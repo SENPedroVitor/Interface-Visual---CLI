@@ -1,23 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Camera, Check, X } from 'lucide-react';
-import { WaddleAvatar } from './WaddleAvatar';
+import { User, Camera, Trash2, Check, X } from 'lucide-react';
+import { UserAvatar } from './UserAvatar';
 import './UserConfigModal.css';
 
 export interface UserProfile {
   name: string;
+  role?: string;
   avatarColor: string;
   avatarImage?: string;
 }
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
-  name: 'Você',
-  avatarColor: '#38bdf8',
+  name: 'Pedro',
+  role: 'Desenvolvedor',
+  avatarColor: '#6366f1',
   avatarImage: undefined,
 };
 
 const USER_COLORS = [
-  '#38bdf8', '#9159FE', '#22c55e', '#f97316', '#ef4444', '#ec4899',
-  '#eab308', '#14b8a6', '#6366f1', '#84cc16', '#06b6d4', '#1e293b',
+  '#6366f1', '#3b82f6', '#0ea5e9', '#14b8a6', '#10b981',
+  '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6',
+  '#475569', '#1e293b',
 ];
 
 interface UserConfigModalProps {
@@ -33,15 +36,17 @@ export const UserConfigModal: React.FC<UserConfigModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const [name, setName] = useState(profile.name || 'Você');
-  const [avatarColor, setAvatarColor] = useState(profile.avatarColor || '#38bdf8');
+  const [name, setName] = useState(profile.name || 'Pedro');
+  const [role, setRole] = useState(profile.role || 'Desenvolvedor');
+  const [avatarColor, setAvatarColor] = useState(profile.avatarColor || '#6366f1');
   const [avatarImage, setAvatarImage] = useState<string | undefined>(profile.avatarImage);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setName(profile.name || 'Você');
-      setAvatarColor(profile.avatarColor || '#38bdf8');
+      setName(profile.name || 'Pedro');
+      setRole(profile.role || 'Desenvolvedor');
+      setAvatarColor(profile.avatarColor || '#6366f1');
       setAvatarImage(profile.avatarImage);
     }
   }, [isOpen, profile]);
@@ -61,15 +66,11 @@ export const UserConfigModal: React.FC<UserConfigModalProps> = ({
     }
   };
 
-  const handleColorSelect = (c: string) => {
-    setAvatarColor(c);
-    setAvatarImage(undefined);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
-      name: name.trim() || 'Você',
+      name: name.trim() || 'Usuário',
+      role: role.trim() || undefined,
       avatarColor,
       avatarImage,
     });
@@ -78,13 +79,17 @@ export const UserConfigModal: React.FC<UserConfigModalProps> = ({
 
   return (
     <div className="user-modal-overlay" onClick={onClose}>
-      <div className="user-modal" onClick={e => e.stopPropagation()}>
+      <div className="user-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div className="user-modal-header">
           <div className="user-modal-header-left">
             <div className="user-modal-header-icon">
-              <User size={17} />
+              <User size={18} />
             </div>
-            <h3 className="user-modal-title">Configurar Perfil</h3>
+            <div>
+              <h3 className="user-modal-title">Perfil do Usuário</h3>
+              <p className="user-modal-subtitle">Personalize seu nome, foto e como você aparece no chat</p>
+            </div>
           </div>
           <button type="button" className="user-modal-close-btn" onClick={onClose} title="Fechar">
             <X size={16} />
@@ -93,56 +98,32 @@ export const UserConfigModal: React.FC<UserConfigModalProps> = ({
 
         <form onSubmit={handleSubmit}>
           <div className="user-modal-body">
-            {/* Avatar Preview & Customization */}
-            <div className="user-avatar-preview-card">
-              <div className="user-avatar-preview-box">
-                <WaddleAvatar
+            {/* Profile Avatar Card */}
+            <div className="user-profile-section">
+              <div className="user-avatar-preview-area">
+                <UserAvatar
+                  name={name}
                   color={avatarColor}
                   imageUrl={avatarImage}
-                  size={64}
-                  interactive={true}
-                  quote={`Olá, eu sou ${name || 'Você'}!`}
+                  size={76}
                 />
-              </div>
-
-              <div className="user-avatar-controls">
-                <span className="user-label">Cor do Mascote</span>
-                <div className="user-avatar-colors-row">
-                  {USER_COLORS.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      className={`user-color-btn ${avatarColor.toLowerCase() === c.toLowerCase() && !avatarImage ? 'active' : ''}`}
-                      style={{ backgroundColor: c }}
-                      onClick={() => handleColorSelect(c)}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    value={avatarColor}
-                    onChange={e => handleColorSelect(e.target.value)}
-                    className="user-color-btn"
-                    title="Cor personalizada"
-                    style={{ padding: 0, border: 'none', background: 'transparent' }}
-                  />
-                </div>
-
-                <div className="user-avatar-actions-row">
+                <div className="user-avatar-actions">
                   <button
                     type="button"
-                    className="user-upload-btn"
+                    className="user-btn-action"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <Camera size={13} />
-                    <span>{avatarImage ? 'Trocar foto' : 'Enviar foto'}</span>
+                    <Camera size={14} />
+                    <span>{avatarImage ? 'Trocar foto' : 'Enviar foto de perfil'}</span>
                   </button>
                   {avatarImage && (
                     <button
                       type="button"
-                      className="user-remove-photo-btn"
+                      className="user-btn-action user-btn-danger"
                       onClick={() => setAvatarImage(undefined)}
                     >
-                      Remover foto
+                      <Trash2 size={13} />
+                      <span>Remover foto</span>
                     </button>
                   )}
                   <input
@@ -154,31 +135,92 @@ export const UserConfigModal: React.FC<UserConfigModalProps> = ({
                   />
                 </div>
               </div>
+
+              {!avatarImage && (
+                <div className="user-color-selector">
+                  <span className="user-label">Cor do Avatar (Iniciais)</span>
+                  <div className="user-avatar-colors-row">
+                    {USER_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`user-color-btn ${avatarColor.toLowerCase() === c.toLowerCase() ? 'active' : ''}`}
+                        style={{ backgroundColor: c }}
+                        onClick={() => setAvatarColor(c)}
+                        title={`Selecionar cor ${c}`}
+                      />
+                    ))}
+                    <input
+                      type="color"
+                      value={avatarColor}
+                      onChange={(e) => setAvatarColor(e.target.value)}
+                      className="user-color-input"
+                      title="Cor personalizada"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Name Input */}
-            <div className="user-field-group">
+            {/* Input Fields */}
+            <div className="user-form-group">
               <label className="user-label" htmlFor="user-name-input">
-                Seu Nome de Exibição
+                Nome de Exibição
               </label>
               <input
                 id="user-name-input"
                 type="text"
                 className="user-input"
-                maxLength={40}
                 value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Ex: Pedro"
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Pedro Vitor"
+                maxLength={40}
                 required
               />
             </div>
+
+            <div className="user-form-group">
+              <label className="user-label" htmlFor="user-role-input">
+                Função / Cargo (opcional)
+              </label>
+              <input
+                id="user-role-input"
+                type="text"
+                className="user-input"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                placeholder="Ex: Desenvolvedor, Administrador"
+                maxLength={40}
+              />
+            </div>
+
+            {/* Live Chat Message Preview */}
+            <div className="user-chat-preview-box">
+              <span className="user-preview-heading">Pré-visualização no Chat</span>
+              <div className="user-preview-msg">
+                <div className="user-preview-header">
+                  <UserAvatar
+                    name={name}
+                    color={avatarColor}
+                    imageUrl={avatarImage}
+                    size={20}
+                  />
+                  <span className="user-preview-name">{name || 'Usuário'}</span>
+                  {role && <span className="user-preview-role">· {role}</span>}
+                </div>
+                <div className="user-preview-bubble">
+                  Olá equipe, vamos começar a revisão do projeto.
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Footer */}
           <div className="user-modal-footer">
-            <button type="button" className="user-cancel-btn" onClick={onClose}>
+            <button type="button" className="user-btn-cancel" onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className="user-save-btn">
+            <button type="submit" className="user-btn-save">
               <Check size={14} />
               <span>Salvar Perfil</span>
             </button>

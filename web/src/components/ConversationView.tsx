@@ -15,6 +15,7 @@ import { StatusBadge, getAgentStatusBadge } from './StatusBadge';
 import { DatePicker } from './DatePicker';
 import { Paperclip, FileText, Image as ImageIcon, X, Plus, Calendar, UploadCloud, User } from 'lucide-react';
 import { UserProfile } from './UserConfigModal';
+import { UserAvatar } from './UserAvatar';
 
 export interface ChatItem {
   id: string;
@@ -622,11 +623,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 <div className={`msg-row ${isUser ? 'user-msg' : 'agent-msg'}`}>
                   {isUser ? (
                     <div className="msg-sender-name user-sender-name">
-                      <WaddleAvatar
-                        color={userProfile?.avatarColor || '#38bdf8'}
+                      <UserAvatar
+                        name={userProfile?.name || 'Você'}
+                        color={userProfile?.avatarColor || '#6366f1'}
                         imageUrl={userProfile?.avatarImage}
-                        size={16}
-                        plain
+                        size={18}
                       />
                       <span>{userProfile?.name || 'Você'}</span>
                     </div>
