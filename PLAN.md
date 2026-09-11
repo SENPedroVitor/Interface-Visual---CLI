@@ -177,7 +177,6 @@ Configurações da interface sincronizadas e persistidas:
 | Suporte a tabelas, blockquotes e títulos no MarkdownMessage | Média | [x] Concluído |
 | Persistência de tema e configurações no localStorage/backend | Alta | [x] Concluído |
 | Canal dedicado Equipe Waddle / Inter-bots | Alta | [x] Concluído |
-| Mensagens da Quinta com estilo diferenciado e badge de Líder | Média | [x] Concluído |
 | Transições animadas entre abas do AgentStudioModal | Baixa | [x] Concluído |
 | Animação de carregamento / presença de escrita | Baixa | [x] Concluído |
 
@@ -194,4 +193,4 @@ Configurações da interface sincronizadas e persistidas:
 7. [x] Melhorias no MarkdownMessage (item 8) — Concluído  
 8. [x] Persistência de configurações (item 9) — Concluído  
 9. [x] Group Chat / Arquitetura Inter-Bots (item 4) — Concluído  
-10. [x] Refinamentos visuais (Líder Quinta e abas animadas) (item 10) — Concluído    
+10. [x] Refinamentos visuais (abas animadas) (item 10) — Concluído    

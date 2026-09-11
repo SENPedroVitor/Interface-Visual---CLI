@@ -484,11 +484,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                   <span>Membros do Squad</span>
                   <button type="button" onClick={onEditAgent}>Configurações do Squad</button>
                 </div>
-                <div style={{ padding: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span className="msg-role-badge manager-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>👑 Quinta (Líder)</span>
-                  <span className="msg-role-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>🔬 Atlas (Pesquisa)</span>
-                  <span className="msg-role-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>⚡ Nero (Execução)</span>
-                  <span className="msg-role-badge" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>🛡️ Iris (Revisão)</span>
+                <div style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  Quinta · Atlas · Nero · Iris
                 </div>
               </div>
             ) : (
@@ -619,16 +616,6 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               const senderVis  = agentVisual(item.senderName || '');
               const summaryNames = groupSummaryPoints.get(item.id);
               const senderEffective = item.senderName || agentName || '';
-              const isManager = senderEffective.toLowerCase() === 'quinta';
-              const roleBadge = isManager
-                ? 'Líder'
-                : senderEffective === 'Atlas'
-                ? 'Pesquisa'
-                : senderEffective === 'Nero'
-                ? 'Execução'
-                : senderEffective === 'Iris'
-                ? 'Revisão'
-                : undefined;
 
               return (
                 <React.Fragment key={item.id}>
@@ -644,7 +631,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                       <span>{userProfile?.name || 'Você'}</span>
                     </div>
                   ) : (
-                    <div className={`msg-sender-name ${colorClass} ${isManager ? 'manager-sender-name' : ''}`}>
+                    <div className={`msg-sender-name ${colorClass}`}>
                       <WaddleAvatar
                         color={senderVis.color}
                         state="idle"
@@ -654,14 +641,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                         plain
                       />
                       <span>{senderEffective}</span>
-                      {roleBadge && (
-                        <span className={`msg-role-badge ${isManager ? 'manager-badge' : ''}`}>
-                          {roleBadge}
-                        </span>
-                      )}
                     </div>
                   )}
-                  <div className={`msg-bubble ${isManager ? 'manager-bubble' : ''}`}>
+                  <div className="msg-bubble">
                     {isUser ? (
                       item.content
                     ) : looksLikeMarkdown(item.content) ? (
