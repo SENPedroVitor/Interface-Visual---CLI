@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { registerEye } from '../lib/eyeTracker';
 import './WaddleAvatar.css';
 
-export type AgentState = 'idle' | 'working' | 'thinking' | 'waiting' | 'done' | 'blocked' | 'stopped';
+export type AgentState =
+  | 'idle' | 'listening' | 'thinking' | 'planning' | 'waiting'
+  | 'working' | 'creating' | 'done' | 'blocked' | 'stopped';
 export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap' | 'tie' | 'whistle';
 export type ClickAnim = 'hop' | 'fast' | 'jump2' | 'tilt';
 
@@ -14,8 +16,9 @@ export interface AvatarCosmetics {
 }
 
 export const STATE_LABELS: Record<AgentState, string> = {
-  idle: 'Disponível', working: 'Trabalhando', thinking: 'Pensando',
-  waiting: 'Aguardando', done: 'Concluído', blocked: 'Precisa de atenção', stopped: 'Parado',
+  idle: 'Disponível', listening: 'Ouvindo', thinking: 'Pensando', planning: 'Planejando',
+  waiting: 'Aguardando', working: 'Trabalhando', creating: 'Criando',
+  done: 'Concluído', blocked: 'Precisa de atenção', stopped: 'Parado',
 };
 
 export interface WaddleAvatarProps {
@@ -25,6 +28,7 @@ export interface WaddleAvatarProps {
   gazeX?: number; onClick?: () => void;
   cosmetics?: AvatarCosmetics;
   imageUrl?: string;
+  motion?: 'off' | 'standard' | 'organic';
 }
 
 interface AvatarPalette {

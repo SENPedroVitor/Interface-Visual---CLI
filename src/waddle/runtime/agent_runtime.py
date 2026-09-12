@@ -306,6 +306,11 @@ class AgentRuntime:
             soul=get_default_soul("Quinta"),
             skills=["coordination", "planning", "delegation", "consolidation"],
             memory=get_default_memories("Quinta"),
+            avatar_config={
+                "color": "#9159fe",
+                "imageUrl": "/avatars/chefe.png",
+                "cosmetics": {"head": "crown"},
+            },
         )
         atlas = WorkerAgent(
             name="Atlas",
