@@ -4,6 +4,8 @@ import App from './App';
 import AvatarMotionLab from './components/AvatarMotionLab';
 import './index.css';
 import './components/DesignRefinements.css';
+import './components/UserConfigModal.css';
+import './components/StatusTimeline.css';
 
 const isMotionLab = window.location.hash === '#motion-lab';
 

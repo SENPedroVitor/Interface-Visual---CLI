@@ -1,12 +1,21 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Agent, ArtifactSummary, RoutineSummary, Task } from '../types';
-import { WaddleAvatar, AgentState, STATE_LABELS } from './WaddleAvatar';
+import { WaddleAvatar, AgentState } from './WaddleAvatar';
 import { RevealText } from './RevealText';
 import { TypingAnimation } from './TypingAnimation';
 import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconDocument, IconCheck, IconAlert, IconGear } from './Icons';
 import { MarkdownMessage, looksLikeMarkdown, CopyButton } from './MarkdownMessage';
+import { Dropzone } from './Dropzone';
+import { TypingIndicator } from './TypingIndicator';
+import { formatBytes } from '../hooks/use-dropzone';
+import { getAgentGreetings } from '../utils/agentGreetings';
+import { StatusBadge, getAgentStatusBadge } from './StatusBadge';
+import { DatePicker } from './DatePicker';
+import { Paperclip, FileText, Image as ImageIcon, X, Plus, Calendar, UploadCloud, User } from 'lucide-react';
+import { UserProfile } from './UserConfigModal';
+import { UserAvatar } from './UserAvatar';
 
 export interface ChatItem {
   id: string;
@@ -95,18 +104,20 @@ function GroupSummaryLine({ names }: { names: string[] }): React.ReactElement {
 interface ConversationViewProps {
   currentAgent: Agent | null;
   isGroup?: boolean;
-  teamAgents?: Agent[];
   chatItems: ChatItem[];
-  onSendMessage: (text: string) => Promise<void>;
+  onSendMessage: (text: string, files?: File[]) => Promise<void>;
   isSending: boolean;
   presentation: boolean;
   onTogglePresentation: () => void;
-  tasks: Task[];
-  artifacts: ArtifactSummary[];
-  routines: RoutineSummary[];
+  tasks?: Task[];
+  artifacts?: ArtifactSummary[];
+  routines?: RoutineSummary[];
   onEditAgent: () => void;
-  onOpenRoutine: (routineId: string) => void;
+  onOpenRoutine?: (routineId: string) => void;
+  onOpenDeveloperMode?: () => void;
   apiError?: string;
+  userProfile?: UserProfile;
+  onOpenUserConfig?: () => void;
 }
 
 const SENDER_COLOR_CLASS: Record<string, string> = {
@@ -138,107 +149,6 @@ const SPORTS_SUGGESTIONS = [
   'Próximos jogos do Flamengo e resultados recentes',
 ];
 
-function taskStatusLabel(status: Task['status']): string {
-  const labels: Record<Task['status'], string> = {
-    pending: 'pendente',
-    queued: 'na fila',
-    running: 'em andamento',
-    blocked: 'bloqueada',
-    waiting_review: 'em revisão',
-    completed: 'concluída',
-    failed: 'falhou',
-    cancelled: 'cancelada',
-  };
-  return labels[status] || status;
-}
-
-function TeamWorkCard({
-  agents,
-  tasks,
-  artifacts,
-}: {
-  agents: Agent[];
-  tasks: Task[];
-  artifacts: ArtifactSummary[];
-}): React.ReactElement | null {
-  if (agents.length === 0) return null;
-
-  const teamNames = new Set(agents.map((agent) => agent.name.toLowerCase()));
-  const teamTasks = tasks.filter((task) => teamNames.has((task.assigned_agent || '').toLowerCase()));
-  const recentTasks = [...teamTasks].slice(-3).reverse();
-  const doneCount = teamTasks.filter((task) => task.status === 'completed').length;
-  const teamArtifacts = artifacts.filter((artifact) => teamNames.has((artifact.agent_name || '').toLowerCase())).slice(0, 1);
-  const visibleAgents = agents.slice(0, 3);
-
-  const checklist = recentTasks.length
-    ? recentTasks.map((task) => ({
-        label: task.title,
-        meta: task.assigned_agent || taskStatusLabel(task.status),
-      }))
-    : visibleAgents.map((agent) => ({
-        label: `${agent.name} pronto para colaborar`,
-        meta: roleLabel(agent.role),
-      }));
-
-  return (
-    <section className="team-work-card" aria-label="Resumo do trabalho em equipe">
-      <div className="team-work-card__header">
-        <div>
-          <span className="team-work-card__eyebrow">Trabalho em equipe</span>
-          <strong>{visibleAgents.length} agentes conectados</strong>
-        </div>
-        <span className="team-work-card__meta">
-          {doneCount > 0 ? `${doneCount} concluída${doneCount > 1 ? 's' : ''}` : 'prontos'}
-        </span>
-      </div>
-
-      <div className="team-work-card__agents">
-        {visibleAgents.map((agent) => {
-          const state = agentStateFromStatus(agent.status);
-          const visual = agentVisual(agent.name, agent.role, agent.avatar_config);
-          const activeTask = [...teamTasks].reverse().find((task) => task.assigned_agent === agent.name);
-
-          return (
-            <div className="team-work-card__agent" key={agent.id}>
-              <WaddleAvatar
-                color={visual.color}
-                state={state}
-                size={24}
-                marking={visual.marking}
-                cosmetics={visual.cosmetics}
-                imageUrl={visual.imageUrl}
-                plain
-              />
-              <span>{agent.name}</span>
-              <small>{activeTask ? taskStatusLabel(activeTask.status) : roleLabel(agent.role)}</small>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="team-work-card__checks">
-        {checklist.map((item, index) => (
-          <div className="team-work-card__check" key={`${item.label}-${index}`}>
-            <IconCheck size={13} />
-            <span>{item.label}</span>
-            <small>{item.meta}</small>
-          </div>
-        ))}
-      </div>
-
-      {teamArtifacts.length > 0 && (
-        <div className="team-work-card__artifact">
-          <IconDocument size={16} />
-          <div>
-            <strong>{teamArtifacts[0].filename}</strong>
-            <small>{teamArtifacts[0].agent_name} · arquivo gerado</small>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 /** Renders `code`-wrapped segments (real file paths/commands) as inline code chips. */
 function renderActivityContent(content: string): React.ReactNode {
   return content.split(/(`[^`]+`)/g).map((part, i) => {
@@ -256,23 +166,52 @@ function renderActivityContent(content: string): React.ReactNode {
 export const ConversationView: React.FC<ConversationViewProps> = ({
   currentAgent,
   isGroup = false,
-  teamAgents = [],
   chatItems,
   onSendMessage,
   isSending,
   presentation,
   onTogglePresentation,
-  tasks,
-  artifacts,
-  routines,
+  tasks = [],
+  artifacts = [],
+  routines = [],
   onEditAgent,
-  onOpenRoutine,
+  onOpenRoutine = () => {},
   apiError,
+  userProfile,
+  onOpenUserConfig,
 }) => {
   const [inputText, setInputText] = useState('');
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+  const [isDropzoneOpen, setIsDropzoneOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
-  const endRef    = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+  const filePickerRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
+
+  useEffect(() => {
+    if (!isPlusMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setIsPlusMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isPlusMenuOpen]);
+
+  const handleNativeFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      const newFiles = Array.from(e.target.files);
+      setAttachedFiles((prev) => [...prev, ...newFiles]);
+      e.target.value = '';
+    }
+  };
+
 
   useEffect(() => {
     if (chatItems.length || isSending) endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -289,10 +228,13 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const text = inputText.trim();
-    if (!text || isSending) return;
+    if ((!text && attachedFiles.length === 0) || isSending) return;
+    const filesToSend = [...attachedFiles];
     setInputText('');
+    setAttachedFiles([]);
+    setIsDropzoneOpen(false);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    await onSendMessage(text);
+    await onSendMessage(text, filesToSend);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -302,9 +244,66 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
     }
   };
 
+  const handleContainerDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer?.types?.includes('Files')) {
+      dragCounterRef.current += 1;
+      setIsDraggingOverChat(true);
+    }
+  };
+
+  const handleContainerDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleContainerDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingOverChat(false);
+    }
+  };
+
+  const handleContainerDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDraggingOverChat(false);
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      setAttachedFiles((prev) => [...prev, ...files]);
+    }
+  };
+
   const agentName   = currentAgent?.name || 'Quinta';
-  const agentVis    = agentVisual(agentName, currentAgent?.role, currentAgent?.avatar_config);
+  const agentVis    = agentVisual(agentName, currentAgent?.role);
   const headerState: AgentState = isSending ? 'working' : agentStateFromStatus(currentAgent?.status);
+  const agentStatusInfo = getAgentStatusBadge(currentAgent?.status || (isSending ? 'working' : 'idle'));
+
+  const agentGreetings = useMemo(
+    () => getAgentGreetings(agentName, currentAgent?.role),
+    [agentName, currentAgent?.role]
+  );
+
+  const [greetingIndex, setGreetingIndex] = useState(() =>
+    Math.floor(Math.random() * (agentGreetings.length || 1))
+  );
+
+  useEffect(() => {
+    setGreetingIndex(Math.floor(Math.random() * (agentGreetings.length || 1)));
+  }, [agentName, agentGreetings.length]);
+
+  const currentGreeting = isGroup
+    ? 'Canal coletivo da Equipe. Toda a discussão inter-bots e cooperação acontecem aqui.'
+    : agentGreetings[greetingIndex % agentGreetings.length] ||
+      currentAgent?.description ||
+      'Pronto para trabalhar.';
+
+  const handleNextGreeting = () => {
+    if (isGroup) return;
+    setGreetingIndex((prev) => (prev + 1) % agentGreetings.length);
+  };
 
   // Sweeps the composer-peek avatar's gaze left-to-right as you type,
   // resetting every ~30 characters — a "reading" illusion, not a pixel-exact
@@ -328,7 +327,31 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   );
 
   return (
-    <div className="main-panel">
+    <div
+      className="main-panel"
+      onDragEnter={handleContainerDragEnter}
+      onDragOver={handleContainerDragOver}
+      onDragLeave={handleContainerDragLeave}
+      onDrop={handleContainerDrop}
+    >
+      {/* Full-panel Drag Overlay */}
+      {isDraggingOverChat && (
+        <div className="conversation-drop-overlay">
+          <div className="conversation-drop-modal">
+            <Dropzone
+              size="lg"
+              multiple
+              maxSize={50 * 1024 * 1024}
+              title="Solte os arquivos para anexar"
+              description="Eles serão incluídos na sua próxima mensagem"
+              onFilesAccepted={(files) => {
+                setAttachedFiles((prev) => [...prev, ...files]);
+                setIsDraggingOverChat(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Panel Header ── */}
       <header className="panel-header">
@@ -351,12 +374,21 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             size={26}
             marking={agentVis.marking}
             clickAnim={agentVis.clickAnim}
-            cosmetics={agentVis.cosmetics}
             imageUrl={agentVis.imageUrl}
             trackMouse
             interactive
           />
-          <span className="panel-agent-name">{agentName}<small className="panel-presence-label" role="status">{STATE_LABELS[headerState]}</small></span>
+          <span className="panel-agent-name">
+            {agentName}
+            <StatusBadge
+              variant={agentStatusInfo.variant}
+              pulse={agentStatusInfo.dotPulse}
+              size="sm"
+              label={agentStatusInfo.label}
+              isPill={false}
+              style={{ marginLeft: '8px' }}
+            />
+          </span>
         </div>
 
         <div className="panel-header-right">
@@ -386,15 +418,19 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         {chatItems.length === 0 && !isSending ? (
           /* Empty State Hero with Interactive Mouse-Tracking Penguin */
           <div className="empty-state">
-            <div className="empty-avatar-hero">
+            <div
+              className="empty-avatar-hero"
+              onClick={handleNextGreeting}
+              title="Clique no mascote para trocar a frase"
+              style={{ cursor: 'pointer' }}
+            >
               <WaddleAvatar
                 color={agentVis.color}
                 state={headerState}
                 size={112}
                 marking={agentVis.marking}
                 clickAnim={agentVis.clickAnim}
-                quote={agentVis.quote}
-                cosmetics={agentVis.cosmetics}
+                quote={currentGreeting}
                 imageUrl={agentVis.imageUrl}
                 trackMouse={!isTyping}
                 interactive={true}
@@ -403,23 +439,35 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               />
             </div>
             <h2 className="empty-title">{agentName}</h2>
-            <div className="empty-role-badge">{roleLabel(currentAgent?.role || 'Agente')}</div>
-            <p className="empty-desc">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 12px' }}>
+              <div className="empty-role-badge">{roleLabel(currentAgent?.role || 'Agente')}</div>
+            </div>
+            <p
+              className="empty-desc"
+              onClick={handleNextGreeting}
+              title="Clique para trocar a frase"
+              style={{ cursor: 'pointer' }}
+            >
               <TypingAnimation
-                key={agentName}
-                typeSpeed={20}
-                delay={180}
+                key={`${agentName}-${greetingIndex}`}
+                typeSpeed={18}
+                delay={120}
                 showCursor={true}
                 blinkCursor={true}
                 cursorStyle="line"
               >
-                {agentName === 'Quinta'
-                  ? 'Coordeno a equipe para pesquisar, escrever código e validar resultados. O que fazemos hoje?'
-                  : currentAgent?.description || 'Pronto para trabalhar.'}
+                {currentGreeting}
               </TypingAnimation>
             </p>
             <div className="quick-actions">
-              {(agentName === 'Ma' || currentAgent?.role === 'Investor'
+              {(isGroup
+                ? [
+                    'Planejar e executar uma análise do projeto',
+                    'Discutir melhorias de performance na equipe',
+                    'Auditar testes automatizados e segurança',
+                    'Documentar arquitetura do sistema',
+                  ]
+                : agentName === 'Ma' || currentAgent?.role === 'Investor'
                 ? INVESTOR_SUGGESTIONS
                 : agentName === 'Livro' || currentAgent?.role === 'Sports'
                 ? SPORTS_SUGGESTIONS
@@ -431,11 +479,22 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               ))}
             </div>
 
-            <div className="agent-memory-panel">
-              <div className="agent-memory-header">
-                <span>Memória do agente</span>
-                <button type="button" onClick={onEditAgent}>Editar perfil</button>
+            {isGroup ? (
+              <div className="agent-memory-panel">
+                <div className="agent-memory-header">
+                  <span>Membros do Squad</span>
+                  <button type="button" onClick={onEditAgent}>Configurações do Squad</button>
+                </div>
+                <div style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  Quinta · Atlas · Nero · Iris
+                </div>
               </div>
+            ) : (
+              <div className="agent-memory-panel">
+                <div className="agent-memory-header">
+                  <span>Memória do agente</span>
+                  <button type="button" onClick={onEditAgent}>Editar perfil</button>
+                </div>
 
               <div className="agent-memory-grid">
                 <section>
@@ -466,7 +525,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                       className="memory-row memory-row-clickable"
                       key={routine.id}
                       title={routine.prompt}
-                      onClick={() => onOpenRoutine(routine.id)}
+                      onClick={() => onOpenRoutine?.(routine.id)}
                     >
                       <span>{routine.name}</span>
                       <small>{routine.schedule}</small>
@@ -475,6 +534,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 </section>
               </div>
             </div>
+            )}
           </div>
 
         ) : (
@@ -485,10 +545,6 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 weekday: 'long', day: 'numeric', month: 'long',
               })}
             </div>
-
-            {isGroup && (
-              <TeamWorkCard agents={teamAgents} tasks={tasks} artifacts={artifacts} />
-            )}
 
             {chatItems.map((item) => {
 
@@ -558,27 +614,34 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               /* Chat message bubble */
               const isUser     = item.sender === 'user';
               const colorClass = SENDER_COLOR_CLASS[item.sender] || 'system';
-              const senderAgent = teamAgents.find(agent => agent.name === item.senderName) || (
-                currentAgent?.name === item.senderName ? currentAgent : undefined
-              );
-              const senderVis  = agentVisual(item.senderName || '', senderAgent?.role, senderAgent?.avatar_config);
+              const senderVis  = agentVisual(item.senderName || '');
               const summaryNames = groupSummaryPoints.get(item.id);
+              const senderEffective = item.senderName || agentName || '';
 
               return (
                 <React.Fragment key={item.id}>
                 <div className={`msg-row ${isUser ? 'user-msg' : 'agent-msg'}`}>
-                  {!isUser && (
+                  {isUser ? (
+                    <div className="msg-sender-name user-sender-name">
+                      <UserAvatar
+                        name={userProfile?.name || 'Você'}
+                        color={userProfile?.avatarColor || '#6366f1'}
+                        imageUrl={userProfile?.avatarImage}
+                        size={18}
+                      />
+                      <span>{userProfile?.name || 'Você'}</span>
+                    </div>
+                  ) : (
                     <div className={`msg-sender-name ${colorClass}`}>
                       <WaddleAvatar
                         color={senderVis.color}
                         state="idle"
                         size={16}
                         marking={senderVis.marking}
-                        cosmetics={senderVis.cosmetics}
                         imageUrl={senderVis.imageUrl}
                         plain
                       />
-                      {item.senderName || agentName}
+                      <span>{senderEffective}</span>
                     </div>
                   )}
                   <div className="msg-bubble">
@@ -606,18 +669,20 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               );
             })}
 
-            {/* Typing indicator — classic WhatsApp/iMessage-style three dots */}
+            {/* Typing indicator — accessible presence indicator with wave animation */}
             {isSending && (
-              <div className="msg-row agent-msg">
-                <div className={`msg-sender-name ${SENDER_COLOR_CLASS[agentName.toLowerCase()] || 'quinta'}`}>
-                  <WaddleAvatar color={agentVis.color} state="working" size={16} marking={agentVis.marking} cosmetics={agentVis.cosmetics} imageUrl={agentVis.imageUrl} plain />
-                  {agentName}
-                </div>
-                <div className="typing-indicator">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </div>
+              <div className="msg-row agent-msg" style={{ marginTop: '4px' }}>
+                <TypingIndicator
+                  variant="bubble"
+                  size="md"
+                  name={agentName}
+                  avatar={
+                    agentVis.imageUrl
+                      ? { src: agentVis.imageUrl, alt: agentName }
+                      : undefined
+                  }
+                  locale="pt"
+                />
               </div>
             )}
           </>
@@ -627,60 +692,200 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
        </div>
       </div>
 
+
       {/* ── Composer ── */}
       <div className="composer-area">
         <div className="composer-box-wrapper">
+          {/* Dropzone expandable panel */}
+          {isDropzoneOpen && (
+            <div className="composer-dropzone-panel">
+              <Dropzone
+                size="md"
+                multiple
+                maxSize={50 * 1024 * 1024}
+                accept=".pdf,.doc,.docx,.txt,.md,.json,.csv,.py,.ts,.tsx,.js,.jsx,.zip,image/*"
+                title="Solte arquivos aqui ou clique para selecionar"
+                description="Suporta código, PDFs, imagens e documentos até 50 MB"
+                onFilesAccepted={(newFiles) => {
+                  setAttachedFiles((prev) => [...prev, ...newFiles]);
+                  setIsDropzoneOpen(false);
+                }}
+              />
+            </div>
+          )}
+
           <div className={`composer-peek ${showComposerPeek ? 'is-typing' : ''}`} aria-hidden="true">
             <WaddleAvatar
               color={agentVis.color}
               state="idle"
               size={40}
               marking={agentVis.marking}
-              cosmetics={agentVis.cosmetics}
               imageUrl={agentVis.imageUrl}
               gazeX={gazeX}
             />
           </div>
 
           <form onSubmit={handleSubmit} className="composer-box">
-            <button type="button" className="btn-composer-attach" title="Anexar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
-            </button>
+            {/* Attachment preview pills */}
+            {attachedFiles.length > 0 && (
+              <div className="composer-attachments-row">
+                {attachedFiles.map((file, idx) => (
+                  <div key={`${file.name}-${idx}`} className="composer-attachment-pill">
+                    <span className="attachment-pill-icon">
+                      {file.type.startsWith('image/') ? (
+                        <ImageIcon size={13} />
+                      ) : (
+                        <FileText size={13} />
+                      )}
+                    </span>
+                    <span className="attachment-pill-name" title={file.name}>
+                      {file.name}
+                    </span>
+                    <span className="attachment-pill-size">
+                      {formatBytes(file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      className="attachment-pill-remove"
+                      title="Remover arquivo"
+                      onClick={() => setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <textarea
-              ref={textareaRef}
-              className="composer-input"
-              placeholder={`Mensagem para ${agentName}`}
-              aria-label={`Mensagem para ${agentName}`}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              disabled={isSending}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
 
-            <button type="button" className="btn-composer-mic" title="Microfone">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <rect x="9" y="2" width="6" height="13" rx="3" />
-                <path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6" strokeLinecap="round" />
-              </svg>
-            </button>
+            <div className="composer-input-row">
+              {/* Consolidated '+' Actions Button & Menu */}
+              <div className="composer-plus-anchor" ref={plusMenuRef}>
+                <button
+                  type="button"
+                  className={`btn-composer-plus ${isPlusMenuOpen ? 'is-active' : ''}`}
+                  title={isPlusMenuOpen ? 'Fechar menu de ações' : 'Ações e ferramentas (+)'}
+                  onClick={() => setIsPlusMenuOpen((prev) => !prev)}
+                >
+                  <Plus size={18} />
+                </button>
 
-            <button
-              type="submit"
-              className="btn-composer-send"
-              disabled={!inputText.trim() || isSending}
-              title="Enviar"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+                {isPlusMenuOpen && (
+                  <div className="composer-plus-menu" onMouseDown={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        setIsDatePickerOpen(true);
+                      }}
+                    >
+                      <Calendar size={15} />
+                      <span>Data & Agendamento</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        filePickerRef.current?.click();
+                      }}
+                    >
+                      <Paperclip size={15} />
+                      <span>Enviar Arquivo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        setIsDropzoneOpen((prev) => !prev);
+                      }}
+                    >
+                      <UploadCloud size={15} />
+                      <span>{isDropzoneOpen ? 'Fechar Dropzone' : 'Área Dropzone'}</span>
+                    </button>
+
+                    <div className="composer-menu-divider" />
+
+                    <button
+                      type="button"
+                      className="composer-menu-item"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        onOpenUserConfig?.();
+                      }}
+                    >
+                      <User size={15} />
+                      <span>Meu Perfil</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Hidden native file input */}
+                <input
+                  ref={filePickerRef}
+                  type="file"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleNativeFileSelect}
+                />
+
+                {/* Minimalist DatePicker Popover */}
+                {isDatePickerOpen && (
+                  <DatePicker
+                    hideTrigger={true}
+                    open={true}
+                    placement="top"
+                    align="left"
+                    onInsert={(formatted) => {
+                      setInputText(prev => {
+                        const trimmed = prev.trim();
+                        return trimmed ? `${trimmed} (Data: ${formatted})` : `Agendar para ${formatted}`;
+                      });
+                      setIsDatePickerOpen(false);
+                      textareaRef.current?.focus();
+                    }}
+                    onClose={() => setIsDatePickerOpen(false)}
+                  />
+                )}
+              </div>
+
+              <textarea
+                ref={textareaRef}
+                className="composer-input"
+                placeholder={attachedFiles.length > 0 ? `Adicione uma mensagem com os ${attachedFiles.length} arquivo(s)...` : `Mensagem para ${agentName}`}
+                aria-label={`Mensagem para ${agentName}`}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                disabled={isSending}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+
+              <button type="button" className="btn-composer-mic" title="Microfone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <rect x="9" y="2" width="6" height="13" rx="3" />
+                  <path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6" strokeLinecap="round" />
+                </svg>
+              </button>
+
+              <button
+                type="submit"
+                className="btn-composer-send"
+                disabled={(!inputText.trim() && attachedFiles.length === 0) || isSending}
+                title="Enviar"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
           </form>
         </div>
       </div>

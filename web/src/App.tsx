@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { flushSync } from 'react-dom';
 import { Agent, ArtifactSummary, ProviderInfo, RoutineSummary, Task, ToolInfo, WaddleEvent, SystemStatus, GroupSummary } from './types';
 import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, connectWebSocket } from './services/api';
 import { AgentSidebar } from './components/AgentSidebar';
@@ -12,9 +11,10 @@ import { GlobalActionMenu } from './components/GlobalActionMenu';
 import { NewGroupDialog } from './components/NewGroupDialog';
 import { RoutineDrawer } from './components/RoutineDrawer';
 import { PluginsModal } from './components/PluginsModal';
+import { UserConfigModal, UserProfile, DEFAULT_USER_PROFILE } from './components/UserConfigModal';
 import { ConversationOverview } from './components/ConversationOverview';
 import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
-import { getThemeRevealClipPaths } from './lib/themeTransition';
+import { formatBytes } from './hooks/use-dropzone';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
 function agentNameFromId(agentId?: string): { key: ChatItem['sender']; name: string } {
@@ -55,8 +55,6 @@ function useTheme() {
     if (stored === 'light') return false;
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-  const isTransitioningRef = useRef(false);
-  const activeThemeAnimRef = useRef<Animation | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -72,84 +70,26 @@ function useTheme() {
     return () => mq.removeEventListener('change', handleChange);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      activeThemeAnimRef.current?.cancel();
-      const root = document.documentElement;
-      if (root.dataset.waddleThemeVt !== 'active') return;
-      delete root.dataset.waddleThemeVt;
-      root.style.removeProperty('--waddle-theme-toggle-vt-duration');
-      root.style.removeProperty('--waddle-theme-vt-clip-from');
-    };
-  }, []);
-
-  const toggleTheme = useCallback((origin?: HTMLElement | null) => {
-    if (isTransitioningRef.current) return;
-
-    const next = !isDark;
-    const applyTheme = () => {
+  const toggleTheme = useCallback(() => {
+    setIsDark((prev) => {
+      const next = !prev;
       const value = next ? 'dark' : 'light';
       document.documentElement.dataset.theme = value;
       localStorage.setItem(THEME_STORAGE_KEY, value);
-      setIsDark(next);
-    };
-
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion || typeof document.startViewTransition !== 'function') {
-      applyTheme();
-      return;
-    }
-
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const rect = origin?.getBoundingClientRect();
-    const cx = rect ? rect.left + rect.width / 2 : viewportWidth / 2;
-    const cy = rect ? rect.top + rect.height / 2 : viewportHeight / 2;
-    const maxRadius = Math.hypot(
-      Math.max(cx, viewportWidth - cx),
-      Math.max(cy, viewportHeight - cy)
-    );
-    const clipPath = getThemeRevealClipPaths({ cx, cy, maxRadius, viewportWidth, viewportHeight });
-    const root = document.documentElement;
-
-    isTransitioningRef.current = true;
-    activeThemeAnimRef.current?.cancel();
-    root.dataset.waddleThemeVt = 'active';
-    root.style.setProperty('--waddle-theme-toggle-vt-duration', '520ms');
-    root.style.setProperty('--waddle-theme-vt-clip-from', clipPath[0]);
-
-    const cleanup = () => {
-      isTransitioningRef.current = false;
-      delete root.dataset.waddleThemeVt;
-      root.style.removeProperty('--waddle-theme-toggle-vt-duration');
-      root.style.removeProperty('--waddle-theme-vt-clip-from');
-      activeThemeAnimRef.current?.cancel();
-      activeThemeAnimRef.current = null;
-    };
-
-    const transition = document.startViewTransition(() => {
-      flushSync(applyTheme);
+      return next;
     });
-
-    transition.ready
-      ?.then(() => {
-        activeThemeAnimRef.current = root.animate(
-          { clipPath },
-          {
-            duration: 520,
-            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-            fill: 'forwards',
-            pseudoElement: '::view-transition-new(root)',
-          }
-        );
-      })
-      .catch(() => {});
-
-    transition.finished?.finally(cleanup).catch(() => {});
-  }, [isDark]);
+  }, []);
 
   return { isDark, toggleTheme };
 }
+
+export const DEFAULT_TEAM_GROUP: GroupSummary = {
+  id: 'team-squad',
+  name: 'Equipe Waddle',
+  description: 'Canal coletivo e discussão inter-bots da equipe.',
+  members: ['Quinta', 'Atlas', 'Nero', 'Iris'],
+  avatar_icon: 'users',
+};
 
 export const App: React.FC = () => {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => {
@@ -195,6 +135,21 @@ export const App: React.FC = () => {
   const [openRoutineId, setOpenRoutineId] = useState<string | null>(null);
   const [isPluginsOpen, setIsPluginsOpen] = useState(false);
   const [presentation, setPresentation] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    try {
+      const stored = localStorage.getItem('waddle-user-profile');
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+    return DEFAULT_USER_PROFILE;
+  });
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+
+  const handleSaveUserProfile = (newProf: UserProfile) => {
+    setUserProfile(newProf);
+    try {
+      localStorage.setItem('waddle-user-profile', JSON.stringify(newProf));
+    } catch (_) {}
+  };
 
   useEffect(() => {
     const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setPresentation(false); };
@@ -218,7 +173,7 @@ export const App: React.FC = () => {
 
   const visibleAgents = useAgentPresence(agents, events);
   const selectedAgent = visibleAgents.find((a) => a.id === selectedAgentId) || visibleAgents[0] || null;
-  const activeGroup = groups.find((g) => g.id === selectedGroupId);
+  const activeGroup = groups.find((g) => g.id === selectedGroupId) || (selectedGroupId === 'team-squad' ? DEFAULT_TEAM_GROUP : undefined);
 
   const currentViewAgent: Agent | null = activeGroup
     ? {
@@ -503,12 +458,45 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (text: string) => {
-    if (!text.trim() || isSending) return;
+  const handleSendMessage = async (text: string, files?: File[]) => {
+    const hasText = Boolean(text.trim());
+    const hasFiles = Boolean(files && files.length > 0);
+    if ((!hasText && !hasFiles) || isSending) return;
 
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const targetAgentName = activeGroup ? activeGroup.members[0] || 'Quinta' : selectedAgent?.name || 'Quinta';
-    const conversationKey = activeGroup ? activeGroup.name.toLowerCase() : (selectedAgent?.name || 'Quinta').toLowerCase();
+    const conversationKey = selectedGroupId === 'team-squad'
+      ? 'team-squad'
+      : activeGroup
+      ? activeGroup.name.toLowerCase()
+      : (selectedAgent?.name || 'Quinta').toLowerCase();
+
+    let displayText = text;
+    let objectiveText = text;
+
+    if (hasFiles && files) {
+      const fileNames = files.map((f) => `📎 ${f.name} (${formatBytes(f.size)})`).join('\n');
+      displayText = text ? `${text}\n\n${fileNames}` : fileNames;
+
+      const fileDetails: string[] = [];
+      for (const file of files) {
+        const isText =
+          file.type.startsWith('text/') ||
+          /\.(txt|md|json|csv|py|js|ts|tsx|jsx|html|css|yaml|yml|sh|bat|ps1|xml|sql)$/i.test(file.name);
+
+        if (isText && file.size <= 500 * 1024) {
+          try {
+            const content = await file.text();
+            fileDetails.push(`\n\n📄 **Conteúdo do arquivo \`${file.name}\`** (${formatBytes(file.size)}):\n\`\`\`\n${content}\n\`\`\``);
+          } catch {
+            fileDetails.push(`\n\n📎 **Arquivo anexado: \`${file.name}\`** (${formatBytes(file.size)})`);
+          }
+        } else {
+          fileDetails.push(`\n\n📎 **Arquivo anexado: \`${file.name}\`** (${formatBytes(file.size)}, tipo: ${file.type || 'binário'})`);
+        }
+      }
+      objectiveText = text ? `${text}\n${fileDetails.join('')}` : fileDetails.join('').trim();
+    }
 
     setChatItems((prev) => [
       ...prev,
@@ -517,14 +505,14 @@ export const App: React.FC = () => {
         type: 'message',
         sender: 'user',
         agentKey: conversationKey,
-        content: text,
+        content: displayText,
         timestamp: ts,
       },
     ]);
 
     setIsSending(true);
     try {
-      await submitObjective(text, undefined, targetAgentName);
+      await submitObjective(objectiveText, undefined, targetAgentName);
       await refreshData();
     } catch (err) {
       setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: conversationKey, content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);
@@ -545,16 +533,30 @@ export const App: React.FC = () => {
     }
   };
 
-  const filteredChatItems = activeGroup
+  const filteredChatItems = selectedGroupId === 'team-squad'
+    ? chatItems.filter(item =>
+        item.agentKey === 'team-squad' ||
+        item.agentKey === 'quinta' ||
+        item.agentKey === 'squad' ||
+        item.type === 'context_activity' ||
+        item.type === 'artifact' ||
+        ['atlas', 'nero', 'iris', 'quinta', 'user', 'system'].includes(item.sender.toLowerCase())
+      )
+    : activeGroup
     ? chatItems.filter(item =>
         activeGroup.members.some(m => m.toLowerCase() === item.agentKey) ||
+        activeGroup.members.some(m => m.toLowerCase() === item.sender) ||
         item.agentKey === activeGroup.name.toLowerCase() ||
-        item.agentKey === activeGroup.id
+        item.agentKey === activeGroup.id ||
+        item.agentKey === 'squad'
       )
-    : chatItems.filter(item => item.agentKey === (selectedAgent?.name || 'Quinta').toLowerCase());
-  const activeGroupAgents = activeGroup
-    ? visibleAgents.filter(agent => activeGroup.members.includes(agent.name))
-    : [];
+    : chatItems.filter(item => {
+        const selectedKey = (selectedAgent?.name || 'Quinta').toLowerCase();
+        if (item.agentKey !== selectedKey) return false;
+        // In direct 1-on-1 chat with a bot (like Quinta), only show user, system, and that bot's replies
+        // Never show internal discussion bubbles from other bots (Atlas, Nero, Iris)
+        return item.sender === 'user' || item.sender === 'system' || item.sender === selectedKey;
+      });
 
   if (needsOnboarding) {
     return (
@@ -594,6 +596,8 @@ export const App: React.FC = () => {
           setActionMenuAnchor(rect);
           setIsActionMenuOpen(true);
         }}
+        userProfile={userProfile}
+        onOpenUserConfig={() => setIsUserModalOpen(true)}
       />
 
 
@@ -601,7 +605,6 @@ export const App: React.FC = () => {
         key={selectedGroupId || selectedAgent?.id}
         currentAgent={currentViewAgent}
         isGroup={!!activeGroup}
-        teamAgents={activeGroupAgents}
         chatItems={filteredChatItems}
         onSendMessage={handleSendMessage}
         isSending={isSending}
@@ -615,7 +618,10 @@ export const App: React.FC = () => {
           setIsStudioOpen(true);
         }}
         onOpenRoutine={(id) => setOpenRoutineId(id)}
+        onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
         apiError={apiError}
+        userProfile={userProfile}
+        onOpenUserConfig={() => setIsUserModalOpen(true)}
       />
 
       <ConversationOverview
@@ -632,6 +638,7 @@ export const App: React.FC = () => {
           setStudioAgent(agent);
           setIsStudioOpen(true);
         }}
+        onOpenDeveloperMode={() => setIsDevDrawerOpen(true)}
       />
 
       <RoutineDrawer
@@ -659,6 +666,7 @@ export const App: React.FC = () => {
         onNewGroup={() => setIsNewGroupOpen(true)}
         onExportBackup={handleExportBackup}
         onImportBackup={handleImportBackup}
+        onOpenUserConfig={() => setIsUserModalOpen(true)}
       />
 
       {isStudioOpen && (
@@ -673,6 +681,15 @@ export const App: React.FC = () => {
               if (found) setSelectedAgentId(found.id);
             }
           }}
+        />
+      )}
+
+      {isUserModalOpen && (
+        <UserConfigModal
+          isOpen={isUserModalOpen}
+          profile={userProfile}
+          onClose={() => setIsUserModalOpen(false)}
+          onSave={handleSaveUserProfile}
         />
       )}
 

@@ -374,3 +374,149 @@
   color: #c4b5fd;
   text-decoration: underline;
 }
+
+/* =====================================================================
+   Light Theme Support
+   ===================================================================== */
+[data-theme="light"] .model-selector-container {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .model-rail-sidebar {
+  background: #f8fafc;
+  border-right-color: #e2e8f0;
+}
+
+[data-theme="light"] .model-rail-header {
+  color: #64748b;
+}
+
+[data-theme="light"] .model-rail-item {
+  color: #475569;
+}
+
+[data-theme="light"] .model-rail-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+[data-theme="light"] .model-rail-item.active {
+  background: rgba(145, 89, 254, 0.1);
+  color: #7c3aed;
+  border-color: rgba(145, 89, 254, 0.3);
+}
+
+[data-theme="light"] .model-rail-content {
+  background: #ffffff;
+}
+
+[data-theme="light"] .model-provider-header {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme="light"] .provider-logo-box {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+[data-theme="light"] .provider-name {
+  color: #0f172a;
+}
+
+[data-theme="light"] .provider-version {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="light"] .provider-desc {
+  color: #64748b;
+}
+
+[data-theme="light"] .model-list-section-title {
+  color: #64748b;
+}
+
+[data-theme="light"] .model-card-item {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .model-card-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .model-card-item.selected {
+  background: rgba(145, 89, 254, 0.08);
+  border-color: #7c3aed;
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.15);
+}
+
+[data-theme="light"] .model-name {
+  color: #0f172a;
+}
+
+[data-theme="light"] .model-card-item.selected .model-name {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .model-desc {
+  color: #64748b;
+}
+
+[data-theme="light"] .model-check-circle {
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .model-card-item.selected .model-check-circle {
+  background: #7c3aed;
+  border-color: #7c3aed;
+}
+
+[data-theme="light"] .model-effort-container {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="light"] .effort-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .effort-subtitle {
+  color: #64748b;
+}
+
+[data-theme="light"] .effort-pill-btn {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="light"] .effort-pill-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+[data-theme="light"] .effort-pill-btn.active {
+  background: #7c3aed;
+  color: #ffffff;
+  border-color: #7c3aed;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.25);
+}
+
+[data-theme="light"] .model-footer-row {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="light"] .model-quick-link {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .model-quick-link:hover {
+  color: #6d28d9;
+}

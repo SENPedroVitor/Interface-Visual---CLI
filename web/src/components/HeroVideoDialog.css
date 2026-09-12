@@ -1,0 +1,203 @@
+/* ================================================================
+   HERO VIDEO DIALOG (MagicUI inspired)
+   A video dialog with smooth entrance animation and play trigger
+   ================================================================ */
+
+.hero-video-container {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  margin: 10px 0;
+  border-radius: 16px;
+}
+
+.hero-video-trigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0d0d12;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  user-select: none;
+}
+
+.hero-video-trigger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.35);
+}
+
+.hero-video-trigger:active {
+  transform: translateY(0);
+}
+
+.hero-video-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: filter 0.25s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-video-trigger:hover .hero-video-thumb {
+  filter: brightness(0.82);
+  transform: scale(1.02);
+}
+
+/* Fallback / Generated Thumbnail */
+.hero-video-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 16px;
+  background: radial-gradient(circle at 50% 30%, #2e1c4a 0%, #0e0d14 80%);
+  color: #ffffff;
+}
+
+.hero-video-thumb-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  max-width: 85%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+/* Play Button Overlay */
+.hero-video-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.hero-video-play-outer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 9999px;
+  background: rgba(145, 89, 254, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s ease;
+}
+
+.hero-video-trigger:hover .hero-video-play-outer {
+  transform: scale(1.1);
+  background: rgba(145, 89, 254, 0.28);
+}
+
+.hero-video-play-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #9159fe 0%, #7038e8 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(145, 89, 254, 0.45);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hero-video-trigger:hover .hero-video-play-inner {
+  transform: scale(1.08);
+}
+
+.hero-video-play-icon {
+  margin-left: 3px; /* visual center for triangle */
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Modal Overlay */
+.hero-video-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 24px;
+}
+
+.hero-video-dialog-card {
+  position: relative;
+  width: 100%;
+  max-width: 940px;
+  aspect-ratio: 16 / 9;
+  outline: none;
+}
+
+.hero-video-close-btn {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.hero-video-close-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.08);
+}
+
+.hero-video-close-btn:active {
+  transform: scale(0.95);
+}
+
+.hero-video-frame-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.85);
+  background: #000000;
+}
+
+.hero-video-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.hero-video-native {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

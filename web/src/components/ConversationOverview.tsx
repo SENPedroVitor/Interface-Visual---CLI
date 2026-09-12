@@ -4,6 +4,7 @@ import { agentStateFromStatus, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { STATE_LABELS, WaddleAvatar } from './WaddleAvatar';
 import { IconPanelCompact, IconZap, IconTarget, IconDocument, IconUsers, IconGear } from './Icons';
+import { ToolbarExpandable } from './ToolbarExpandable';
 import './ConversationOverview.css';
 
 interface ConversationOverviewProps {
@@ -17,6 +18,7 @@ interface ConversationOverviewProps {
   isCompact?: boolean;
   onToggleCompact?: () => void;
   onCustomizeAgent?: (agent: Agent) => void;
+  onOpenDeveloperMode?: () => void;
 }
 
 const taskStatusLabel: Record<Task['status'], string> = {
@@ -59,6 +61,7 @@ export const ConversationOverview: React.FC<ConversationOverviewProps> = ({
   isCompact: propIsCompact,
   onToggleCompact: propOnToggleCompact,
   onCustomizeAgent,
+  onOpenDeveloperMode,
 }) => {
   const [internalCompact, setInternalCompact] = useState(() => {
     return localStorage.getItem('waddle-overview-compact') === 'true';
@@ -168,6 +171,20 @@ export const ConversationOverview: React.FC<ConversationOverviewProps> = ({
             </div>
           </section>
         )
+      )}
+
+      {!isCompact && (
+        <div style={{ margin: '4px 0 8px' }}>
+          <ToolbarExpandable
+            currentAgent={overviewAgent}
+            tasks={tasks}
+            artifacts={artifacts}
+            routines={routines}
+            onEditAgent={() => overviewAgent && onCustomizeAgent?.(overviewAgent)}
+            onOpenRoutine={onOpenRoutine}
+            onOpenDeveloperMode={onOpenDeveloperMode}
+          />
+        </div>
       )}
 
       {isCompact ? (

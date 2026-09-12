@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waddle Avatar Lab</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --line: #e5e7eb;
+    --ink: #111827; --muted: #6b7280; --accent: #4f46e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  header .tabs { display: flex; background: #eef0f3; border-radius: 10px; padding: 3px; margin-left: 8px; }
+  header .tabs button { border: 0; background: transparent; padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  header .tabs button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  header .spacer { flex: 1; }
+  header .ghost { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  main { max-width: 1060px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  /* ---------- Studio ---------- */
+  .studio { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
+  .stage { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+  .stage .canvasWrap { position: relative; aspect-ratio: 1; }
+  .stage canvas { width: 100%; height: 100%; display: block; }
+  .stage .canvasWrap.checker { background: repeating-conic-gradient(#e9ebee 0% 25%, #ffffff 0% 50%) 0 0 / 22px 22px; }
+  .stage .canvasWrap.dark { background: #12141a; }
+  .stage .canvasWrap.light { background: #f8fafc; }
+  .stage .caption { display: flex; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 18px; }
+  .field label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 7px; }
+  .field input[type=text] { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 14px; font-weight: 600; }
+  .field input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(0,0,0,.08); cursor: pointer; position: relative; }
+  .swatch.on { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .swatch.custom { background: conic-gradient(#f87171,#fbbf24,#34d399,#60a5fa,#c084fc,#f87171); display: flex; align-items: center; justify-content: center; }
+  .seg { display: flex; background: #eef0f3; border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+  .seg button { flex: 1; border: 0; background: transparent; padding: 7px 4px; font-size: 12px; font-weight: 600; color: var(--muted); border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .seg button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .exports { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .exports button { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 10px 6px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .exports button:hover { border-color: var(--accent); color: var(--accent); }
+  .exports button:disabled { opacity: .5; cursor: wait; }
+  .hint { font-size: 11px; color: var(--muted); }
+
+  /* ---------- Wall ---------- */
+  .wall { display: none; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  .wall.show { display: grid; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; text-align: center; cursor: pointer; }
+  .tile:hover { border-color: var(--accent); }
+  .tile canvas { width: 100%; aspect-ratio: 1; display: block; }
+  .tile .nome { font-size: 14px; font-weight: 700; margin-top: 6px; }
+  .tile .estado { font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🩹 Waddle Avatar Lab</h1>
+  <div class="tabs">
+    <button id="tabWall" onclick="setTab('wall')">Parede</button>
+    <button id="tabStudio" class="on" onclick="setTab('studio')">Estúdio</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="ghost" onclick="shuffle()">Aleatório do time</button>
+  <button class="ghost" onclick="randomise()">Randomizar</button>
+</header>
+
+<main>
+  <!-- ESTÚDIO -->
+  <section class="studio" id="viewStudio">
+    <div class="stage">
+      <div class="canvasWrap checker" id="canvasWrap"><canvas id="preview"></canvas></div>
+      <div class="caption"><span id="capNome">Padrão</span><span id="capEstado">idle · loop contínuo</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="field">
+        <label>Nome do agente</label>
+        <input type="text" id="inpNome" value="Padrão" maxlength="24">
+      </div>
+
+      <div class="field">
+        <label>Cor do corpo</label>
+        <div class="swatches" id="swatches"></div>
+      </div>
+
+      <div class="field">
+        <label>Cor dos olhos</label>
+        <div class="seg" id="segOlho">
+          <button data-v="auto" class="on">Do agente</button>
+          <button data-v="black">Pretos</button>
+          <button data-v="white">Brancos</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Estado</label>
+        <div class="seg" id="segEstado">
+          <button data-v="idle" class="on">Idle</button>
+          <button data-v="thinking">Pensando</button>
+          <button data-v="typing">Digitando</button>
+          <button data-v="error">Erro</button>
+          <button data-v="success">Sucesso</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Fundo da exportação</label>
+        <div class="seg" id="segFundo">
+          <button data-v="transparent" class="on">Transparente</button>
+          <button data-v="dark">Escuro</button>
+          <button data-v="light">Claro</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Exportar (loop de 4s sem emenda)</label>
+        <div class="exports">
+          <button onclick="expPNG()">PNG 1024px</button>
+          <button onclick="expSVG()">SVG (frame)</button>
+          <button onclick="expGIF(this)">GIF · 1 loop</button>
+          <button onclick="expWebM(this)">WebM · 1 loop</button>
+        </div>
+        <p class="hint">GIF/WebM gravam o estado atual por 4s (um loop completo, sem corte).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAREDE -->
+  <section class="wall" id="viewWall"></section>
+</main>
+
+<script>
+/* ============================================================
+   WADdle AVATAR ENGINE · draw(ctx, W, H, spec, state, t) — função pura.
+   O mesmo desenhista alimenta preview e todas as exportações
+   (preview === download). LOOP = 4s e todos os ciclos internos
+   (piscada, pulos, tremida) fecham exatos dentro do loop.
+   ============================================================ */
+const LOOP = 4; // segundos
+
+const TEAM = [
+  { id: 'padrao', nome: 'Padrão', cor: '#f3f4f6', olho: '#1e1e1e' },
+  { id: 'livro',  nome: 'Livro',  cor: '#bfdcff', olho: '#1e3a5f' },
+  { id: 'chefe',  nome: 'Chefe',  cor: '#d6c5ff', olho: '#2d1b4e' },
+  { id: 'sabio',  nome: 'Sábio',  cor: '#bfe8db', olho: '#123f3a' },
+  { id: 'eco',    nome: 'Eco',    cor: '#bce7cb', olho: '#16382a' },
+  { id: 'turbo',  nome: 'Turbo',  cor: '#bed5ff', olho: '#14284b' },
+  { id: 'brilho', nome: 'Brilho', cor: '#f2bfdf', olho: '#4a1440' },
+  { id: 'totem',  nome: 'Tótem',  cor: '#e7d1b8', olho: '#3a2a1d' },
+];
+
+/* pose(state, t) -> {sx, sy, dx, dy, rot, eyeDx, eyeDy, eyeP, arcs, dots, sweat} */
+function pose(state, t) {
+  const ph = (t / LOOP) * Math.PI * 2;
+  const p = { sx: 1, sy: 1, dx: 0, dy: 0, rot: 0, eyeDx: 0, eyeDy: 0, eyeP: 0, arcs: false, dots: false, sweat: false };
+  const blink = (() => { const c = (t % 2) / 2; return c > 0.88 ? Math.sin(((c - 0.88) / 0.12) * Math.PI) : 0; })();
+  switch (state) {
+    case 'idle':
+      p.sx = 1 + 0.025 * Math.sin(ph); p.sy = 1 - 0.025 * Math.sin(ph);
+      p.dy = -2.5 * Math.sin(ph); p.eyeP = blink;
+      break;
+    case 'thinking':
+      p.rot = 0.06 * Math.sin(ph); p.eyeDx = 2.2; p.eyeDy = -2.6;
+      p.dots = true;
+      break;
+    case 'typing': {
+      const j = Math.abs(Math.sin(ph * 3));
+      p.dy = -j * 4; p.sx = 1 + 0.05 * j; p.sy = 1 - 0.05 * j;
+      p.eyeP = blink; break;
+    }
+    case 'error':
+      p.dx = 1.6 * Math.sin(ph * 6); p.eyeP = 0.65; p.sweat = true;
+      break;
+    case 'success': {
+      const j = Math.abs(Math.sin(ph * 2));
+      p.dy = -j * 9; p.sy = 1 + 0.06 * j - 0.05 * (1 - j); p.sx = 1 - 0.06 * j + 0.05 * (1 - j);
+      p.arcs = true; break;
+    }
+  }
+  return p;
+}
+
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* Desenha o boneco preenchendo o canvas W×H. spec = {cor, olho} */
+function draw(ctx, W, H, spec, state, t, eyeMode = 'auto') {
+  const U = Math.min(W, H) / 100;
+  const ph = (t / LOOP) * Math.PI * 2;
+  const p = pose(state, t);
+  const corOlho = eyeMode === 'white' ? '#ffffff' : eyeMode === 'black' ? '#111111' : spec.olho;
+
+  ctx.save();
+  ctx.translate(W / 2, H * 0.53);
+  ctx.translate(p.dx * U, p.dy * U);
+  ctx.rotate(p.rot);
+  ctx.scale(p.sx, p.sy);
+
+  // corpo: pílula 72×42 (cantos 21) centrada em (0,0)
+  rr(ctx, -36 * U, -21 * U, 72 * U, 42 * U, 21 * U);
+  ctx.fillStyle = spec.cor;
+  ctx.fill();
+
+  // olhos
+  const ex = 13 * U, ey = 1 * U + p.eyeDy * U, erx = 4.4 * U, ery = 5.8 * U * (1 - 0.85 * p.eyeP);
+  if (p.arcs) {
+    ctx.strokeStyle = corOlho; ctx.lineWidth = 2.6 * U; ctx.lineCap = 'round';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(s * ex, ey + 2 * U, 6 * U, Math.PI * 1.12, Math.PI * 1.88);
+      ctx.stroke();
+    }
+  } else if (ery > 0.3 * U) {
+    ctx.fillStyle = corOlho;
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(s * ex + p.eyeDx * U, ey, erx, Math.max(ery, 0.3 * U), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // bolhas de pensamento (fora do squash, relativas ao centro)
+  if (p.dots) {
+    const cx = W / 2, cyv = H * 0.53;
+    ctx.fillStyle = corOlho; ctx.globalAlpha = 0.75;
+    const pts = [[-12, -26], [0, -33], [12, -26]];
+    pts.forEach(([x, y], i) => {
+      const r = (1.6 + 0.8 * Math.sin(ph * 2 - i * 0.9)) * U;
+      ctx.beginPath(); ctx.arc(cx + x * U, cyv + y * U, Math.max(r, 0.5 * U), 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // gota de suor (erro)
+  if (p.sweat) {
+    const cx = W / 2, cyv = H * 0.53;
+    const a = (Math.sin(ph) + 1) / 2; // aparece/some dentro do loop
+    ctx.globalAlpha = 0.4 + 0.5 * a;
+    ctx.fillStyle = corOlho;
+    const sxp = cx + 29 * U, syp = cyv + (-25 + a * 3) * U;
+    ctx.beginPath();
+    ctx.moveTo(sxp, syp - 5 * U);
+    ctx.quadraticCurveTo(sxp + 4.5 * U, syp + 1 * U, sxp, syp + 4 * U);
+    ctx.quadraticCurveTo(sxp - 4.5 * U, syp + 1 * U, sxp, syp - 5 * U);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* SVG estático do frame atual (mesma matemática do draw) */
+function toSVG(spec, state, t, eyeMode, bg) {
+  const p = pose(state, t);
+  const corOlho = eyeMode === 'white' ? '#ffffff' : eyeMode === 'black' ? '#111111' : spec.olho;
+  const ery = 5.8 * (1 - 0.85 * p.eyeP);
+  const deg = (p.rot * 180 / Math.PI).toFixed(2);
+  let eyes;
+  if (p.arcs) {
+    eyes = [-13, 13].map(x =>
+      `<path d="M ${x - 6} ${1 + p.eyeDy + 2} A 6 6 0 0 1 ${x + 6} ${1 + p.eyeDy + 2}" fill="none" stroke="${corOlho}" stroke-width="2.6" stroke-linecap="round" transform="translate(${p.eyeDx} 0)"/>`).join('');
+  } else {
+    eyes = [-13, 13].map(x =>
+      `<ellipse cx="${x + p.eyeDx}" cy="${1 + p.eyeDy}" rx="4.4" ry="${Math.max(ery, 0.3).toFixed(2)}" fill="${corOlho}"/>`).join('');
+  }
+  let extra = '';
+  if (p.dots) {
+    extra += [[-12, -26], [0, -33], [12, -26]].map(([x, y], i) => {
+      const r = Math.max(1.6 + 0.8 * Math.sin((t / LOOP) * Math.PI * 4 - i * 0.9), 0.5);
+      return `<circle cx="${(50 + x).toFixed(1)}" cy="${(53 + y).toFixed(1)}" r="${r.toFixed(2)}" fill="${corOlho}" opacity="0.75"/>`;
+    }).join('');
+  }
+  if (p.sweat) {
+    const a = (Math.sin((t / LOOP) * Math.PI * 2) + 1) / 2;
+    const sxp = 50 + 29, syp = 53 + (-25 + a * 3);
+    extra += `<path d="M ${sxp} ${syp - 5} Q ${sxp + 4.5} ${syp + 1} ${sxp} ${syp + 4} Q ${sxp - 4.5} ${syp + 1} ${sxp} ${syp - 5} Z" fill="${corOlho}" opacity="${(0.4 + 0.5 * a).toFixed(2)}"/>`;
+  }
+  const bgRect = bg && bg !== 'transparent' ? `<rect width="100" height="100" fill="${bg === 'dark' ? '#12141a' : '#f8fafc'}"/>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1024" height="1024">
+${bgRect}<g transform="translate(50 ${53 + p.dy}) rotate(${deg}) scale(${p.sx.toFixed(4)} ${p.sy.toFixed(4)})">
+  <rect x="-36" y="-21" width="72" height="42" rx="21" fill="${spec.cor}"/>
+  ${eyes}
+</g>${extra}
+</svg>`;
+}
+
+/* ============================ ESTADO DA UI ============================ */
+const ui = {
+  spec: { cor: TEAM[0].cor, olho: TEAM[0].olho },
+  nome: 'Padrão',
+  state: 'idle',
+  eyeMode: 'auto',
+  fundo: 'transparent',
+};
+let tabAtual = 'studio';
+const wallTiles = [];
+
+const ESTADOS = { idle: 'idle', thinking: 'pensando', typing: 'digitando', error: 'erro', success: 'sucesso' };
+const slug = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'agente';
+
+function setTab(tab) {
+  document.getElementById('viewStudio').style.display = tab === 'studio' ? 'grid' : 'none';
+  document.getElementById('viewWall').classList.toggle('show', tab === 'wall');
+  document.getElementById('tabStudio').classList.toggle('on', tab === 'studio');
+  document.getElementById('tabWall').classList.toggle('on', tab === 'wall');
+  if (tab === 'wall') buildWall();
+}
+
+function seg(id, fn) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    fn(b.dataset.v);
+  });
+}
+seg('segOlho', v => { ui.eyeMode = v; });
+seg('segEstado', v => { ui.state = v; document.getElementById('capEstado').textContent = `${ESTADOS[v]} · loop contínuo`; });
+seg('segFundo', v => {
+  ui.fundo = v;
+  const w = document.getElementById('canvasWrap');
+  w.classList.remove('checker', 'dark', 'light');
+  w.classList.add(v === 'transparent' ? 'checker' : v);
+});
+
+document.getElementById('inpNome').addEventListener('input', e => {
+  ui.nome = e.target.value;
+  document.getElementById('capNome').textContent = ui.nome || '—';
+});
+
+/* swatches */
+const swWrap = document.getElementById('swatches');
+TEAM.forEach((a, i) => {
+  const b = document.createElement('button');
+  b.className = 'swatch' + (i === 0 ? ' on' : ''); b.style.background = a.cor; b.title = a.nome;
+  b.onclick = () => pickTeam(a, b);
+  swWrap.appendChild(b);
+});
+const custom = document.createElement('label');
+custom.className = 'swatch custom'; custom.title = 'Cor personalizada';
+custom.innerHTML = '<input type="color" style="width:0;height:0;opacity:0" value="#7dd3fc">';
+custom.querySelector('input').addEventListener('input', e => {
+  ui.spec = { cor: e.target.value, olho: '#1e1e1e' };
+  markSwatch(custom);
+});
+swWrap.appendChild(custom);
+
+function markSwatch(el) { swWrap.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === el)); }
+function pickTeam(a, b) {
+  ui.spec = { cor: a.cor, olho: a.olho };
+  ui.nome = a.nome; document.getElementById('inpNome').value = a.nome;
+  document.getElementById('capNome').textContent = a.nome;
+  markSwatch(b);
+}
+function shuffle() { const a = TEAM[Math.floor(Math.random() * TEAM.length)]; pickTeam(a, swWrap.children[TEAM.indexOf(a)]); }
+function randomise() {
+  const h = Math.random() * 360;
+  const cor = `hsl(${h.toFixed(0)} 85% 82%)`;
+  const olho = `hsl(${h.toFixed(0)} 45% 22%)`;
+  ui.spec = { cor, olho };
+  ui.state = ['idle', 'thinking', 'typing', 'error', 'success'][Math.floor(Math.random() * 5)];
+  document.querySelectorAll('#segEstado button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.state));
+  document.getElementById('capEstado').textContent = `${ESTADOS[ui.state]} · loop contínuo`;
+  markSwatch(custom);
+  custom.querySelector('input').value = '#7dd3fc';
+}
+
+/* configuração via URL — ex.: avatar-lab.html?agente=chefe&estado=thinking&fundo=dark */
+function initFromURL() {
+  const q = new URLSearchParams(location.search);
+  const id = q.get('agente');
+  if (id) { const a = TEAM.find(x => x.id === id); if (a) { ui.spec = { cor: a.cor, olho: a.olho }; ui.nome = a.nome; } }
+  if (q.get('cor')) ui.spec.cor = q.get('cor');
+  if (q.get('olho')) ui.spec.olho = q.get('olho');
+  if (q.get('nome')) ui.nome = q.get('nome');
+  const st = q.get('estado'); if (st && ESTADOS[st]) ui.state = st;
+  const em = q.get('olhos'); if (['auto', 'black', 'white'].includes(em)) ui.eyeMode = em;
+  const fd = q.get('fundo'); if (['transparent', 'dark', 'light'].includes(fd)) ui.fundo = fd;
+  return q.get('view');
+}
+function syncUI() {
+  document.getElementById('inpNome').value = ui.nome;
+  document.getElementById('capNome').textContent = ui.nome || '—';
+  document.getElementById('capEstado').textContent = `${ESTADOS[ui.state]} · loop contínuo`;
+  document.querySelectorAll('#segEstado button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.state));
+  document.querySelectorAll('#segOlho button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.eyeMode));
+  document.querySelectorAll('#segFundo button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.fundo));
+  const wrap = document.getElementById('canvasWrap');
+  wrap.classList.remove('checker', 'dark', 'light');
+  wrap.classList.add(ui.fundo === 'transparent' ? 'checker' : ui.fundo);
+  const idx = TEAM.findIndex(a => a.cor.toLowerCase() === ui.spec.cor.toLowerCase() && a.olho.toLowerCase() === ui.spec.olho.toLowerCase());
+  markSwatch(idx >= 0 ? swWrap.children[idx] : custom);
+}
+
+/* ============================ PREVIEW ============================ */
+const cv = document.getElementById('preview');
+const pctx = cv.getContext('2d');
+function resizePreview() {
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);
+}
+new ResizeObserver(resizePreview).observe(cv);
+const view = initFromURL();
+syncUI();
+if (view === 'wall') setTab('wall');
+resizePreview();
+
+function frame(now) {
+  const t = (now / 1000) % LOOP;
+  pctx.clearRect(0, 0, cv.width, cv.height);
+  draw(pctx, cv.width, cv.height, ui.spec, ui.state, t, ui.eyeMode);
+  if (tabAtual === 'wall') wallTick(now);
+  else tilesTick(now);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ============================ PAREDE ============================ */
+function buildWall() {
+  const w = document.getElementById('viewWall');
+  w.innerHTML = ''; wallTiles.length = 0;
+  TEAM.forEach(a => {
+    const d = document.createElement('div');
+    d.className = 'tile';
+    d.innerHTML = `<canvas></canvas><div class="nome">${a.nome}</div><div class="estado">idle</div>`;
+    d.onclick = () => { pickTeam(a, swWrap.children[TEAM.indexOf(a)]); setTab('studio'); };
+    w.appendChild(d);
+    const c = d.querySelector('canvas');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = 200 * dpr; c.height = 200 * dpr;
+    wallTiles.push({ canvas: c, ctx: c.getContext('2d'), spec: { cor: a.cor, olho: a.olho } });
+  });
+}
+function wallTick(now) { const t = (now / 1000) % LOOP; wallTiles.forEach(o => { o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height); draw(o.ctx, o.canvas.width, o.canvas.height, o.spec, 'idle', t); }); }
+function tilesTick(now) { const t = (now / 1000) % LOOP; wallTiles.forEach(o => { o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height); draw(o.ctx, o.canvas.width, o.canvas.height, o.spec, 'idle', t); }); }
+
+/* ============================ EXPORTAÇÕES ============================ */
+function bgFill(ctx, W, H) {
+  if (ui.fundo === 'dark') { ctx.fillStyle = '#12141a'; ctx.fillRect(0, 0, W, H); }
+  if (ui.fundo === 'light') { ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H); }
+}
+function renderFrame(size, t, keyBg = false) {
+  const c = document.createElement('canvas'); c.width = size; c.height = size;
+  const x = c.getContext('2d');
+  if (keyBg) { x.fillStyle = '#ff00ff'; x.fillRect(0, 0, size, size); } // cor-chave p/ GIF transparente
+  else bgFill(x, size, size);
+  draw(x, size, size, ui.spec, ui.state, t, ui.eyeMode);
+  return c;
+}
+function download(blob, nome) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nome; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+const baseNome = () => `${slug(ui.nome)}-${ui.state}`;
+
+function expPNG() { renderFrame(1024, 0).toBlob(b => download(b, `${baseNome()}.png`), 'image/png'); }
+function expSVG() {
+  const bg = ui.fundo === 'transparent' ? null : ui.fundo;
+  download(new Blob([toSVG(ui.spec, ui.state, 0, ui.eyeMode, bg)], { type: 'image/svg+xml' }), `${baseNome()}.svg`);
+}
+async function expGIF(btn) {
+  btn.disabled = true; const old = btn.textContent; btn.textContent = 'Gerando GIF…';
+  await new Promise((res, rej) => {
+    const size = 512, fps = 20, frames = LOOP * fps;
+    const key = ui.fundo === 'transparent';
+    const gif = new GIF({ workers: 2, quality: 10, width: size, height: size, transparent: key ? 0xff00ff : null });
+    for (let i = 0; i < frames; i++) gif.addFrame(renderFrame(size, (i / fps) % LOOP, key), { delay: 1000 / fps, copy: true });
+    gif.on('finished', b => { download(b, `${baseNome()}.gif`); res(); });
+    gif.on('abort', rej);
+    gif.render();
+  });
+  btn.disabled = false; btn.textContent = old;
+}
+async function expWebM(btn) {
+  btn.disabled = true; const old = btn.textContent; btn.textContent = 'Gravando…';
+  const size = 640;
+  const c = document.createElement('canvas'); c.width = size; c.height = size;
+  const x = c.getContext('2d');
+  const stream = c.captureStream(30);
+  const mime = ['video/webm;codecs=vp9', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4_000_000 });
+  const chunks = [];
+  rec.ondataavailable = e => chunks.push(e.data);
+  const done = new Promise(r => rec.onstop = r);
+  rec.start();
+  const t0 = performance.now();
+  await new Promise(res => {
+    (function tick(now) {
+      const t = ((now - t0) / 1000) % LOOP;
+      x.clearRect(0, 0, size, size);
+      draw(x, size, size, ui.spec, ui.state, t, ui.eyeMode);
+      if ((now - t0) / 1000 < LOOP) requestAnimationFrame(tick); else res();
+    })(t0);
+  });
+  rec.stop(); await done;
+  download(new Blob(chunks, { type: mime }), `${baseNome()}.webm`);
+  btn.disabled = false; btn.textContent = old;
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+</body>
+</html>

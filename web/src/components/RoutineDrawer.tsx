@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RoutineDetail } from '../types';
 import { deleteRoutine, fetchRoutine, runRoutineNow, updateRoutine } from '../services/api';
 import { IconClose } from './Icons';
+import { DatePicker } from './DatePicker';
 
 interface RoutineDrawerProps {
   isOpen: boolean;
@@ -131,7 +132,7 @@ export const RoutineDrawer: React.FC<RoutineDrawerProps> = ({ isOpen, routineId,
                   {deleting ? 'Excluindo…' : 'Excluir'}
                 </button>
                 <button type="button" className="routine-btn-primary" onClick={handleTestRun} disabled={running}>
-                  {running ? 'Executando…' : justTriggered ? 'Enviado ✓' : 'Testar agora'}
+                  {running ? 'Executando…' : justTriggered ? 'Enviado' : 'Testar agora'}
                 </button>
               </div>
             </div>
@@ -146,10 +147,25 @@ export const RoutineDrawer: React.FC<RoutineDrawerProps> = ({ isOpen, routineId,
               <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={5} maxLength={500} />
             </label>
 
-            <label className="routine-field">
-              <span className="studio-label">Quando rodar</span>
-              <input value={schedule} onChange={(e) => setSchedule(e.target.value)} maxLength={120} />
-            </label>
+            <div className="routine-field">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span className="studio-label" style={{ margin: 0 }}>Quando rodar</span>
+                <DatePicker
+                  triggerLabel="Escolher data"
+                  placement="bottom"
+                  align="right"
+                  onInsert={(formatted) => {
+                    setSchedule(formatted);
+                  }}
+                />
+              </div>
+              <input
+                value={schedule}
+                onChange={(e) => setSchedule(e.target.value)}
+                maxLength={120}
+                placeholder="Ex: 15/10/2026 às 14:00 ou Todo dia às 09:00"
+              />
+            </div>
 
             {isDirty && (
               <button type="button" className="routine-btn-primary" onClick={handleSave} disabled={saving} style={{ alignSelf: 'flex-start' }}>

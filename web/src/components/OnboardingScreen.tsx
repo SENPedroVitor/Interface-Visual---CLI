@@ -1,8 +1,30 @@
 import React, { useState, useEffect } from "react";
+import {
+  Shield,
+  Crown,
+  Zap,
+  Brain,
+  Leaf,
+  Sparkles,
+  BookOpen,
+  Rocket,
+  Trophy,
+  Swords,
+  Code2,
+  TrendingUp,
+  Gem,
+  Target,
+  Briefcase,
+  Home,
+  Check,
+  ArrowRight,
+  ArrowLeft,
+} from "lucide-react";
 import { WaddleAvatar } from "./WaddleAvatar";
 import type { AgentState } from "./WaddleAvatar";
 import { Highlighter } from "./Highlighter";
 import { LightRays } from "./LightRays";
+import { ShimmerButton } from "./ShimmerButton";
 import { createAgent } from "../services/api";
 import "./OnboardingScreen.css";
 
@@ -13,7 +35,6 @@ interface OnboardingScreenProps {
 }
 
 type ManagerTitle = "Gerente" | "Mestre" | "Pai";
-type RoleIconVariant = "manager" | "master" | "guardian";
 
 interface TitleOption {
   key: ManagerTitle;
@@ -24,46 +45,6 @@ interface TitleOption {
   icon: React.ReactNode;
 }
 
-function RoleVectorIcon({ variant }: { variant: RoleIconVariant }) {
-  if (variant === "manager") {
-    return (
-      <svg className="onboarding-role-vector" viewBox="0 0 24 24" aria-hidden>
-        <rect x="8.25" y="3.75" width="7.5" height="5" rx="1.8" />
-        <path d="M12 8.75v2.65" />
-        <path d="M6.5 11.4h11" />
-        <path d="M6.5 11.4v2.15" />
-        <path d="M12 11.4v2.15" />
-        <path d="M17.5 11.4v2.15" />
-        <rect x="4.2" y="13.55" width="4.6" height="6.2" rx="1.6" />
-        <rect x="9.7" y="13.55" width="4.6" height="6.2" rx="1.6" />
-        <rect x="15.2" y="13.55" width="4.6" height="6.2" rx="1.6" />
-      </svg>
-    );
-  }
-
-  if (variant === "master") {
-    return (
-      <svg className="onboarding-role-vector" viewBox="0 0 24 24" aria-hidden>
-        <circle cx="12" cy="12" r="8.25" />
-        <path d="M15.65 8.35l-2 5.55-5.3 1.75 2-5.55 5.3-1.75Z" />
-        <path d="M12 5.9v1.35" />
-        <path d="M12 16.75v1.35" />
-        <path d="M5.9 12h1.35" />
-        <path d="M16.75 12h1.35" />
-        <circle className="onboarding-role-vector-dot" cx="12" cy="12" r="0.95" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg className="onboarding-role-vector" viewBox="0 0 24 24" aria-hidden>
-      <path d="M12 3.75 18.25 6v5.35c0 4.1-2.5 7.05-6.25 8.9-3.75-1.85-6.25-4.8-6.25-8.9V6L12 3.75Z" />
-      <circle className="onboarding-role-vector-dot" cx="12" cy="10.45" r="1.25" />
-      <path d="M8.75 15.45c.6-1.55 1.7-2.35 3.25-2.35s2.65.8 3.25 2.35" />
-    </svg>
-  );
-}
-
 const TITLE_OPTIONS: TitleOption[] = [
   {
     key: "Gerente",
@@ -71,7 +52,7 @@ const TITLE_OPTIONS: TitleOption[] = [
     desc: "Focado em resultados, delega tarefas e coordena o time.",
     color: "#9159fe",
     state: "working",
-    icon: <RoleVectorIcon variant="manager" />,
+    icon: <Briefcase size={22} strokeWidth={2.2} />,
   },
   {
     key: "Mestre",
@@ -79,7 +60,7 @@ const TITLE_OPTIONS: TitleOption[] = [
     desc: "Estratégico, visionário e sempre um passo à frente.",
     color: "#0ea5e9",
     state: "thinking",
-    icon: <RoleVectorIcon variant="master" />,
+    icon: <Brain size={22} strokeWidth={2.2} />,
   },
   {
     key: "Pai",
@@ -87,83 +68,135 @@ const TITLE_OPTIONS: TitleOption[] = [
     desc: "Cria e cuida da equipe com paciência e liderança.",
     color: "#10b981",
     state: "idle",
-    icon: <RoleVectorIcon variant="guardian" />,
+    icon: <Home size={22} strokeWidth={2.2} />,
   },
 ];
 
 type Step = "welcome" | "name" | "title" | "creating";
 
 /* ── Dynamic Avatar Visuals based on typed name ────────────── */
+export type BadgeIconType =
+  | "shield"
+  | "crown"
+  | "zap"
+  | "brain"
+  | "leaf"
+  | "sparkles"
+  | "book"
+  | "rocket"
+  | "trophy"
+  | "swords"
+  | "code"
+  | "trending"
+  | "gem"
+  | "target";
+
 export interface BotVisualProfile {
   imageUrl: string;
   color: string;
   accent: string;
   badge: string;
+  icon?: BadgeIconType;
+}
+
+export function BadgeSvgIcon({ icon = "shield", size = 15 }: { icon?: BadgeIconType; size?: number }) {
+  const strokeWidth = 2.2;
+  switch (icon) {
+    case "shield":
+      return <Shield size={size} strokeWidth={strokeWidth} />;
+    case "crown":
+      return <Crown size={size} strokeWidth={strokeWidth} />;
+    case "zap":
+      return <Zap size={size} strokeWidth={strokeWidth} />;
+    case "brain":
+      return <Brain size={size} strokeWidth={strokeWidth} />;
+    case "leaf":
+      return <Leaf size={size} strokeWidth={strokeWidth} />;
+    case "sparkles":
+      return <Sparkles size={size} strokeWidth={strokeWidth} />;
+    case "book":
+      return <BookOpen size={size} strokeWidth={strokeWidth} />;
+    case "rocket":
+      return <Rocket size={size} strokeWidth={strokeWidth} />;
+    case "trophy":
+      return <Trophy size={size} strokeWidth={strokeWidth} />;
+    case "swords":
+      return <Swords size={size} strokeWidth={strokeWidth} />;
+    case "code":
+      return <Code2 size={size} strokeWidth={strokeWidth} />;
+    case "trending":
+      return <TrendingUp size={size} strokeWidth={strokeWidth} />;
+    case "gem":
+      return <Gem size={size} strokeWidth={strokeWidth} />;
+    case "target":
+    default:
+      return <Target size={size} strokeWidth={strokeWidth} />;
+  }
 }
 
 const PRESETS: Record<string, BotVisualProfile> = {
-  quinta: { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Líder Supremo" },
-  chefe:  { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "O Chefão" },
-  boss:   { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Big Boss" },
-  rei:    { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Majestade" },
-  king:   { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Rei da Equipe" },
+  quinta: { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Líder Supremo", icon: "crown" },
+  chefe:  { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "O Chefão", icon: "crown" },
+  boss:   { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Big Boss", icon: "crown" },
+  rei:    { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Majestade", icon: "crown" },
+  king:   { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Rei da Equipe", icon: "crown" },
 
-  atlas:    { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Mente Brilhante" },
-  sabio:    { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "O Sábio Ancião" },
-  mestre:   { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Grão-Mestre" },
-  guru:     { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Guru Estratégico" },
-  socrates: { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Filósofo" },
-  neo:      { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "O Escolhido" },
+  atlas:    { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Mente Brilhante", icon: "brain" },
+  sabio:    { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "O Sábio Ancião", icon: "book" },
+  mestre:   { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Grão-Mestre", icon: "target" },
+  guru:     { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Guru Estratégico", icon: "sparkles" },
+  socrates: { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Filósofo", icon: "book" },
+  neo:      { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "O Escolhido", icon: "zap" },
 
-  nero:   { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Mago dos Códigos" },
-  turbo:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Ultra Veloz" },
-  flash:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Velocista" },
-  sonic:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Super Sônico" },
-  bolt:   { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Raio Elétrico" },
-  dev:    { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Engenheiro Chefe" },
-  max:    { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Potência Máxima" },
+  nero:   { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Mago dos Códigos", icon: "code" },
+  turbo:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Ultra Veloz", icon: "rocket" },
+  flash:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Velocista", icon: "zap" },
+  sonic:  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Super Sônico", icon: "zap" },
+  bolt:   { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Raio Elétrico", icon: "zap" },
+  dev:    { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Engenheiro Chefe", icon: "code" },
+  max:    { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Potência Máxima", icon: "zap" },
 
-  iris:   { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Olho Clínico" },
-  eco:    { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Guardião Natural" },
-  flora:  { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Espírito Zen" },
-  jade:   { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Pedra Preciosa" },
+  iris:   { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Olho Clínico", icon: "leaf" },
+  eco:    { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Guardião Natural", icon: "leaf" },
+  flora:  { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Espírito Zen", icon: "sparkles" },
+  jade:   { imageUrl: "/avatars/eco.png", color: "#10b981", accent: "#16382a", badge: "Pedra Preciosa", icon: "gem" },
 
-  ma:       { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Lobo de Wall Street" },
-  totem:    { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Guardião Ancestral" },
-  gold:     { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Toque de Midas" },
-  investor: { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Magnata Financeiro" },
-  thor:     { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Força Bruta" },
+  ma:       { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Lobo de Wall Street", icon: "trending" },
+  totem:    { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Guardião Ancestral", icon: "shield" },
+  gold:     { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Toque de Midas", icon: "sparkles" },
+  investor: { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Magnata Financeiro", icon: "trending" },
+  thor:     { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Força Bruta", icon: "shield" },
 
-  livro:   { imageUrl: "/avatars/livro.png", color: "#6366f1", accent: "#1e3a5f", badge: "Enciclopédia Viva" },
-  kobe:    { imageUrl: "/avatars/livro.png", color: "#8b5cf6", accent: "#1e3a5f", badge: "Mamba Mentality" },
-  jordan:  { imageUrl: "/avatars/livro.png", color: "#ef4444", accent: "#1e3a5f", badge: "O GOAT" },
-  campeao: { imageUrl: "/avatars/livro.png", color: "#2563eb", accent: "#1e3a5f", badge: "Espírito Campeão" },
+  livro:   { imageUrl: "/avatars/livro.png", color: "#6366f1", accent: "#1e3a5f", badge: "Enciclopédia Viva", icon: "book" },
+  kobe:    { imageUrl: "/avatars/livro.png", color: "#8b5cf6", accent: "#1e3a5f", badge: "Mamba Mentality", icon: "trophy" },
+  jordan:  { imageUrl: "/avatars/livro.png", color: "#ef4444", accent: "#1e3a5f", badge: "O GOAT", icon: "trophy" },
+  campeao: { imageUrl: "/avatars/livro.png", color: "#2563eb", accent: "#1e3a5f", badge: "Espírito Campeão", icon: "trophy" },
 
-  luna:   { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Luz Estelar" },
-  brilho: { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Brilho Radiante" },
-  star:   { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Supernova" },
-  ruby:   { imageUrl: "/avatars/brilho.png", color: "#f43f5e", accent: "#4a1440", badge: "Joia Rara" },
-  aurora: { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Aurora Boreal" },
+  luna:   { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Luz Estelar", icon: "sparkles" },
+  brilho: { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Brilho Radiante", icon: "sparkles" },
+  star:   { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Supernova", icon: "sparkles" },
+  ruby:   { imageUrl: "/avatars/brilho.png", color: "#f43f5e", accent: "#4a1440", badge: "Joia Rara", icon: "gem" },
+  aurora: { imageUrl: "/avatars/brilho.png", color: "#ec4899", accent: "#4a1440", badge: "Aurora Boreal", icon: "sparkles" },
 
-  shadow: { imageUrl: "/avatars/padrao.png", color: "#64748b", accent: "#0f172a", badge: "Guerreiro das Sombras" },
-  batman: { imageUrl: "/avatars/padrao.png", color: "#475569", accent: "#020617", badge: "Cavaleiro das Trevas" },
-  ninja:  { imageUrl: "/avatars/padrao.png", color: "#475569", accent: "#0f172a", badge: "Silencioso e Preciso" },
+  shadow: { imageUrl: "/avatars/padrao.png", color: "#64748b", accent: "#0f172a", badge: "Guerreiro das Sombras", icon: "swords" },
+  batman: { imageUrl: "/avatars/padrao.png", color: "#475569", accent: "#020617", badge: "Cavaleiro das Trevas", icon: "shield" },
+  ninja:  { imageUrl: "/avatars/padrao.png", color: "#475569", accent: "#0f172a", badge: "Silencioso e Preciso", icon: "swords" },
 };
 
 const PALETTE_ROTATION: BotVisualProfile[] = [
-  { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Estrategista" },
-  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Veloz & Prático" },
-  { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Analítico" },
-  { imageUrl: "/avatars/eco.png",   color: "#10b981", accent: "#16382a", badge: "Organizado" },
-  { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Determinado" },
-  { imageUrl: "/avatars/brilho.png",color: "#ec4899", accent: "#4a1440", badge: "Criativo" },
-  { imageUrl: "/avatars/livro.png", color: "#6366f1", accent: "#1e3a5f", badge: "Especialista" },
+  { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Estrategista", icon: "crown" },
+  { imageUrl: "/avatars/turbo.png", color: "#3b82f6", accent: "#14284b", badge: "Veloz & Prático", icon: "zap" },
+  { imageUrl: "/avatars/sabio.png", color: "#0ea5e9", accent: "#123f3a", badge: "Analítico", icon: "brain" },
+  { imageUrl: "/avatars/eco.png",   color: "#10b981", accent: "#16382a", badge: "Organizado", icon: "leaf" },
+  { imageUrl: "/avatars/totem.png", color: "#f59e0b", accent: "#3a2a1d", badge: "Determinado", icon: "shield" },
+  { imageUrl: "/avatars/brilho.png",color: "#ec4899", accent: "#4a1440", badge: "Criativo", icon: "sparkles" },
+  { imageUrl: "/avatars/livro.png", color: "#6366f1", accent: "#1e3a5f", badge: "Especialista", icon: "book" },
 ];
 
 export function resolveBotVisual(name: string): BotVisualProfile {
   const clean = name.trim().toLowerCase();
   if (!clean) {
-    return { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Líder" };
+    return { imageUrl: "/avatars/chefe.png", color: "#9159fe", accent: "#2d1b4e", badge: "Líder", icon: "crown" };
   }
 
   // Exact or prefix match in presets
@@ -344,13 +377,18 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
               )}
             </p>
 
-            <button
-              className="onboarding-btn onboarding-btn--primary"
+            <ShimmerButton
+              className="onboarding-start-btn"
               onClick={handleStartClick}
               disabled={turningToBtn}
+              shimmerColor="#ffffff"
+              background="#0f0f13"
+              borderRadius="999px"
+              shimmerDuration="2.8s"
+              shimmerSize="0.08em"
             >
               Começar
-            </button>
+            </ShimmerButton>
           </div>
         )}
 
@@ -367,13 +405,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
 
             <div className="onboarding-hint-wrap">
               {nameRevealed ? (
-                <div
-                  className="onboarding-badge-tag"
-                  style={{
-                    color: botVisual.color,
-                  }}
-                >
-                  <span>{botVisual.badge}</span>
+                <div className="onboarding-badge-tag">
+                  <span className="onboarding-badge-text">{botVisual.badge}</span>
+                  <span className="onboarding-badge-icon" style={{ color: botVisual.color }}>
+                    <BadgeSvgIcon icon={botVisual.icon} size={15} />
+                  </span>
                 </div>
               ) : (
                 <p className="onboarding-hint">
@@ -398,13 +434,18 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
                 }}
                 autoFocus
               />
-              {nameRevealed && <span className="onboarding-input-check">ok</span>}
+              {nameRevealed && (
+                <span className="onboarding-input-check">
+                  <Check size={16} strokeWidth={2.6} />
+                </span>
+              )}
             </div>
 
             {error && <p className="onboarding-error">{error}</p>}
 
             <div className="onboarding-actions">
               <button className="onboarding-btn onboarding-btn--ghost" onClick={() => handleBack("welcome")}>
+                <ArrowLeft size={15} />
                 Voltar
               </button>
               <button
@@ -413,6 +454,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
                 onClick={handleNameNext}
               >
                 Continuar
+                <ArrowRight size={15} />
               </button>
             </div>
           </div>
@@ -452,7 +494,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
                   <div
                     className="onboarding-title-icon-badge"
                     style={{
+                      background: `${opt.color}15`,
                       color: opt.color,
+                      borderColor: `${opt.color}30`,
                     }}
                   >
                     {opt.icon}
@@ -467,6 +511,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
 
             <div className="onboarding-actions">
               <button className="onboarding-btn onboarding-btn--ghost" onClick={() => handleBack("name")}>
+                <ArrowLeft size={15} />
                 Voltar
               </button>
               <button
@@ -474,6 +519,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
                 onClick={handleCreate}
               >
                 Criar {botName}
+                <ArrowRight size={15} />
               </button>
             </div>
           </div>

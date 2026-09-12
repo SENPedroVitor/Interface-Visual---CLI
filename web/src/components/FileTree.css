@@ -1,0 +1,182 @@
+/* ==========================================================================
+   FileTree - Directory Tree Component Styles
+   ========================================================================== */
+
+.filetree-container {
+  margin: 12px 0;
+  border-radius: 9px;
+  background-color: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+/* Header */
+.filetree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  user-select: none;
+}
+
+.filetree-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.filetree-header-icon {
+  color: #38bdf8;
+  opacity: 0.85;
+}
+
+.filetree-header-title {
+  letter-spacing: 0.02em;
+}
+
+.filetree-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filetree-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.filetree-action-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.filetree-action-btn .text-success {
+  color: #4ade80;
+}
+
+/* Body */
+.filetree-body {
+  padding: 8px 6px;
+  max-height: 380px;
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.filetree-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.filetree-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+/* Row */
+.filetree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: default;
+  transition: background-color 0.12s ease;
+  user-select: none;
+}
+
+.filetree-row:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.filetree-folder-row {
+  cursor: pointer;
+}
+
+.filetree-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.filetree-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.folder-icon {
+  color: #94a3b8;
+}
+
+.folder-icon-open {
+  color: #38bdf8;
+}
+
+.filetree-name {
+  white-space: nowrap;
+  font-size: 0.8125rem;
+}
+
+.folder-name {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.file-name {
+  color: #cbd5e1;
+}
+
+/* File Icon Colors */
+.file-icon-code {
+  color: #38bdf8;
+}
+
+.file-icon-json {
+  color: #fbbf24;
+}
+
+.file-icon-doc {
+  color: #94a3b8;
+}
+
+.file-icon-img {
+  color: #a855f7;
+}
+
+.file-icon-default {
+  color: #64748b;
+}
+
+.filetree-empty {
+  padding: 12px;
+  color: #64748b;
+  text-align: center;
+  font-size: 0.75rem;
+}

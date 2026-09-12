@@ -4,6 +4,8 @@ import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
 import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconPlug } from './Icons';
+import { UserProfile } from './UserConfigModal';
+import { UserAvatar } from './UserAvatar';
 
 export interface AgentSidebarProps {
   agents: Agent[];
@@ -22,6 +24,8 @@ export interface AgentSidebarProps {
   isDarkTheme: boolean;
   onToggleTheme: (origin?: HTMLElement | null) => void;
   onOpenActionMenu: (rect: DOMRect) => void;
+  userProfile?: UserProfile;
+  onOpenUserConfig?: () => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
@@ -38,6 +42,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   isDarkTheme,
   onToggleTheme,
   onOpenActionMenu,
+  userProfile,
+  onOpenUserConfig,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -96,43 +102,78 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
         </div>
       </div>
 
-      {/* Squads / Groups Section */}
-      {groups.length > 0 && (
-        <div style={{ padding: '4px 12px 8px 12px' }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
-            Squads & Equipes
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {groups.map((group) => {
-              const isGroupActive = selectedGroupId === group.id;
-              return (
-                <button
-                  key={group.id}
-                  className={`agent-list-item ${isGroupActive ? 'active' : ''}`}
-                  onClick={() => onSelectGroup?.(group.id)}
-                  style={{ padding: '8px 10px' }}
-                  title={`${group.name} (${group.members.join(', ')})`}
-                >
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc' }}>
-                    <VectorIcon name={group.avatar_icon || 'users'} size={18} />
-                  </div>
-                  <div className="agent-list-info">
-                    <div className="agent-list-row1">
-                      <span className="agent-list-name" style={{ fontSize: '0.85rem' }}>{group.name}</span>
-                      <span style={{ fontSize: '0.68rem', color: '#a855f7', fontWeight: 600 }}>{group.members.length} bots</span>
-                    </div>
-                    <div className="agent-list-row2">
-                      <span className="agent-list-preview" style={{ fontSize: '0.72rem' }}>
-                        {group.description || group.members.join(', ')}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+      {/* Squads & Equipes Section (Permanent + Custom) */}
+      <div className="sidebar-section-squads" style={{ padding: '4px 12px 8px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Squads & Canais
+          </span>
+          <button
+            type="button"
+            className="sidebar-new-squad-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenActionMenu?.(e.currentTarget.getBoundingClientRect());
+            }}
+            title="Criar novo squad ou grupo"
+          >
+            +
+          </button>
         </div>
-      )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {/* Permanent Team Channel: Inter-Bots Discussion */}
+          <button
+            className={`agent-list-item ${selectedGroupId === 'team-squad' ? 'active' : ''}`}
+            onClick={() => onSelectGroup?.('team-squad')}
+            style={{ padding: '8px 10px' }}
+            title="Equipe Waddle — Canal coletivo com todos os bots"
+          >
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc', flexShrink: 0 }}>
+              <VectorIcon name="users" size={18} />
+            </div>
+            <div className="agent-list-info">
+              <div className="agent-list-row1">
+                <span className="agent-list-name" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Equipe Waddle</span>
+                <span style={{ fontSize: '0.68rem', color: '#a855f7', fontWeight: 600 }}>Inter-Bots</span>
+              </div>
+              <div className="agent-list-row2">
+                <span className="agent-list-preview" style={{ fontSize: '0.72rem' }}>
+                  Canal coletivo da equipe
+                </span>
+              </div>
+            </div>
+          </button>
+
+          {/* User-created custom squads */}
+          {groups.filter(g => g.id !== 'team-squad').map((group) => {
+            const isGroupActive = selectedGroupId === group.id;
+            return (
+              <button
+                key={group.id}
+                className={`agent-list-item ${isGroupActive ? 'active' : ''}`}
+                onClick={() => onSelectGroup?.(group.id)}
+                style={{ padding: '8px 10px' }}
+                title={`${group.name} (${group.members.join(', ')})`}
+              >
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc', flexShrink: 0 }}>
+                  <VectorIcon name={group.avatar_icon || 'users'} size={18} />
+                </div>
+                <div className="agent-list-info">
+                  <div className="agent-list-row1">
+                    <span className="agent-list-name" style={{ fontSize: '0.85rem' }}>{group.name}</span>
+                    <span style={{ fontSize: '0.68rem', color: '#a855f7', fontWeight: 600 }}>{group.members.length} bots</span>
+                  </div>
+                  <div className="agent-list-row2">
+                    <span className="agent-list-preview" style={{ fontSize: '0.72rem' }}>
+                      {group.description || group.members.join(', ')}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Agent list */}
       <nav className="sidebar-agents">
@@ -150,23 +191,23 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
               aria-current={isActive ? 'page' : undefined}
               title={`${agent.name} · ${STATE_LABELS[avatarState]}`}
             >
-              {/* Minimalist circular penguin avatar with cosmetics and custom images */}
-              <WaddleAvatar
-                color={visual.color}
-                state={avatarState}
-                size={36}
-                marking={visual.marking}
-                cosmetics={visual.cosmetics}
-                imageUrl={visual.imageUrl}
-                clickAnim={visual.clickAnim}
-                trackMouse
-                interactive
-              />
+              <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                <WaddleAvatar
+                  color={visual.color}
+                  state={avatarState}
+                  size={36}
+                  marking={visual.marking}
+                  cosmetics={visual.cosmetics}
+                  imageUrl={visual.imageUrl}
+                  clickAnim={visual.clickAnim}
+                  trackMouse
+                  interactive
+                />
+              </div>
 
               <div className="agent-list-info">
                 <div className="agent-list-row1">
                   <span className="agent-list-name">{agent.name}</span>
-                  {avatarState !== 'idle' && <span className={`agent-state-chip ${avatarState}`}>{STATE_LABELS[avatarState]}</span>}
                 </div>
                 <div className="agent-list-row2">
                   <span className="agent-list-preview">{preview}</span>
@@ -213,10 +254,23 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           Desenvolvedor
         </button>
 
-        <div className="sidebar-footer-btn" style={{ cursor: 'default' }}>
-          <div className="user-avatar-placeholder">U</div>
-          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Usuário</span>
-        </div>
+        <button
+          type="button"
+          className="sidebar-footer-btn sidebar-user-btn"
+          onClick={onOpenUserConfig}
+          title="Configurar Perfil de Usuário"
+          style={{ cursor: 'pointer', textAlign: 'left', width: '100%', display: 'flex', alignItems: 'center', gap: '10px' }}
+        >
+          <UserAvatar
+            size={24}
+            name={userProfile?.name}
+            color={userProfile?.avatarColor || '#6366f1'}
+            imageUrl={userProfile?.avatarImage}
+          />
+          <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+            {userProfile?.name || 'Meu Perfil'}
+          </span>
+        </button>
       </div>
     </aside>
   );

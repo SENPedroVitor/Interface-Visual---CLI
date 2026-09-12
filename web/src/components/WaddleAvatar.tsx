@@ -2,23 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import { registerEye } from '../lib/eyeTracker';
 import './WaddleAvatar.css';
 
-export type AgentState =
-  | 'idle' | 'listening' | 'thinking' | 'planning' | 'waiting'
-  | 'working' | 'creating' | 'done' | 'blocked' | 'stopped';
+export type AgentState = 'idle' | 'working' | 'thinking' | 'waiting' | 'done' | 'blocked' | 'stopped';
 export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap' | 'tie' | 'whistle';
 export type ClickAnim = 'hop' | 'fast' | 'jump2' | 'tilt';
 
 export interface AvatarCosmetics {
-  head?: 'none' | 'command_module' | 'signal_band' | 'timeline_rig' | 'headphones' | 'crown' | string;
-  face?: 'none' | 'visor' | 'design_nodes' | 'code_cursor' | 'glasses' | 'sunglasses' | string;
-  body?: 'none' | 'status_bar' | 'data_grid' | 'shield_mark' | 'orbit_mark' | 'tie' | 'bowtie' | 'whistle' | string;
-  hand?: 'none' | 'side_panel' | 'coffee' | string;
+  head?: 'none' | 'luffy_hat' | 'headphones' | 'crown' | string;
+  face?: 'none' | 'zoro_scar' | 'glasses' | 'sunglasses' | string;
+  body?: 'none' | 'tie' | 'bowtie' | 'whistle' | string;
+  hand?: 'none' | 'coffee' | string;
 }
 
 export const STATE_LABELS: Record<AgentState, string> = {
-  idle: 'Disponível', listening: 'Ouvindo', thinking: 'Analisando', planning: 'Planejando',
-  waiting: 'Aguardando', working: 'Executando', creating: 'Criando',
-  done: 'Concluído', blocked: 'Precisa de você', stopped: 'Imprevisto',
+  idle: 'Disponível', working: 'Trabalhando', thinking: 'Pensando',
+  waiting: 'Aguardando', done: 'Concluído', blocked: 'Precisa de atenção', stopped: 'Parado',
 };
 
 export interface WaddleAvatarProps {
@@ -28,7 +25,6 @@ export interface WaddleAvatarProps {
   gazeX?: number; onClick?: () => void;
   cosmetics?: AvatarCosmetics;
   imageUrl?: string;
-  motion?: 'off' | 'standard' | 'organic';
 }
 
 interface AvatarPalette {
@@ -52,75 +48,31 @@ function officialPalette(imageUrl: string): AvatarPalette | null {
   return filename ? OFFICIAL_AVATAR_PALETTES[filename] || null : null;
 }
 
+function getContrastEyeColor(hexColor: string): string {
+  if (!hexColor) return '#181820';
+  const hex = hexColor.replace('#', '');
+  const fullHex = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
+  const r = parseInt(fullHex.substring(0, 2), 16) || 0;
+  const g = parseInt(fullHex.substring(2, 4), 16) || 0;
+  const b = parseInt(fullHex.substring(4, 6), 16) || 0;
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 140 ? '#0f172a' : '#ffffff';
+}
+
 export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
-  color = '#1e1e1e', state = 'idle', size = 36, className = '', showPresence = false,
+  color, state = 'idle', size = 36, className = '', showPresence = false,
   trackMouse = false, interactive = false, marking = 'none', clickAnim = 'hop',
-  quote, gazeX = 0, onClick, cosmetics, imageUrl, motion = 'standard',
+  quote, gazeX = 0, onClick, imageUrl, cosmetics,
 }) => {
   const [jump, setJump] = useState(false);
   const [bubble, setBubble] = useState(false);
-  const [blink, setBlink] = useState(false);
-  const [driftX, setDriftX] = useState(0);
   const jumpTimer = useRef<ReturnType<typeof setTimeout>>();
   const bubbleTimer = useRef<ReturnType<typeof setTimeout>>();
-  const blinkTimer = useRef<ReturnType<typeof setTimeout>>();
-  const driftTimer = useRef<ReturnType<typeof setTimeout>>();
   const gazeRef = useRef<SVGGElement>(null);
-
-  const organic = motion === 'organic';
-  const animated = motion !== 'off';
-
-  // Organic blink: irregular intervals with the occasional double blink, so
-  // presence feels alive instead of metronomic.
-  useEffect(() => {
-    if (!organic || !animated) return undefined;
-    let cancelled = false;
-    const schedule = () => {
-      const next = 2200 + Math.random() * 3400;
-      blinkTimer.current = setTimeout(() => {
-        if (cancelled) return;
-        setBlink(true);
-        blinkTimer.current = setTimeout(() => {
-          if (cancelled) return;
-          setBlink(false);
-          if (Math.random() < 0.18) {
-            // double blink
-            blinkTimer.current = setTimeout(() => {
-              if (cancelled) return;
-              setBlink(true);
-              blinkTimer.current = setTimeout(() => !cancelled && setBlink(false), 110);
-            }, 160);
-          }
-          schedule();
-        }, 120);
-      }, next);
-    };
-    schedule();
-    return () => { cancelled = true; clearTimeout(blinkTimer.current); };
-  }, [organic, animated]);
-
-  // Idle gaze drift: small saccades to random nearby points when nobody is
-  // controlling the gaze explicitly.
-  useEffect(() => {
-    if (!organic || !animated || trackMouse) return undefined;
-    if (state !== 'idle' && state !== 'listening' && state !== 'waiting') return undefined;
-    let cancelled = false;
-    const schedule = () => {
-      driftTimer.current = setTimeout(() => {
-        if (cancelled) return;
-        setDriftX((Math.random() * 2 - 1) * 1.6);
-        schedule();
-      }, 900 + Math.random() * 2200);
-    };
-    schedule();
-    return () => { cancelled = true; clearTimeout(driftTimer.current); };
-  }, [organic, animated, trackMouse, state]);
 
   useEffect(() => () => {
     clearTimeout(jumpTimer.current);
     clearTimeout(bubbleTimer.current);
-    clearTimeout(blinkTimer.current);
-    clearTimeout(driftTimer.current);
   }, []);
 
   const reactToClick = () => {
@@ -137,41 +89,71 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
     onClick?.();
   };
 
-  const resolvedImage = imageUrl || (
-    marking === 'chevron' || color === '#123f3a' || color === '#3b82f6' ? '/avatars/sabio.png' :
-    marking === 'tuft' || color === '#14284b' || color === '#22c55e' ? '/avatars/turbo.png' :
-    marking === 'chinstrap' || color === '#16382a' || color === '#f97316' ? '/avatars/eco.png' :
-    marking === 'tie' || color === '#3a2a1d' || color === '#1f6aa5' ? '/avatars/totem.png' :
-    marking === 'whistle' || color === '#1e3a5f' || color === '#059669' ? '/avatars/livro.png' :
-    color === '#2d1b4e' || color === '#9159fe' ? '/avatars/chefe.png' :
-    color === '#4a1440' ? '/avatars/brilho.png' :
-    '/avatars/padrao.png'
+  const isCustomUploadedImage = Boolean(
+    imageUrl && (
+      imageUrl.startsWith('data:') ||
+      imageUrl.startsWith('http:') ||
+      imageUrl.startsWith('https:') ||
+      imageUrl.startsWith('blob:')
+    )
   );
-  const palette = officialPalette(resolvedImage);
-  const manualGazeX = Math.max(-1, Math.min(1, gazeX)) * 3.2 + driftX;
-  const accent = color;
+
+  // Compute palette / color
+  let faceColor = '#f3f4f6';
+  let eyeColor = '#1e1e1e';
+
+  const stockPalette = imageUrl ? officialPalette(imageUrl) : null;
+
+  if (color) {
+    faceColor = color;
+    eyeColor = getContrastEyeColor(color);
+  } else if (stockPalette) {
+    faceColor = stockPalette.face;
+    eyeColor = stockPalette.eyes;
+  } else if (marking === 'chevron') {
+    faceColor = '#bfe8db';
+    eyeColor = '#123f3a';
+  } else if (marking === 'tuft') {
+    faceColor = '#bed5ff';
+    eyeColor = '#14284b';
+  } else if (marking === 'chinstrap') {
+    faceColor = '#bce7cb';
+    eyeColor = '#16382a';
+  } else if (marking === 'tie') {
+    faceColor = '#e7d1b8';
+    eyeColor = '#3a2a1d';
+  } else if (marking === 'whistle') {
+    faceColor = '#bfdcff';
+    eyeColor = '#1e3a5f';
+  }
+
+  const manualGazeX = Math.max(-1, Math.min(1, gazeX)) * 3.2;
 
   useEffect(() => {
     const gaze = gazeRef.current;
     const stateAllowsPointerGaze = state === 'idle' || state === 'waiting';
-    if (!gaze || !palette || !trackMouse || !stateAllowsPointerGaze) return undefined;
+    if (!gaze || isCustomUploadedImage || !trackMouse || !stateAllowsPointerGaze) return undefined;
     return registerEye(gaze, 50, 52, 3.2);
-  }, [palette, state, trackMouse]);
+  }, [faceColor, state, trackMouse, isCustomUploadedImage]);
 
   return (
     <div
       className={`waddle-avatar-wrapper ${className}`}
       data-state={state}
-      data-animated={animated ? 'true' : 'false'}
-      data-motion={motion}
-      data-blink={blink ? 'true' : undefined}
       data-reaction={jump ? clickAnim : undefined}
       data-interactive={interactive || undefined}
       style={{ width: size, height: size, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={reactToClick}
       title={STATE_LABELS[state]}
     >
-      {palette ? (
+      {isCustomUploadedImage ? (
+        <img
+          className="waddle-avatar-image"
+          src={imageUrl}
+          alt=""
+          style={{ width: size, height: size, objectFit: 'cover', borderRadius: '50%', display: 'block' }}
+        />
+      ) : (
         <svg
           className="waddle-vector-avatar"
           viewBox="0 0 100 100"
@@ -181,25 +163,122 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
           focusable="false"
         >
           <g className="waddle-body">
-            <rect x="14" y="30" width="72" height="42" rx="21" fill={palette.face} />
-            <AvatarCosmeticLayer cosmetics={cosmetics} accent={accent} ink={palette.eyes} />
+            <rect x="14" y="30" width="72" height="42" rx="21" fill={faceColor} />
             <g className={`waddle-eye-state waddle-eye-state--${state}`}>
               <g ref={gazeRef} className="waddle-gaze">
                 <g className="waddle-manual-gaze" transform={`translate(${manualGazeX} 0)`}>
-                  <ellipse className="waddle-eye-shape" cx="37" cy="52" rx="4.4" ry="5.8" fill={palette.eyes} />
-                  <ellipse className="waddle-eye-shape" cx="63" cy="52" rx="4.4" ry="5.8" fill={palette.eyes} />
+                  <ellipse className="waddle-eye-shape" cx="37" cy="52" rx="4.4" ry="5.8" fill={eyeColor} />
+                  <ellipse className="waddle-eye-shape" cx="63" cy="52" rx="4.4" ry="5.8" fill={eyeColor} />
                 </g>
               </g>
             </g>
+
+            {/* Cosmetics: Body */}
+            {cosmetics?.body === 'tie' && (
+              <g className="cosmetic-tie">
+                <polygon points="47,68 53,68 52,71 48,71" fill="#dc2626" />
+                <polygon points="48,71 52,71 54,86 50,90 46,86" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.8" />
+              </g>
+            )}
+            {cosmetics?.body === 'money_tie' && (
+              <g className="cosmetic-money-tie">
+                <polygon points="47,68 53,68 52,71 48,71" fill="#059669" />
+                <polygon points="48,71 52,71 54,86 50,90 46,86" fill="#10b981" stroke="#047857" strokeWidth="0.8" />
+                <text x="50" y="81" fontSize="7" fontWeight="bold" textAnchor="middle" fill="#ecfdf5">$</text>
+              </g>
+            )}
+            {cosmetics?.body === 'bowtie' && (
+              <g className="cosmetic-bowtie">
+                <polygon points="42,67 50,71 42,75" fill="#6366f1" stroke="#4338ca" strokeWidth="0.8" />
+                <polygon points="58,67 50,71 58,75" fill="#6366f1" stroke="#4338ca" strokeWidth="0.8" />
+                <circle cx="50" cy="71" r="2.2" fill="#4f46e5" />
+              </g>
+            )}
+            {cosmetics?.body === 'whistle' && (
+              <g className="cosmetic-whistle">
+                <path d="M42 66 Q 50 72 58 66" fill="none" stroke="#64748b" strokeWidth="1.2" />
+                <rect x="47" y="70" width="8" height="5" rx="1.5" fill="#94a3b8" stroke="#475569" strokeWidth="0.8" />
+                <circle cx="48" cy="72.5" r="1.8" fill="#cbd5e1" />
+              </g>
+            )}
+            {cosmetics?.body === 'leaf_badge' && (
+              <g className="cosmetic-leaf">
+                <path d="M28 66 C 26 60, 36 60, 36 68 C 36 72, 30 72, 28 66 Z" fill="#22c55e" stroke="#15803d" strokeWidth="0.8" />
+                <line x1="29" y1="67" x2="34" y2="63" stroke="#166534" strokeWidth="0.8" />
+              </g>
+            )}
+
+            {/* Cosmetics: Face */}
+            {cosmetics?.face === 'glasses' && (
+              <g className="cosmetic-glasses">
+                <rect x="27" y="44" width="18" height="16" rx="4" fill="none" stroke="#1e293b" strokeWidth="2" />
+                <rect x="55" y="44" width="18" height="16" rx="4" fill="none" stroke="#1e293b" strokeWidth="2" />
+                <path d="M45 51 Q 50 48 55 51" fill="none" stroke="#1e293b" strokeWidth="2" />
+                <line x1="27" y1="49" x2="16" y2="47" stroke="#1e293b" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="73" y1="49" x2="84" y2="47" stroke="#1e293b" strokeWidth="1.5" strokeLinecap="round" />
+              </g>
+            )}
+            {cosmetics?.face === 'sunglasses' && (
+              <g className="cosmetic-sunglasses">
+                <polygon points="26,45 45,45 43,59 28,59" fill="#09090b" stroke="#27272a" strokeWidth="1.2" />
+                <polygon points="55,45 74,45 72,59 57,59" fill="#09090b" stroke="#27272a" strokeWidth="1.2" />
+                <line x1="45" y1="46" x2="55" y2="46" stroke="#09090b" strokeWidth="2.5" />
+                <line x1="29" y1="48" x2="41" y2="56" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" />
+                <line x1="58" y1="48" x2="70" y2="56" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" />
+              </g>
+            )}
+            {cosmetics?.face === 'zoro_scar' && (
+              <g className="cosmetic-zoro-scar">
+                <line x1="31" y1="42" x2="43" y2="62" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" />
+                <line x1="33" y1="48" x2="37" y2="46" stroke="#991b1b" strokeWidth="1" />
+                <line x1="37" y1="56" x2="41" y2="54" stroke="#991b1b" strokeWidth="1" />
+              </g>
+            )}
+
+            {/* Cosmetics: Head */}
+            {cosmetics?.head === 'crown' && (
+              <g className="cosmetic-crown">
+                <polygon points="34,31 38,18 44,25 50,16 56,25 62,18 66,31" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
+                <rect x="34" y="29" width="32" height="3.5" rx="1.5" fill="#d97706" />
+                <circle cx="50" cy="20" r="1.5" fill="#ef4444" />
+                <circle cx="38" cy="22" r="1.2" fill="#3b82f6" />
+                <circle cx="62" cy="22" r="1.2" fill="#22c55e" />
+              </g>
+            )}
+            {cosmetics?.head === 'luffy_hat' && (
+              <g className="cosmetic-luffy-hat">
+                <ellipse cx="50" cy="30" rx="26" ry="6" fill="#fbbf24" stroke="#d97706" strokeWidth="1.2" />
+                <path d="M36 30 C36 17, 64 17, 64 30 Z" fill="#f59e0b" stroke="#d97706" strokeWidth="1.2" />
+                <path d="M37 27 C43 25, 57 25, 63 27 L63 29 C57 27, 43 27, 37 29 Z" fill="#ef4444" />
+              </g>
+            )}
+            {cosmetics?.head === 'headphones' && (
+              <g className="cosmetic-headphones">
+                <path d="M22 50 A 28 28 0 0 1 78 50" fill="none" stroke="#334155" strokeWidth="4" strokeLinecap="round" />
+                <path d="M22 50 A 28 28 0 0 1 78 50" fill="none" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" />
+                <rect x="15" y="42" width="7" height="18" rx="3.5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.2" />
+                <rect x="78" y="42" width="7" height="18" rx="3.5" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.2" />
+              </g>
+            )}
+            {cosmetics?.head === 'sports_headband' && (
+              <g className="cosmetic-sports-headband">
+                <rect x="14" y="32" width="72" height="7" rx="3.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.8" />
+                <line x1="16" y1="35.5" x2="84" y2="35.5" stroke="#ffffff" strokeWidth="1.5" />
+              </g>
+            )}
+
+            {/* Cosmetics: Hand */}
+            {cosmetics?.hand === 'coffee' && (
+              <g className="cosmetic-coffee">
+                <rect x="76" y="55" width="12" height="13" rx="2" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1" />
+                <path d="M88 58 C 91 58, 91 64, 88 64" fill="none" stroke="#94a3b8" strokeWidth="1.2" />
+                <ellipse cx="82" cy="56" rx="5" ry="1.5" fill="#78350f" />
+                <path d="M79 52 Q 80 50 79 48" fill="none" stroke="#94a3b8" strokeWidth="0.8" strokeLinecap="round" />
+                <path d="M83 51 Q 84 49 83 47" fill="none" stroke="#94a3b8" strokeWidth="0.8" strokeLinecap="round" />
+              </g>
+            )}
           </g>
         </svg>
-      ) : (
-        <img
-          className="waddle-avatar-image"
-          src={resolvedImage}
-          alt=""
-          style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
-        />
       )}
       {showPresence && state !== 'idle' && <span className="waddle-presence-dot" />}
       {bubble && quote && <span className="waddle-bubble">{quote}</span>}
@@ -208,158 +287,3 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
 };
 
 export default WaddleAvatar;
-
-function AvatarCosmeticLayer({
-  cosmetics,
-  accent,
-  ink,
-}: {
-  cosmetics?: AvatarCosmetics;
-  accent: string;
-  ink: string;
-}): React.ReactElement | null {
-  if (!cosmetics) return null;
-
-  const head = cosmetics.head || 'none';
-  const face = cosmetics.face || 'none';
-  const body = cosmetics.body || 'none';
-  const hand = cosmetics.hand || 'none';
-  const hasAny = [head, face, body, hand].some(item => item && item !== 'none');
-  if (!hasAny) return null;
-
-  return (
-    <g className="waddle-cosmetics" color={accent}>
-      <HeadCosmetic type={head} accent={accent} ink={ink} />
-      <FaceCosmetic type={face} accent={accent} ink={ink} />
-      <BodyCosmetic type={body} accent={accent} ink={ink} />
-      <HandCosmetic type={hand} accent={accent} ink={ink} />
-    </g>
-  );
-}
-
-function HeadCosmetic({ type, accent, ink }: { type: string; accent: string; ink: string }) {
-  switch (type) {
-    case 'command_module':
-    case 'crown':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--head">
-          <rect x="41" y="23.5" width="18" height="7" rx="3.5" fill={accent} opacity="0.92" />
-          <circle cx="46.5" cy="27" r="1.2" fill="#fff" opacity="0.85" />
-          <circle cx="53.5" cy="27" r="1.2" fill="#fff" opacity="0.55" />
-        </g>
-      );
-    case 'signal_band':
-    case 'headphones':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--head" fill="none" stroke={accent} strokeLinecap="round" strokeWidth="3.2">
-          <path d="M27 39.5c4.9-7.6 13-11.5 23-11.5s18.1 3.9 23 11.5" opacity="0.74" />
-          <path d="M24.5 44v7.5M75.5 44v7.5" stroke={ink} opacity="0.62" />
-        </g>
-      );
-    case 'timeline_rig':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--head" fill="none" stroke={accent} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M35 25.5h30" strokeWidth="3.2" opacity="0.75" />
-          <circle cx="40" cy="25.5" r="2.4" fill={accent} stroke="none" />
-          <circle cx="50" cy="25.5" r="2.4" fill={accent} stroke="none" opacity="0.72" />
-          <circle cx="60" cy="25.5" r="2.4" fill={accent} stroke="none" opacity="0.48" />
-        </g>
-      );
-    default:
-      return null;
-  }
-}
-
-function FaceCosmetic({ type, accent, ink }: { type: string; accent: string; ink: string }) {
-  switch (type) {
-    case 'visor':
-    case 'glasses':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--face" fill="none" stroke={accent} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M28.5 47.5h43" strokeWidth="3.4" opacity="0.52" />
-          <path d="M34 43.2h32" strokeWidth="1.7" opacity="0.44" />
-        </g>
-      );
-    case 'design_nodes':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--face">
-          <circle cx="31.5" cy="42" r="3.4" fill="#ff7262" />
-          <circle cx="40.5" cy="42" r="3.4" fill="#a259ff" />
-          <circle cx="31.5" cy="51" r="3.4" fill="#1abcfe" />
-          <circle cx="40.5" cy="51" r="3.4" fill="#0acf83" />
-        </g>
-      );
-    case 'code_cursor':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--face" fill="none" stroke={accent} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3">
-          <path d="M29 43.5 23.5 49l5.5 5.5" />
-          <path d="M71 43.5 76.5 49 71 54.5" />
-          <path d="M51 42.5v13" stroke={ink} opacity="0.55" />
-        </g>
-      );
-    default:
-      return null;
-  }
-}
-
-function BodyCosmetic({ type, accent, ink }: { type: string; accent: string; ink: string }) {
-  switch (type) {
-    case 'status_bar':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--body">
-          <rect x="34" y="68.5" width="32" height="3.6" rx="1.8" fill={accent} opacity="0.7" />
-          <circle cx="70" cy="70.3" r="1.8" fill={ink} opacity="0.46" />
-        </g>
-      );
-    case 'data_grid':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--body" fill={accent} opacity="0.72">
-          <rect x="37" y="66" width="4" height="6" rx="1.2" />
-          <rect x="45" y="62" width="4" height="10" rx="1.2" />
-          <rect x="53" y="58" width="4" height="14" rx="1.2" />
-          <rect x="61" y="64" width="4" height="8" rx="1.2" />
-        </g>
-      );
-    case 'shield_mark':
-    case 'leaf_badge':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--body" fill="none" stroke={accent} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4">
-          <path d="M50 59.5 59 62.6v5.8c0 5.1-3.9 8.5-9 10.3-5.1-1.8-9-5.2-9-10.3v-5.8l9-3.1Z" opacity="0.74" />
-          <path d="m45.8 68.5 2.7 2.7 5.8-6" />
-        </g>
-      );
-    case 'orbit_mark':
-    case 'whistle':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--body" fill="none" stroke={accent} strokeLinecap="round" strokeWidth="2.2" opacity="0.72">
-          <ellipse cx="50" cy="68.5" rx="16" ry="4.8" />
-          <path d="M39.5 65.2c4.7-5.8 16.2-5.8 21 0" />
-          <circle cx="62.5" cy="68.5" r="2.6" fill={accent} stroke="none" />
-        </g>
-      );
-    default:
-      return null;
-  }
-}
-
-function HandCosmetic({ type, accent, ink }: { type: string; accent: string; ink: string }) {
-  switch (type) {
-    case 'side_panel':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--side-panel">
-          <rect x="79" y="43" width="10" height="20" rx="4" fill={accent} opacity="0.82" />
-          <path d="M82 49h4M82 54h4M82 59h2.5" stroke="#fff" strokeLinecap="round" strokeWidth="1.5" opacity="0.72" />
-        </g>
-      );
-    case 'coffee':
-      return (
-        <g className="waddle-cosmetic waddle-cosmetic--side-panel" fill="none" stroke={ink} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-          <path d="M79.5 58.5h7v6a3 3 0 0 1-3 3h-1a3 3 0 0 1-3-3v-6Z" />
-          <path d="M86.5 60h2.2a2 2 0 0 1 0 4h-2.2" />
-          <path d="M81 55.5v-3M84 55.5v-3" stroke={accent} />
-        </g>
-      );
-    default:
-      return null;
-  }
-}

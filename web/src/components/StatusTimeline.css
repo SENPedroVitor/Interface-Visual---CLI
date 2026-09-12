@@ -1,0 +1,447 @@
+/* =====================================================================
+   StatusTimeline - Deployment Log Style Progress Thread Component
+   Strict adherence to shadcn / semantic design tokens
+   ===================================================================== */
+
+.status-timeline-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  color: var(--text-primary, #0f172a);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.timeline-empty-message {
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+  border: 1px dashed var(--border, #cbd5e1);
+  border-radius: 10px;
+  text-align: center;
+}
+
+/* List Structure */
+.timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.timeline-stage-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
+}
+
+.timeline-stage-item:last-child {
+  padding-bottom: 0;
+}
+
+/* Vertical Connector Track */
+.timeline-connector {
+  position: absolute;
+  left: 11px;
+  top: -16px;
+  bottom: calc(100% - 12px);
+  width: 2px;
+  background-color: var(--border, #cbd5e1);
+  transition: background-color 0.2s ease;
+  z-index: 1;
+}
+
+.timeline-connector.connector-succeeded {
+  background-color: var(--accent, #6366f1);
+}
+
+[data-theme="dark"] .timeline-connector.connector-succeeded {
+  background-color: #818cf8;
+}
+
+.timeline-connector.connector-failed {
+  background-color: var(--danger, #ef4444);
+}
+
+.timeline-connector.connector-muted {
+  background-color: var(--border, #e2e8f0);
+}
+
+/* Stage Row */
+.timeline-stage-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Node Glyphs */
+.timeline-node {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background: var(--bg-main, #ffffff);
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .timeline-node {
+  background: #0f111a;
+}
+
+.timeline-node.has-halo {
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Status Glyph Classes */
+.node-succeeded {
+  background: var(--accent, #6366f1);
+  color: #ffffff;
+}
+
+.node-failed {
+  background: var(--danger, #ef4444);
+  color: #ffffff;
+}
+
+.node-running {
+  background: transparent;
+  color: var(--accent, #6366f1);
+  border: 2px solid var(--accent, #6366f1);
+}
+
+.node-skipped {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--border, #cbd5e1);
+}
+
+[data-theme="dark"] .node-skipped {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+}
+
+.node-pending {
+  background: transparent;
+  border: 2px solid var(--border, #cbd5e1);
+}
+
+[data-theme="dark"] .node-pending {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.node-not_run {
+  background: transparent;
+  border: 2px dashed var(--border, #cbd5e1);
+}
+
+[data-theme="dark"] .node-not_run {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.timeline-glyph {
+  display: block;
+}
+
+.timeline-glyph-hollow-solid {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.timeline-glyph-hollow-dashed {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* Stage Content */
+.timeline-stage-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.timeline-stage-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timeline-stage-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  word-break: break-word;
+  min-width: 0;
+}
+
+[data-theme="dark"] .timeline-stage-label {
+  color: #f8fafc;
+}
+
+.timeline-stage-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.timeline-status-word {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.text-succeeded { color: #10b981; }
+.text-failed { color: #ef4444; }
+.text-running { color: #6366f1; }
+.text-skipped { color: #64748b; }
+.text-pending { color: #94a3b8; }
+.text-not_run { color: #94a3b8; }
+
+.timeline-duration {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-stage-detail {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #475569);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+[data-theme="dark"] .timeline-stage-detail {
+  color: #94a3b8;
+}
+
+/* Error Toggle Row */
+.timeline-error-toggle-row {
+  margin-top: 4px;
+}
+
+.timeline-error-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--danger, #ef4444);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.timeline-error-toggle-btn:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+}
+
+/* Error Monospace Panel */
+.timeline-error-panel {
+  margin-top: 8px;
+  margin-left: 36px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.timeline-error-panel[hidden] {
+  display: none !important;
+}
+
+.timeline-error-code {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 0.78rem;
+  color: #dc2626;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+[data-theme="dark"] .timeline-error-code {
+  color: #f87171;
+}
+
+/* Summary Card */
+.timeline-summary-card {
+  margin-top: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-app, #f8fafc);
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .timeline-summary-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.timeline-summary-card.summary-succeeded {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.timeline-summary-card.summary-failed {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.timeline-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-succeeded .timeline-summary-icon {
+  color: #10b981;
+}
+
+.summary-failed .timeline-summary-icon {
+  color: #ef4444;
+}
+
+.timeline-summary-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+[data-theme="dark"] .timeline-summary-title {
+  color: #f8fafc;
+}
+
+.timeline-summary-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.count-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.tag-succeeded {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+[data-theme="dark"] .tag-succeeded {
+  color: #34d399;
+}
+
+.tag-failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+[data-theme="dark"] .tag-failed {
+  color: #f87171;
+}
+
+.tag-skipped {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+}
+
+[data-theme="dark"] .tag-skipped {
+  color: #94a3b8;
+}
+
+.tag-not-run {
+  background: rgba(148, 163, 184, 0.12);
+  color: #64748b;
+}
+
+/* =====================================================================
+   Horizontal Orientation
+   ===================================================================== */
+.orientation-horizontal .timeline-list {
+  flex-direction: row;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+.orientation-horizontal .timeline-stage-item {
+  flex: 1;
+  min-width: 6.5rem;
+  padding-bottom: 0;
+  padding-right: 16px;
+}
+
+.orientation-horizontal .timeline-stage-item:last-child {
+  padding-right: 0;
+}
+
+.orientation-horizontal .timeline-connector {
+  left: -8px;
+  top: 11px;
+  right: calc(100% - 12px);
+  bottom: auto;
+  height: 2px;
+  width: auto;
+}
+
+.orientation-horizontal .timeline-stage-row {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.orientation-horizontal .timeline-stage-header {
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.orientation-horizontal .timeline-error-panel {
+  margin-left: 0;
+  width: 100%;
+}
