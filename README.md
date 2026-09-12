@@ -15,8 +15,9 @@ O objetivo é oferecer uma experiência parecida com um painel de trabalho multi
 | Interface visual | [OK] | UI web com painel de conversa, agentes, histórico, tarefas e modo desenvolvedor. |
 | Multiagentes | [OK] | Quinta coordena Atlas, Nero e Iris em rodadas locais de discussão. |
 | Ollama local | [OK] | Respostas locais com modelo leve, sem exigir API key. |
-| Codex CLI | [OK] | Motor detectado e reservado para tarefas de implementação quando autenticado. |
-| Claude Code | [OK] | Motor detectado e reservado para revisão/arquitetura quando autenticado. |
+| OpenAI/Codex API | [OK] | Nero pode responder pela Responses API quando `OPENAI_API_KEY` estiver configurada. |
+| Claude API | [OK] | Iris pode responder pela Messages API quando `ANTHROPIC_API_KEY` estiver configurada. |
+| Codex CLI / Claude Code | [OK] | CLIs detectadas para fluxos locais de implementação/revisão. |
 | Histórico | [OK] | Mensagens, eventos, tarefas, artefatos e rotinas persistidos em SQLite. |
 | WebSocket | [OK] | Eventos da equipe transmitidos em tempo real para a interface. |
 | Kill switch | [OK] | Controle para interromper execuções ativas com segurança. |
@@ -29,10 +30,10 @@ O objetivo é oferecer uma experiência parecida com um painel de trabalho multi
 | --- | --- | --- | --- |
 | **Quinta** | Manager | Ollama | Coordena a equipe, consolida respostas e decide o próximo passo. |
 | **Atlas** | Research | Ollama | Analisa contexto local, levanta caminhos e organiza descobertas. |
-| **Nero** | Developer | Codex | Responsável por implementação e mudanças testáveis no código. |
-| **Iris** | Reviewer | Claude Code | Foca em revisão, qualidade, riscos e validação. |
+| **Nero** | Developer | Codex/OpenAI | Responsável por implementação e mudanças testáveis no código. |
+| **Iris** | Reviewer | Claude | Foca em revisão, qualidade, riscos e validação. |
 
-Quando não há autenticação/API key disponível para Codex ou Claude Code, o Waddle mantém esses agentes na conversa com respostas seguras de fallback. Assim o fluxo continua funcionando localmente com Ollama.
+Quando não há autenticação/API key disponível para OpenAI/Codex ou Claude, o Waddle mantém esses agentes na conversa com respostas seguras de fallback. Assim o fluxo continua funcionando localmente com Ollama.
 
 ---
 
@@ -68,9 +69,12 @@ FastAPI backend ─┬── AgentRuntime
                  ├── TaskManager
                  ├── ToolRegistry
                  ├── ProviderRegistry
+                 ├── LLMProviderClient
                  └── SQLite
                         │
                         ├── Ollama local
+                        ├── OpenAI Responses API
+                        ├── Claude Messages API
                         ├── Codex CLI
                         └── Claude Code CLI
 ```
@@ -81,7 +85,8 @@ FastAPI backend ─┬── AgentRuntime
 | --- | --- |
 | `src/waddle/api/server.py` | API FastAPI e WebSocket de eventos. |
 | `src/waddle/runtime/agent_runtime.py` | Registro de agentes, execução de objetivos e rotinas. |
-| `src/waddle/agents/manager.py` | Lógica da Quinta, discussão multiagente e integração Ollama. |
+| `src/waddle/agents/manager.py` | Lógica da Quinta, discussão multiagente e roteamento por provedor. |
+| `src/waddle/llm/provider_client.py` | Cliente unificado para Ollama, OpenAI/Codex e Claude nas conversas dos agentes. |
 | `src/waddle/providers.py` | Detecção de Ollama, Codex CLI e Claude Code. |
 | `src/waddle/storage/database.py` | Persistência SQLite de agentes, mensagens, tarefas, rotinas e artefatos. |
 | `web/src/App.tsx` | Estado principal da interface web. |
@@ -96,8 +101,10 @@ FastAPI backend ─┬── AgentRuntime
 - Python 3.9+
 - Node.js compatível com Vite 5
 - Ollama instalado para respostas locais
-- Opcional: Codex CLI autenticado
-- Opcional: Claude Code autenticado
+- Opcional: `OPENAI_API_KEY` para respostas via OpenAI/Codex API
+- Opcional: `ANTHROPIC_API_KEY` para respostas via Claude API
+- Opcional: Codex CLI autenticado para automação local de código
+- Opcional: Claude Code autenticado para revisão/arquitetura no terminal
 
 Dependências Python principais:
 
@@ -159,6 +166,37 @@ O backend consulta o Ollama em:
 ```text
 http://127.0.0.1:11434
 ```
+
+### 4. APIs opcionais: OpenAI/Codex e Claude
+
+Copie `.env.example` para `.env` e preencha apenas as chaves que quiser usar:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o
+
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-5
+```
+
+Essas chaves nunca devem ser commitadas. Se ficarem vazias, Nero e Iris continuam aparecendo na rodada multiagente com fallback seguro, enquanto Atlas/Quinta podem responder localmente pelo Ollama.
+
+### Como os agentes conversam
+
+O fluxo atual é coordenado pela Quinta:
+
+1. o usuário envia uma mensagem para `/api/objectives`;
+2. a Quinta seleciona os agentes relevantes;
+3. cada agente recebe o mesmo objetivo contextualizado pelo seu papel;
+4. `LLMProviderClient` chama o motor configurado daquele agente;
+5. cada resposta vira uma mensagem `discussion` no `EventBus` e é salva no SQLite;
+6. a Quinta consolida as opiniões em uma resposta final.
+
+Esse desenho evita um “chat infinito” entre bots: as rodadas têm participantes definidos, fallback quando um provedor não está configurado e limite de resposta por chamada. Para um modo mais avançado de todos conversarem entre si, o próximo passo é adicionar rodadas controladas de crítica entre agentes com limite de turnos, memória por conversa e uma regra clara de parada.
 
 ---
 
@@ -261,6 +299,7 @@ Os motores aparecem como:
 
 - Execução real de tarefas pelo Codex CLI dentro do fluxo Nero.
 - Revisões estruturadas com Claude Code dentro do fluxo Iris.
+- Rodadas multiagente com crítica entre pares e limite de turnos.
 - Seleção avançada de modelo Ollama por agente.
 - Criação e execução automática de rotinas.
 - Melhor empacotamento desktop para Windows/Linux.

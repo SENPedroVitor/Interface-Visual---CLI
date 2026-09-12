@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { registerEye } from '../lib/eyeTracker';
 import './WaddleAvatar.css';
 
-export type AgentState = 'idle' | 'working' | 'thinking' | 'waiting' | 'done' | 'blocked' | 'stopped';
+export type AgentState =
+  | 'idle' | 'listening' | 'thinking' | 'planning' | 'waiting'
+  | 'working' | 'creating' | 'done' | 'blocked' | 'stopped';
 export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap' | 'tie' | 'whistle';
 export type ClickAnim = 'hop' | 'fast' | 'jump2' | 'tilt';
 
@@ -14,8 +16,9 @@ export interface AvatarCosmetics {
 }
 
 export const STATE_LABELS: Record<AgentState, string> = {
-  idle: 'Disponível', working: 'Trabalhando', thinking: 'Pensando',
-  waiting: 'Aguardando', done: 'Concluído', blocked: 'Precisa de atenção', stopped: 'Parado',
+  idle: 'Disponível', listening: 'Ouvindo', thinking: 'Analisando', planning: 'Planejando',
+  waiting: 'Aguardando', working: 'Executando', creating: 'Criando',
+  done: 'Concluído', blocked: 'Precisa de você', stopped: 'Imprevisto',
 };
 
 export interface WaddleAvatarProps {
@@ -25,6 +28,7 @@ export interface WaddleAvatarProps {
   gazeX?: number; onClick?: () => void;
   cosmetics?: AvatarCosmetics;
   imageUrl?: string;
+  motion?: 'off' | 'standard' | 'organic';
 }
 
 interface AvatarPalette {
@@ -51,17 +55,72 @@ function officialPalette(imageUrl: string): AvatarPalette | null {
 export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
   color = '#1e1e1e', state = 'idle', size = 36, className = '', showPresence = false,
   trackMouse = false, interactive = false, marking = 'none', clickAnim = 'hop',
-  quote, gazeX = 0, onClick, cosmetics, imageUrl,
+  quote, gazeX = 0, onClick, cosmetics, imageUrl, motion = 'standard',
 }) => {
   const [jump, setJump] = useState(false);
   const [bubble, setBubble] = useState(false);
+  const [blink, setBlink] = useState(false);
+  const [driftX, setDriftX] = useState(0);
   const jumpTimer = useRef<ReturnType<typeof setTimeout>>();
   const bubbleTimer = useRef<ReturnType<typeof setTimeout>>();
+  const blinkTimer = useRef<ReturnType<typeof setTimeout>>();
+  const driftTimer = useRef<ReturnType<typeof setTimeout>>();
   const gazeRef = useRef<SVGGElement>(null);
+
+  const organic = motion === 'organic';
+  const animated = motion !== 'off';
+
+  // Organic blink: irregular intervals with the occasional double blink, so
+  // presence feels alive instead of metronomic.
+  useEffect(() => {
+    if (!organic || !animated) return undefined;
+    let cancelled = false;
+    const schedule = () => {
+      const next = 2200 + Math.random() * 3400;
+      blinkTimer.current = setTimeout(() => {
+        if (cancelled) return;
+        setBlink(true);
+        blinkTimer.current = setTimeout(() => {
+          if (cancelled) return;
+          setBlink(false);
+          if (Math.random() < 0.18) {
+            // double blink
+            blinkTimer.current = setTimeout(() => {
+              if (cancelled) return;
+              setBlink(true);
+              blinkTimer.current = setTimeout(() => !cancelled && setBlink(false), 110);
+            }, 160);
+          }
+          schedule();
+        }, 120);
+      }, next);
+    };
+    schedule();
+    return () => { cancelled = true; clearTimeout(blinkTimer.current); };
+  }, [organic, animated]);
+
+  // Idle gaze drift: small saccades to random nearby points when nobody is
+  // controlling the gaze explicitly.
+  useEffect(() => {
+    if (!organic || !animated || trackMouse) return undefined;
+    if (state !== 'idle' && state !== 'listening' && state !== 'waiting') return undefined;
+    let cancelled = false;
+    const schedule = () => {
+      driftTimer.current = setTimeout(() => {
+        if (cancelled) return;
+        setDriftX((Math.random() * 2 - 1) * 1.6);
+        schedule();
+      }, 900 + Math.random() * 2200);
+    };
+    schedule();
+    return () => { cancelled = true; clearTimeout(driftTimer.current); };
+  }, [organic, animated, trackMouse, state]);
 
   useEffect(() => () => {
     clearTimeout(jumpTimer.current);
     clearTimeout(bubbleTimer.current);
+    clearTimeout(blinkTimer.current);
+    clearTimeout(driftTimer.current);
   }, []);
 
   const reactToClick = () => {
@@ -89,7 +148,7 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
     '/avatars/padrao.png'
   );
   const palette = officialPalette(resolvedImage);
-  const manualGazeX = Math.max(-1, Math.min(1, gazeX)) * 3.2;
+  const manualGazeX = Math.max(-1, Math.min(1, gazeX)) * 3.2 + driftX;
   const accent = color;
 
   useEffect(() => {
@@ -103,6 +162,9 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
     <div
       className={`waddle-avatar-wrapper ${className}`}
       data-state={state}
+      data-animated={animated ? 'true' : 'false'}
+      data-motion={motion}
+      data-blink={blink ? 'true' : undefined}
       data-reaction={jump ? clickAnim : undefined}
       data-interactive={interactive || undefined}
       style={{ width: size, height: size, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}

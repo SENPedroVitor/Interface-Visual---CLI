@@ -1,11 +1,12 @@
-"""Worker Agent implementation for Waddle Agent OS."""
-from __future__ import annotations
-
-from typing import Any, Optional
+import json
+import re
+from typing import Any, Callable, Optional
 from .base import Agent, AgentStatus
 from ..tasks.task import Task
 from ..core.event_bus import EventBus
 from ..tools.registry import ToolRegistry
+from ..llm.provider_client import LLMProviderClient
+from ..context.prompt_builder import PromptBuilder
 
 
 class WorkerAgent(Agent):
@@ -28,6 +29,21 @@ class WorkerAgent(Agent):
             tool_registry=tool_registry,
             **kwargs,
         )
+        self.llm_client: LLMProviderClient = kwargs.get("llm_client") or LLMProviderClient()
+        self.llm_generate: Optional[Callable[[Agent, str], Optional[str]]] = kwargs.get("llm_generate")
+        self._database = kwargs.get("database")
+        self.skill_registry = kwargs.get("skill_registry")
+        self._prompt_builder: Optional[PromptBuilder] = None
+
+    @property
+    def prompt_builder(self) -> PromptBuilder:
+        if self._prompt_builder is None:
+            self._prompt_builder = PromptBuilder(
+                database=self._database,
+                tool_registry=self.tool_registry,
+                skill_registry=self.skill_registry,
+            )
+        return self._prompt_builder
 
     def _format_task_summary(self, task: Task, results: list[dict[str, Any]]) -> str:
         messages = []
@@ -231,9 +247,13 @@ class WorkerAgent(Agent):
                     )
                     output["results"].append(res.to_dict())
                 else:
-                    output["results"].append({"action": "default_execution", "status": "ok"})
+                    await self._autonomous_tool_loop(task, output)
 
-            summary = self._format_task_summary(task, output["results"])
+            if output.get("final_answer"):
+                summary = output["final_answer"]
+            else:
+                summary = self._format_task_summary(task, output["results"])
+
             await self.send_message(
                 to_agent="Manager",
                 msg_type="task_result",
@@ -242,7 +262,6 @@ class WorkerAgent(Agent):
                 data={**output, "conversation_agent": self.name.lower()},
             )
             return output
-
         except Exception as e:
             err_msg = str(e)
             await self.send_message(
@@ -256,3 +275,85 @@ class WorkerAgent(Agent):
         finally:
             self.current_task_id = None
             await self.set_status(AgentStatus.IDLE)
+
+    @staticmethod
+    def _parse_action_json(text: str) -> Optional[dict[str, Any]]:
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+        return None
+
+    @staticmethod
+    def _format_observations(results: list[dict[str, Any]]) -> str:
+        lines = ["Histórico de ações executadas nesta tarefa:"]
+        for idx, res in enumerate(results, 1):
+            tname = res.get("tool_name", "ação")
+            ok = "SUCESSO" if res.get("success") else f"FALHA ({res.get('error')})"
+            res_val = res.get("result", {})
+            out = json.dumps(res_val, ensure_ascii=False) if isinstance(res_val, (dict, list)) else str(res_val)
+            if len(out) > 300:
+                out = out[:297] + "..."
+            lines.append(f"Passo {idx}: Chamou {tname} -> {ok} | Resultado: {out}")
+        return "\n".join(lines)
+
+    async def _autonomous_tool_loop(
+        self,
+        task: Task,
+        output: dict[str, Any],
+        max_steps: int = 4,
+    ) -> None:
+        for step in range(max_steps):
+            obs = self._format_observations(output["results"]) if output["results"] else None
+            prompt = self.prompt_builder.build(
+                agent=self,
+                objective=task.description or task.title,
+                mode="tool_choice",
+                extra_context=obs,
+            )
+            llm_text = None
+            if self.llm_generate is not None:
+                try:
+                    llm_text = self.llm_generate(self, prompt)
+                except Exception:
+                    llm_text = None
+            else:
+                try:
+                    res = self.llm_client.generate(self, prompt, assembled=True)
+                    if res and not res.fallback and res.content:
+                        llm_text = res.content
+                except Exception:
+                    llm_text = None
+
+            if not llm_text:
+                if not output["results"]:
+                    output["results"].append({"action": "default_execution", "status": "ok"})
+                break
+
+            action_data = self._parse_action_json(llm_text)
+            if not action_data:
+                output["final_answer"] = llm_text.strip()
+                break
+
+            action = action_data.get("action")
+            if action == "finish" or "final_answer" in action_data:
+                output["final_answer"] = action_data.get("final_answer", llm_text.strip())
+                break
+
+            tool_name = action_data.get("tool")
+            params = action_data.get("params") or {}
+            if not tool_name:
+                output["final_answer"] = llm_text.strip()
+                break
+
+            exec_res = await self.tool_registry.execute(
+                tool_name=tool_name,
+                params=params,
+                agent_id=self.id,
+                task_id=task.id,
+            )
+            output["results"].append(exec_res.to_dict())

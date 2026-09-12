@@ -17,10 +17,13 @@ from ..tools.filesystem import register_filesystem_tools
 from ..tools.shell import register_shell_tools
 from ..tools.stocks import register_stock_tools
 from ..tools.sports import register_sports_tools
+from ..tools.skills_tools import register_skill_tools
+from ..skills.registry import SkillRegistry
 from ..agents.base import Agent, AgentStatus
 from ..agents.manager import ManagerAgent
 from ..agents.worker import WorkerAgent
 from ..storage.database import Database
+from ..context.default_souls import get_default_soul, get_default_memories
 
 
 def _utc_iso() -> str:
@@ -33,11 +36,13 @@ class AgentRuntime:
         event_bus: Optional[EventBus] = None,
         tool_registry: Optional[ToolRegistry] = None,
         db_path: Optional[str] = None,
+        skills_dir: Optional[str | Path] = None,
     ) -> None:
         self.event_bus = event_bus or global_event_bus
         self.tool_registry = tool_registry or global_tool_registry
         self.task_manager = TaskManager(event_bus=self.event_bus)
         self.database = Database(db_path=db_path)
+        self.skill_registry = SkillRegistry(skills_dir=skills_dir or "skills")
         self.agents: dict[str, Agent] = {}
         self._is_stopped = False
         self._active_run_id: Optional[str] = None
@@ -47,6 +52,7 @@ class AgentRuntime:
         register_shell_tools(self.tool_registry)
         register_stock_tools(self.tool_registry)
         register_sports_tools(self.tool_registry)
+        register_skill_tools(self.tool_registry, self.skill_registry)
 
         # Wire database persistence to event bus
         self._setup_event_persistence()
@@ -57,7 +63,31 @@ class AgentRuntime:
         # Register default agents (Manager + Worker)
         self._setup_default_agents()
         for profile in self.database.list_agent_profiles():
-            self.register_agent(WorkerAgent(**profile, event_bus=self.event_bus, tool_registry=self.tool_registry))
+            existing = self.get_agent(profile.get("name", ""))
+            if existing:
+                existing.role = profile.get("role", existing.role)
+                existing.description = profile.get("description", existing.description)
+                existing.provider_id = profile.get("provider_id", existing.provider_id)
+                if profile.get("soul"):
+                    existing.soul = profile["soul"]
+                if profile.get("skills"):
+                    existing.skills = profile["skills"]
+                if profile.get("memory"):
+                    existing.memory = profile["memory"]
+                if profile.get("avatar_config"):
+                    existing.avatar_config = profile["avatar_config"]
+                if profile.get("model_config"):
+                    existing.model_config = profile["model_config"]
+            else:
+                self.register_agent(
+                    WorkerAgent(
+                        **profile,
+                        event_bus=self.event_bus,
+                        tool_registry=self.tool_registry,
+                        database=self.database,
+                        skill_registry=self.skill_registry,
+                    )
+                )
 
     def create_agent(
         self,
@@ -92,6 +122,8 @@ class AgentRuntime:
             model_config=model_config or {},
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
         )
         self.database.save_agent(agent.name, agent.role, agent.description, agent.provider_id)
         if any([soul, skills, memory, avatar_config, model_config]):
@@ -131,9 +163,9 @@ class AgentRuntime:
         p = self.database.get_agent_profile(name) or {}
         return {
             **agent.to_dict(),
-            "soul": agent.soul or p.get("soul", ""),
+            "soul": agent.soul or p.get("soul", "") or get_default_soul(name),
             "skills": agent.skills or p.get("skills", []),
-            "memory": agent.memory or p.get("memory", []),
+            "memory": agent.memory or p.get("memory", []) or get_default_memories(name),
             "avatar_config": agent.avatar_config or p.get("avatar_config", {}),
             "model_config": agent.model_config or p.get("model_config", {}),
         }
@@ -207,7 +239,14 @@ class AgentRuntime:
                 existing.avatar_config = profile.get("avatar_config", existing.avatar_config)
                 existing.model_config = profile.get("model_config", existing.model_config)
             else:
-                self.register_agent(WorkerAgent(**profile, event_bus=self.event_bus, tool_registry=self.tool_registry))
+                self.register_agent(
+                    WorkerAgent(
+                        **profile,
+                        event_bus=self.event_bus,
+                        tool_registry=self.tool_registry,
+                        database=self.database,
+                    )
+                )
         return {"success": True, "counts": result}
 
     def create_routine(self, agent_name: str, name: str, prompt: str, schedule: str) -> dict[str, Any]:
@@ -262,6 +301,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Quinta"),
+            skills=["coordination", "planning", "delegation", "consolidation"],
+            memory=get_default_memories("Quinta"),
         )
         atlas = WorkerAgent(
             name="Atlas",
@@ -270,6 +314,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Atlas"),
+            skills=["research", "analysis", "documentation", "web_search"],
+            memory=get_default_memories("Atlas"),
         )
         nero = WorkerAgent(
             name="Nero",
@@ -278,6 +327,11 @@ class AgentRuntime:
             provider_id="codex",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Nero"),
+            skills=["python", "shell", "debugging", "filesystem", "code_generation"],
+            memory=get_default_memories("Nero"),
         )
         iris = WorkerAgent(
             name="Iris",
@@ -286,6 +340,11 @@ class AgentRuntime:
             provider_id="claude",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Iris"),
+            skills=["code_review", "testing", "quality_assurance", "consistency_checking"],
+            memory=get_default_memories("Iris"),
         )
         ma = WorkerAgent(
             name="Ma",
@@ -294,6 +353,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Ma"),
+            skills=["market_analysis", "b3_stocks", "fiis", "indicators", "portfolio_management"],
+            memory=get_default_memories("Ma"),
         )
         livro = WorkerAgent(
             name="Livro",
@@ -302,6 +366,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Livro"),
+            skills=["football", "nba", "nfl", "mlb", "statistics", "sports_encyclopedia"],
+            memory=get_default_memories("Livro"),
         )
         pixel = WorkerAgent(
             name="Pixel",
@@ -310,6 +379,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Pixel"),
+            skills=["ui_design", "components", "design_systems", "layout", "visual_hierarchy"],
+            memory=get_default_memories("Pixel"),
             avatar_config={
                 "color": "#ff7262",
                 "imageUrl": "/avatars/brilho.png",
@@ -323,6 +397,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Motion"),
+            skills=["animations", "transitions", "microinteractions", "motion_lab", "visual_states"],
+            memory=get_default_memories("Motion"),
             avatar_config={
                 "color": "#a259ff",
                 "imageUrl": "/avatars/chefe.png",
@@ -336,6 +415,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Data"),
+            skills=["data_analysis", "metrics", "quantitative_synthesis", "data_tables"],
+            memory=get_default_memories("Data"),
             avatar_config={
                 "color": "#14b8a6",
                 "imageUrl": "/avatars/sabio.png",
@@ -349,6 +433,11 @@ class AgentRuntime:
             provider_id="ollama",
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Ops"),
+            skills=["routines", "automation", "operations", "recurring_tasks"],
+            memory=get_default_memories("Ops"),
             avatar_config={
                 "color": "#64748b",
                 "imageUrl": "/avatars/padrao.png",
@@ -457,8 +546,10 @@ class AgentRuntime:
         if not manager or not isinstance(manager, ManagerAgent):
             raise RuntimeError("Manager agent is required to coordinate run.")
 
+        requested_agent = agent_name
+
         # Step 1: Manager plans objective into subtasks
-        recipient = self.get_agent(agent_name) if agent_name else manager
+        recipient = self.get_agent(requested_agent) if requested_agent else manager
         if recipient is None:
             raise ValueError('Agente não encontrado.')
         plan_parameters = dict(parameters or {})
@@ -494,11 +585,11 @@ class AgentRuntime:
             self.database.save_task(runnable_task.to_dict(), run_id=run_id)
 
             # Determine agent
-            agent_name = runnable_task.assigned_agent or "Nero"
-            agent = self.agents.get(agent_name) or self.agents.get("Nero") or self.agents.get("Worker")
+            assigned_name = runnable_task.assigned_agent or "Nero"
+            agent = self.agents.get(assigned_name) or self.agents.get("Nero") or self.agents.get("Worker")
             if not agent:
                 await self.task_manager.update_status(
-                    runnable_task.id, TaskStatus.FAILED, error=f"No agent found: {agent_name}"
+                    runnable_task.id, TaskStatus.FAILED, error=f"No agent found: {assigned_name}"
                 )
                 self.database.save_task(runnable_task.to_dict(), run_id=run_id)
                 has_failed = True
@@ -529,7 +620,7 @@ class AgentRuntime:
 
         await self.event_bus.emit(
             f"run.{final_status}",
-            {"run_id": run_id, "status": final_status, "objective": objective, "agent_name": agent_name or 'Quinta'},
+            {"run_id": run_id, "status": final_status, "objective": objective, "agent_name": requested_agent or 'Quinta'},
             source="runtime",
         )
 

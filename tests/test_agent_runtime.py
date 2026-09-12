@@ -6,6 +6,7 @@ from pathlib import Path
 from waddle.runtime.agent_runtime import AgentRuntime
 from waddle.core.event_bus import EventBus
 from waddle.tools.registry import ToolRegistry
+from waddle.llm.provider_client import ProviderResult
 
 
 class TestAgentRuntime(unittest.TestCase):
@@ -77,6 +78,31 @@ class TestAgentRuntime(unittest.TestCase):
         self.assertTrue(all(msg['to'] == 'Quinta' for msg in discussions))
         self.assertTrue(all(msg['data']['conversation_agent'] == 'quinta' for msg in discussions))
         self.assertTrue(any(msg['type'] == 'answer' and msg['from'] == 'Quinta' for msg in messages))
+
+    def test_quinta_routes_discussion_through_each_agent_provider(self):
+        manager = self.runtime.get_agent('Quinta')
+        calls = []
+
+        class FakeProviderClient:
+            def generate(self, agent, prompt):
+                calls.append((agent.name, agent.provider_id))
+                return ProviderResult(
+                    provider_id=agent.provider_id,
+                    model=f"{agent.provider_id}-model",
+                    content=f"{agent.name} respondeu via {agent.provider_id}.",
+                )
+
+        manager.llm_client = FakeProviderClient()
+
+        asyncio.run(self.runtime.run_objective('como melhoramos o projeto?', agent_name='Quinta'))
+
+        self.assertIn(('Atlas', 'ollama'), calls)
+        self.assertIn(('Nero', 'codex'), calls)
+        self.assertIn(('Iris', 'claude'), calls)
+        messages = self.runtime.database.list_messages(limit=10)
+        discussions = [msg for msg in messages if msg['type'] == 'discussion']
+        self.assertTrue(any(msg['from'] == 'Nero' and 'codex' in msg['content'] for msg in discussions))
+        self.assertTrue(any(msg['from'] == 'Iris' and 'claude' in msg['content'] for msg in discussions))
 
     def test_quinta_no_api_keys_request_gets_local_fallback_summary(self):
         manager = self.runtime.get_agent('Quinta')

@@ -5,16 +5,20 @@ import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
 
 from ..runtime.agent_runtime import AgentRuntime
 from ..core.event_bus import Event, global_event_bus
 from ..providers import ProviderRegistry
 from ..tools.registry import global_tool_registry
 
+
+load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
 
 runtime = AgentRuntime(event_bus=global_event_bus, tool_registry=global_tool_registry)
 provider_registry = ProviderRegistry()

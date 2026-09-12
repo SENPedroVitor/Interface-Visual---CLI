@@ -53,9 +53,7 @@ class ProviderRegistry:
         ]
 
     def _detect_ollama(self) -> ProviderStatus:
-        resolved = shutil.which("ollama")
-        if not resolved and self.ollama_path.exists():
-            resolved = str(self.ollama_path)
+        resolved = str(self.ollama_path) if self.ollama_path.exists() else shutil.which("ollama")
 
         if not resolved:
             return ProviderStatus(
