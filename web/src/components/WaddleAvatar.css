@@ -1,64 +1,230 @@
 .waddle-avatar-wrapper { display: inline-flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; filter: drop-shadow(0 8px 16px rgba(0,0,0,.12)); }
 .waddle-avatar-wrapper svg { display: block; overflow: visible; }
 .waddle-avatar-wrapper[data-interactive] { cursor: pointer; }
-.waddle-body { transform-origin: 50px 72px; }
+.waddle-body { transform-origin: 50px 51px; transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 .waddle-vector-avatar { overflow: visible; }
 .waddle-gaze { will-change: transform; }
 .waddle-eye-state { --eye-open: 1; transform-origin: 50px 52px; }
-.waddle-eye-shape { transform-box: fill-box; transform-origin: center; }
+.waddle-eye-shape { transform-box: fill-box; transform-origin: center; animation: waddleEyeBlink 5.2s ease-in-out infinite; }
+.waddle-eye-state--working { animation: waddleEyeScan 1.35s ease-in-out infinite; }
+.waddle-eye-state--waiting { animation: waddleEyeWait 3.2s ease-in-out infinite; }
+.waddle-eye-state--blocked { --eye-open: .48; transform: translateY(1px); }
+.waddle-eye-state--done { --eye-open: .68; transform: translateY(-1px); }
 .waddle-shell { stroke: rgba(255,255,255,.16); stroke-width: 1.2; }
 .waddle-body-shade, .waddle-ground-shadow { pointer-events: none; }
 .waddle-ground-shadow { fill: rgba(0,0,0,.16); transform-origin: 60px 104px; }
 .waddle-belly { stroke: rgba(0,0,0,.05); stroke-width: .8; }
 .waddle-beak { filter: drop-shadow(0 1px 0 rgba(0,0,0,.16)); }
 .waddle-accessory { filter: drop-shadow(0 1px 1px rgba(0,0,0,.18)); }
-.waddle-manual-gaze { transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
+.waddle-manual-gaze { transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
 .waddle-eye { transition: transform 120ms ease; }
 .waddle-eye-minimal { filter: drop-shadow(0 .8px .8px rgba(0,0,0,.18)); }
 .waddle-eye-ink { fill: #111116; }
 .waddle-eye-shine { fill: rgba(255,255,255,.72); pointer-events: none; }
-.waddle-presence-dot { position: absolute; right: 0; bottom: 0; width: 6px; height: 6px; border-radius: 50%; background: #40b98a; }
-[data-state="blocked"] > .waddle-presence-dot { background: #dfa83d; }
-[data-state="waiting"] > .waddle-presence-dot { background: #8b8b9b; }
-.waddle-bubble { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 180px; padding: 8px 12px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-size: 12px; text-align: center; pointer-events: none; z-index: 20; box-shadow: 0 6px 20px var(--shadow-soft); }
 
-/* ---- Motion (only when data-animated="true") ---- */
-.waddle-avatar-wrapper[data-animated="true"] .waddle-eye-shape { animation: waddleEyeBlink 5.2s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-motion="organic"] .waddle-eye-shape { animation: none; }
-.waddle-avatar-wrapper[data-blink="true"] .waddle-eye-shape { transform: scaleY(.08); }
-.waddle-avatar-wrapper[data-animated="true"][data-state="idle"] .waddle-body { animation: waddleBreathe 4.8s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="listening"] .waddle-body { animation: waddleListen 3.6s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="thinking"] .waddle-body { animation: waddleThink 2.8s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="planning"] .waddle-body { animation: waddlePlan 3.4s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="waiting"] .waddle-body { animation: waddleWait 3.2s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="working"] .waddle-body { animation: waddleWork 1s cubic-bezier(.4,0,.2,1) infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="working"] .waddle-ground-shadow { animation: waddleShadowPulse 1s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="creating"] .waddle-body { animation: waddleCreate 1.8s ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="blocked"] .waddle-body { animation: waddleAttention 900ms ease-in-out infinite; }
-.waddle-avatar-wrapper[data-animated="true"][data-state="done"] .waddle-body { animation: waddleCelebrate 650ms ease both; }
+/* ---- Thinking State: Avatar transforms into 3 bouncing dots ---- */
+.waddle-thinking-dots {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.6);
+  transform-origin: 50px 50px;
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.waddle-avatar-wrapper[data-state="thinking"] .waddle-thinking-dots {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+.waddle-avatar-wrapper[data-state="thinking"] .waddle-body {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.45);
+  animation: none !important;
+}
+.waddle-thinking-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.16));
+  animation: waddleDotBounce 1.25s ease-in-out infinite;
+}
+.waddle-thinking-dot.dot-1 {
+  animation-delay: 0s;
+}
+.waddle-thinking-dot.dot-2 {
+  animation-delay: 0.18s;
+}
+.waddle-thinking-dot.dot-3 {
+  animation-delay: 0.36s;
+}
+@keyframes waddleDotBounce {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-9px);
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+}
+
+/* ---- Blocked State: Avatar transforms into exclamation mark ! ---- */
+.waddle-blocked-mark {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.6);
+  transform-origin: 50px 50px;
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.waddle-avatar-wrapper[data-state="blocked"] .waddle-blocked-mark {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+.waddle-avatar-wrapper[data-state="blocked"] .waddle-body {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.45);
+  animation: none !important;
+}
+.waddle-blocked-stem,
+.waddle-blocked-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.14));
+  animation: waddleBlockedPulse 2s ease-in-out infinite;
+}
+@keyframes waddleBlockedPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.06);
+  }
+  60% {
+    transform: scale(1);
+  }
+}
+
+.waddle-avatar-wrapper[data-state="idle"] .waddle-body { animation: waddleBreathe 4.8s ease-in-out infinite; }
+.waddle-avatar-wrapper[data-state="working"] .waddle-body { animation: waddleWork 1s cubic-bezier(.4,0,.2,1) infinite; }
+.waddle-avatar-wrapper[data-state="working"] .waddle-ground-shadow { animation: waddleShadowPulse 1s ease-in-out infinite; }
+.waddle-avatar-wrapper[data-state="done"] .waddle-body {
+  animation: waddleDoneBounce 4s ease-in-out infinite;
+}
+
+/* Piscar / Wink no estado done */
+.waddle-avatar-wrapper[data-state="done"] .waddle-eye-right,
+.waddle-avatar-wrapper[data-state="done"] .waddle-eye-slashes-right,
+.waddle-avatar-wrapper[data-state="done"] .waddle-eye-nico-right {
+  animation: waddleDoneWinkRight 4s ease-in-out infinite !important;
+}
+
+.waddle-avatar-wrapper[data-state="done"] .waddle-eye-left,
+.waddle-avatar-wrapper[data-state="done"] .waddle-eye-slashes-left,
+.waddle-avatar-wrapper[data-state="done"] .waddle-eye-nico-left {
+  animation: waddleDoneDualBlink 4s ease-in-out infinite !important;
+}
+
+@keyframes waddleDoneBounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  22% {
+    transform: translateY(-7px) rotate(2.5deg) scale(1.03, 0.97);
+  }
+  38% {
+    transform: translateY(0) rotate(0deg) scale(0.98, 1.02);
+  }
+  48% {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+  60% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes waddleDoneWinkRight {
+  0%, 16% {
+    transform: scaleY(1);
+  }
+  25% {
+    transform: scaleY(0.08); /* Wink: olho direito fecha na piscadela 😉 */
+  }
+  34% {
+    transform: scaleY(1);    /* Reabre */
+  }
+  64%, 68% {
+    transform: scaleY(1);
+  }
+  66% {
+    transform: scaleY(0.1);  /* Pisca os dois olhos juntos */
+  }
+  70%, 100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes waddleDoneDualBlink {
+  0%, 64% {
+    transform: scaleY(1);
+  }
+  66% {
+    transform: scaleY(0.1);  /* Pisca os dois olhos juntos */
+  }
+  70%, 100% {
+    transform: scaleY(1);
+  }
+}
+
 .waddle-avatar-wrapper[data-state="stopped"] { opacity: .5; }
 .waddle-avatar-wrapper[data-reaction] .waddle-body { animation: waddleHop 600ms ease; }
 .waddle-avatar-wrapper[data-reaction="tilt"] .waddle-body { animation: waddleAttention 600ms ease; }
 .waddle-avatar-wrapper[data-reaction="fast"] .waddle-body { animation: waddleHop 300ms ease 2; }
 .waddle-avatar-wrapper[data-reaction="jump2"] .waddle-body { animation: waddleCelebrate 600ms ease; }
 
-/* Eye state behaviors */
-.waddle-eye-state--working { animation: waddleEyeScan 1.35s ease-in-out infinite; }
-.waddle-eye-state--creating { animation: waddleEyeScan 2.1s ease-in-out infinite; }
-.waddle-eye-state--thinking { transform: translate(1.8px, -1.8px); }
-.waddle-eye-state--planning { transform: translate(-1.4px, 1.2px); }
-.waddle-eye-state--listening { transform: translateX(1.6px); --eye-open: .82; }
-.waddle-eye-state--waiting { animation: waddleEyeWait 3.2s ease-in-out infinite; }
-.waddle-eye-state--blocked { --eye-open: .48; transform: translateY(1px); }
-.waddle-eye-state--done { --eye-open: .68; transform: translateY(-1px); }
+/* ---- Annoyed / Angry Click Reaction (puramente nos olhos) ---- */
+.waddle-avatar-wrapper.is-annoyed .waddle-body,
+.waddle-avatar-wrapper[data-reaction="annoyed"] .waddle-body {
+  animation: waddleAnnoyedShake 0.75s ease-in-out !important;
+}
 
+@keyframes waddleAnnoyedShake {
+  0% { transform: translateY(0) rotate(0deg) scale(1); }
+  12% { transform: translateY(-2px) rotate(-6deg) scale(1.05, 0.98); }
+  24% { transform: translateY(1px) rotate(6deg) scale(1.04, 0.97); }
+  36% { transform: translateY(-2px) rotate(-5deg) scale(1.03, 0.98); }
+  48% { transform: translateY(1px) rotate(4deg) scale(1.02, 0.99); }
+  60% { transform: translateY(-1px) rotate(-2deg) scale(1.01); }
+  75% { transform: translateY(0.5px) rotate(1deg) scale(1); }
+  100% { transform: translateY(0) rotate(0deg) scale(1); }
+}
+
+.waddle-eyes-annoyed .waddle-eye-shape {
+  transform-origin: center;
+  animation: waddleAnnoyedSquint 0.35s ease-out;
+}
+
+@keyframes waddleAnnoyedSquint {
+  0% { transform: scale(1, 1); }
+  35% { transform: scale(1.08, 0.88); }
+  100% { transform: scale(1, 1); }
+}
+.waddle-presence-dot { position: absolute; right: 0; bottom: 0; width: 6px; height: 6px; border-radius: 50%; background: #40b98a; }
+[data-state="blocked"] > .waddle-presence-dot { background: #dfa83d; }
+[data-state="waiting"] > .waddle-presence-dot { background: #8b8b9b; }
+.waddle-bubble { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 180px; padding: 8px 12px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-size: 12px; text-align: center; pointer-events: none; z-index: 20; box-shadow: 0 6px 20px var(--shadow-soft); }
 @keyframes waddleBreathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-.7px) scale(1.006); } }
-@keyframes waddleListen { 0%,100% { transform: translateY(0) scaleY(1); } 40% { transform: translateY(.6px) scaleY(1.012); } 70% { transform: translateY(-.3px) rotate(.8deg); } }
-@keyframes waddleThink { 0%,100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(-7deg) translateY(-2px); } }
-@keyframes waddlePlan { 0%,100% { transform: rotate(-1deg) translateY(0); } 30% { transform: rotate(2.5deg) translateX(.8px); } 65% { transform: rotate(-3deg) translateY(-1.2px); } }
-@keyframes waddleWait { 0%,100% { transform: translateX(0) translateY(0); } 35% { transform: translateX(1.2px) translateY(.8px) scaleY(.99); } 70% { transform: translateX(-.7px) translateY(0); } }
 @keyframes waddleWork { 0%,100% { transform: rotate(-2deg) translateY(0); } 35% { transform: rotate(3deg) translateY(-2px); } 70% { transform: rotate(-1deg) translateY(0); } }
-@keyframes waddleCreate { 0%,100% { transform: translateY(0) scale(1,1); } 25% { transform: translateY(-1.4px) scale(1.024,.976); } 55% { transform: translateY(.4px) scale(.988,1.012) rotate(1.4deg); } 80% { transform: translateY(-.8px) scale(1.012,.99); } }
+@keyframes waddleThink { 0%,100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(-7deg) translateY(-2px); } }
+@keyframes waddleWait { 0%,100% { transform: translateX(0) translateY(0); } 35% { transform: translateX(1.2px) translateY(.8px) scaleY(.99); } 70% { transform: translateX(-.7px) translateY(0); } }
+@keyframes waddleDoubtTilt {
+  0%, 100% { transform: rotate(-3.5deg) translateY(-0.8px); }
+  50% { transform: rotate(-6deg) translateY(-2px); }
+}
 @keyframes waddleAttention { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-3deg) translateX(-1px); } 55% { transform: rotate(4deg) translateX(1px); } }
 @keyframes waddleCelebrate { 0%,100% { transform: none; } 20% { transform: scale(1.04,.94); } 50% { transform: translateY(-7px) rotate(-4deg); } 75% { transform: translateY(0) scale(1.03,.97); } }
 @keyframes waddleHop { 0%,100% { transform: none; } 25% { transform: scale(1.03,.95); } 55% { transform: translateY(-5px); } }
@@ -74,6 +240,26 @@
 @keyframes waddleEyeWait {
   0%, 32%, 100% { transform: translateX(0); }
   42%, 70% { transform: translateX(2px); }
+}
+
+/* Nico Asymmetric Eyes */
+.waddle-eye-nico-left {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: waddleNicoLeftBlink 5.2s ease-in-out infinite;
+}
+.waddle-eye-nico-right {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: waddleNicoRightBlink 5.2s ease-in-out infinite;
+}
+@keyframes waddleNicoLeftBlink {
+  0%, 44%, 48%, 92%, 96%, 100% { transform: rotate(6deg) scaleY(1); }
+  46%, 94% { transform: rotate(6deg) scaleY(0.12); }
+}
+@keyframes waddleNicoRightBlink {
+  0%, 44%, 48%, 92%, 96%, 100% { transform: rotate(8deg) scaleY(1); }
+  46%, 94% { transform: rotate(8deg) scaleY(0.24); }
 }
 @media (prefers-reduced-motion: reduce) {
   .waddle-avatar-wrapper *, .waddle-avatar-wrapper[data-reaction] .waddle-body { animation: none !important; transition: none !important; }

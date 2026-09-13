@@ -708,6 +708,7 @@ export const App: React.FC = () => {
       <DeveloperDrawer
         isOpen={isDevDrawerOpen}
         onClose={() => setIsDevDrawerOpen(false)}
+        agents={agents}
         tasks={tasks}
         tools={tools}
         providers={providers}

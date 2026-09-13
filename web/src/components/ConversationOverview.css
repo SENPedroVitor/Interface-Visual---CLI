@@ -176,7 +176,12 @@
   border-color: rgba(145, 89, 254, 0.24);
 }
 
-.conversation-overview__status--blocked,
+.conversation-overview__status--blocked {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
 .conversation-overview__status--stopped {
   color: #dc7b73;
   background: rgba(220, 123, 115, 0.12);

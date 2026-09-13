@@ -16,10 +16,13 @@ import { DatePicker } from './DatePicker';
 import { Paperclip, FileText, Image as ImageIcon, X, Plus, Calendar, UploadCloud, User } from 'lucide-react';
 import { UserProfile } from './UserConfigModal';
 import { UserAvatar } from './UserAvatar';
+import { AgentHandoffCard } from './AgentHandoffCard';
+import { ToolCallCard } from './ToolCallCard';
+import { ApprovalCard } from './ApprovalCard';
 
 export interface ChatItem {
   id: string;
-  type: 'message' | 'context_activity' | 'artifact';
+  type: 'message' | 'context_activity' | 'artifact' | 'handoff' | 'approval';
   sender: string;
   /** Which bot's separate conversation this item belongs to (lowercase agent name) — App.tsx tags every item with this at creation. */
   agentKey: string;
@@ -29,20 +32,24 @@ export interface ChatItem {
   activityStatus?: string;
   activityState?: 'running' | 'done' | 'failed';
   activityIcon?: string;
-  /**
-   * Set once, at creation time, by whoever pushes this item into chatItems —
-   * never recomputed on re-render. ConversationView re-renders on every
-   * websocket event (App.tsx calls refreshData() after each one), so a
-   * "was this seen before" flag recalculated per-render would flip to
-   * false mid-animation the instant any unrelated re-render happened to
-   * land — which is exactly why the reveal used to look instantaneous.
-   */
   justArrived?: boolean;
   artifact?: {
     filename: string;
     description: string;
     content?: string;
     bytes?: number;
+  };
+  handoff?: {
+    fromAgent: string;
+    toAgent: string;
+    taskTitle: string;
+    taskStatus?: 'delegating' | 'working' | 'done' | string;
+    summary?: string;
+  };
+  approval?: {
+    actionTitle: string;
+    targetPathOrCommand?: string;
+    status?: 'pending' | 'approved' | 'rejected';
   };
 }
 
@@ -187,6 +194,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
   const [expandedArtifactId, setExpandedArtifactId] = useState<string | null>(null);
+  const [isComposerFocused, setIsComposerFocused] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const plusMenuRef = useRef<HTMLDivElement>(null);
@@ -277,7 +285,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
   };
 
   const agentName   = currentAgent?.name || 'Quinta';
-  const agentVis    = agentVisual(agentName, currentAgent?.role);
+  const agentVis    = agentVisual(agentName, currentAgent?.role, currentAgent?.avatar_config || currentAgent);
   const headerState: AgentState = isSending ? 'working' : agentStateFromStatus(currentAgent?.status);
   const agentStatusInfo = getAgentStatusBadge(currentAgent?.status || (isSending ? 'working' : 'idle'));
 
@@ -305,11 +313,12 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
     setGreetingIndex((prev) => (prev + 1) % agentGreetings.length);
   };
 
-  // Sweeps the composer-peek avatar's gaze left-to-right as you type,
-  // resetting every ~30 characters — a "reading" illusion, not a pixel-exact
-  // caret tracker. Backspacing naturally pulls the gaze back too, for free.
+  // Reactive Composer: sweeps gaze left-to-right as you type,
+  // and directs gaze down towards the composer when typing or focused.
   const isTyping = inputText.length > 0;
-  const gazeX = isTyping ? ((inputText.length % 30) / 30) * 2 - 1 : 0;
+  const isComposerActive = isComposerFocused || isTyping;
+  const gazeX = isTyping ? ((inputText.length % 30) / 30) * 1.8 - 0.9 : 0;
+  const gazeY = isComposerActive ? 1.0 : 0;
   const showComposerPeek = isTyping;
   const agentTasks = tasks
     .filter(task => task.assigned_agent === agentName)
@@ -373,10 +382,13 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             state={headerState}
             size={26}
             marking={agentVis.marking}
+            cosmetics={agentVis.cosmetics}
             clickAnim={agentVis.clickAnim}
             imageUrl={agentVis.imageUrl}
-            trackMouse
+            trackMouse={!isComposerActive}
             interactive
+            gazeX={isComposerActive ? gazeX * 0.4 : 0}
+            gazeY={isComposerActive ? 0.75 : 0}
           />
           <span className="panel-agent-name">
             {agentName}
@@ -420,8 +432,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
           <div className="empty-state">
             <div
               className="empty-avatar-hero"
-              onClick={handleNextGreeting}
-              title="Clique no mascote para trocar a frase"
+              title="Cutucar o mascote"
               style={{ cursor: 'pointer' }}
             >
               <WaddleAvatar
@@ -429,13 +440,14 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 state={headerState}
                 size={112}
                 marking={agentVis.marking}
+                cosmetics={agentVis.cosmetics}
                 clickAnim={agentVis.clickAnim}
-                quote={currentGreeting}
                 imageUrl={agentVis.imageUrl}
-                trackMouse={!isTyping}
+                trackMouse={!isComposerActive}
                 interactive={true}
-                className="hero-penguin"
+                className={`hero-penguin ${isComposerActive ? 'is-composer-attentive' : ''}`}
                 gazeX={gazeX}
+                gazeY={gazeY}
               />
             </div>
             <h2 className="empty-title">{agentName}</h2>
@@ -473,7 +485,14 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 ? SPORTS_SUGGESTIONS
                 : QUICK_SUGGESTIONS
               ).map((s, i) => (
-                <button key={i} className="quick-action-btn" onClick={() => setInputText(s)}>
+                <button
+                  key={i}
+                  className="quick-action-btn"
+                  onClick={() => {
+                    setInputText(s);
+                    textareaRef.current?.focus();
+                  }}
+                >
                   {s}
                 </button>
               ))}
@@ -548,11 +567,63 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
             {chatItems.map((item) => {
 
-              /* Context activity — one log line among the agent's other
-                 activity items; see .activity-inline in index.css for how
-                 consecutive lines merge into a single shared card. */
+              /* Handoff / Delegation Card */
+              if (item.type === 'handoff' || (item.type === 'context_activity' && item.activityStatus?.includes('→'))) {
+                const toAgent = item.handoff?.toAgent || item.activityStatus?.replace(/^[→\s]+/, '').trim() || 'Especialista';
+                const fromAgent = item.handoff?.fromAgent || item.senderName || 'Quinta';
+                const taskTitle = item.handoff?.taskTitle || item.content;
+                const taskStatus = item.handoff?.taskStatus || (item.activityState === 'done' ? 'done' : 'working');
+                return (
+                  <AgentHandoffCard
+                    key={item.id}
+                    fromAgent={fromAgent}
+                    toAgent={toAgent}
+                    taskTitle={taskTitle}
+                    taskStatus={taskStatus}
+                    summary={item.handoff?.summary}
+                    timestamp={item.timestamp}
+                  />
+                );
+              }
+
+              /* Approval card */
+              if (item.type === 'approval' && item.approval) {
+                return (
+                  <ApprovalCard
+                    key={item.id}
+                    id={item.id}
+                    agentName={item.senderName || agentName}
+                    actionTitle={item.approval.actionTitle}
+                    targetPathOrCommand={item.approval.targetPathOrCommand}
+                    initialStatus={item.approval.status}
+                    onApprove={() => {
+                      onSendMessage(`[Aprovado pelo usuário] ${item.approval?.actionTitle}`, []);
+                    }}
+                    onReject={() => {
+                      onSendMessage(`[Rejeitado pelo usuário] ${item.approval?.actionTitle}`, []);
+                    }}
+                  />
+                );
+              }
+
+              /* Tool execution card */
               if (item.type === 'context_activity') {
                 const state = item.activityState || 'running';
+                const isToolAction = !!item.activityIcon || item.id.startsWith('act-') || item.content.includes('`');
+                if (isToolAction) {
+                  return (
+                    <ToolCallCard
+                      key={item.id}
+                      id={item.id}
+                      toolName={item.activityIcon ? item.activityIcon.toUpperCase() : 'FERRAMENTA'}
+                      commandOrQuery={item.content.replace(/[`*]/g, '')}
+                      status={state}
+                      duration={item.activityStatus && state !== 'running' ? item.activityStatus : undefined}
+                      details={item.content}
+                    />
+                  );
+                }
+
                 return (
                   <div key={item.id} className="activity-inline">
                     <span className="activity-state-icon" aria-hidden="true">
@@ -720,12 +791,14 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               state="idle"
               size={40}
               marking={agentVis.marking}
+              cosmetics={agentVis.cosmetics}
               imageUrl={agentVis.imageUrl}
               gazeX={gazeX}
+              gazeY={gazeY}
             />
           </div>
 
-          <form onSubmit={handleSubmit} className="composer-box">
+          <form onSubmit={handleSubmit} className={`composer-box ${isComposerFocused ? 'is-focused' : ''}`}>
             {/* Attachment preview pills */}
             {attachedFiles.length > 0 && (
               <div className="composer-attachments-row">
@@ -860,6 +933,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                 aria-label={`Mensagem para ${agentName}`}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
+                onFocus={() => setIsComposerFocused(true)}
+                onBlur={() => setIsComposerFocused(false)}
                 onKeyDown={handleKeyDown}
                 rows={1}
                 disabled={isSending}

@@ -1,0 +1,193 @@
+.agent-handoff-card {
+  margin: 8px 20px 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(145, 89, 254, 0.08) 0%, rgba(20, 21, 28, 0.7) 100%);
+  border: 1px solid rgba(145, 89, 254, 0.24);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: handoffFadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+[data-theme="light"] .agent-handoff-card {
+  background: linear-gradient(135deg, rgba(145, 89, 254, 0.07) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border-color: rgba(145, 89, 254, 0.22);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+@keyframes handoffFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.handoff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.handoff-label-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c084fc;
+}
+
+[data-theme="light"] .handoff-label-badge {
+  color: #7c3aed;
+}
+
+.handoff-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.handoff-status-pill.is-working {
+  background: rgba(145, 89, 254, 0.16);
+  border: 1px solid rgba(145, 89, 254, 0.32);
+  color: #c084fc;
+}
+
+.handoff-status-pill.is-done {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  color: #4ade80;
+}
+
+.handoff-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.handoff-status-pill.is-working .handoff-status-dot {
+  animation: pulseDot 1.4s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.4; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Transmission Flow */
+.handoff-flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+[data-theme="light"] .handoff-flow-row {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.handoff-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.handoff-node-info {
+  min-width: 0;
+}
+
+.handoff-node-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.handoff-node-role {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Connecting Beam with Particle */
+.handoff-beam {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: 20px;
+}
+
+.handoff-beam-track {
+  width: 100%;
+  height: 2px;
+  background: rgba(145, 89, 254, 0.25);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.handoff-beam-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #c084fc, transparent);
+  animation: beamSlide 1.6s ease-in-out infinite;
+}
+
+@keyframes beamSlide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.handoff-beam-arrow {
+  position: absolute;
+  color: #c084fc;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-main, #14151c);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+/* Task info */
+.handoff-task-box {
+  padding-inline: 4px;
+}
+
+.handoff-task-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.handoff-task-summary {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}

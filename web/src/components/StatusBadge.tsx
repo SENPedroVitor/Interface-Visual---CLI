@@ -38,7 +38,7 @@ export function getAgentStatusBadge(status?: string): {
     case 'waiting':
       return { variant: 'away', label: 'Aguardando', dotPulse: true };
     case 'blocked':
-      return { variant: 'danger', label: 'Bloqueado', dotPulse: false };
+      return { variant: 'warning', label: 'Dúvida (o que falta)', dotPulse: true };
     case 'stopped':
       return { variant: 'danger', label: 'Offline', dotPulse: false };
     case 'done':

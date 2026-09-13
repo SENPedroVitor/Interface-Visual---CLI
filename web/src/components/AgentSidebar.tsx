@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Agent, Task, GroupSummary } from '../types';
 import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
 import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
@@ -22,7 +23,7 @@ export interface AgentSidebarProps {
   systemStatus: 'active' | 'stopped';
   agentPreviews: Record<string, string>;
   isDarkTheme: boolean;
-  onToggleTheme: (origin?: HTMLElement | null) => void;
+  onToggleTheme: () => void;
   onOpenActionMenu: (rect: DOMRect) => void;
   userProfile?: UserProfile;
   onOpenUserConfig?: () => void;
@@ -46,6 +47,29 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   onOpenUserConfig,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [hoveredAgent, setHoveredAgent] = useState<Agent | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ top: number; left: number } | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
+
+  const handleMouseEnter = (agent: Agent, e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setHoverPos({ top: rect.top, left: rect.right + 12 });
+      setHoveredAgent(agent);
+    }, 280);
+  };
+
+  const handleMouseLeave = () => {
+    clearTimeout(hoverTimerRef.current);
+    setHoveredAgent(null);
+  };
 
   const filtered = agents.filter(
     (a) =>
@@ -128,6 +152,20 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
             style={{ padding: '8px 10px' }}
             title="Equipe Waddle — Canal coletivo com todos os bots"
           >
+            {selectedGroupId === 'team-squad' && (
+              <>
+                <motion.div
+                  layoutId="sidebarActiveBg"
+                  className="agent-list-active-bg"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                />
+                <motion.div
+                  layoutId="sidebarActiveIndicator"
+                  className="agent-list-indicator"
+                  transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                />
+              </>
+            )}
             <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc', flexShrink: 0 }}>
               <VectorIcon name="users" size={18} />
             </div>
@@ -155,6 +193,20 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
                 style={{ padding: '8px 10px' }}
                 title={`${group.name} (${group.members.join(', ')})`}
               >
+                {isGroupActive && (
+                  <>
+                    <motion.div
+                      layoutId="sidebarActiveBg"
+                      className="agent-list-active-bg"
+                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                    />
+                    <motion.div
+                      layoutId="sidebarActiveIndicator"
+                      className="agent-list-indicator"
+                      transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                    />
+                  </>
+                )}
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc', flexShrink: 0 }}>
                   <VectorIcon name={group.avatar_icon || 'users'} size={18} />
                 </div>
@@ -188,9 +240,25 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
               key={agent.id}
               className={`agent-list-item ${isActive ? 'active' : ''}`}
               onClick={() => onSelectAgent(agent.id)}
+              onMouseEnter={(e) => handleMouseEnter(agent, e)}
+              onMouseLeave={handleMouseLeave}
               aria-current={isActive ? 'page' : undefined}
               title={`${agent.name} · ${STATE_LABELS[avatarState]}`}
             >
+              {isActive && (
+                <>
+                  <motion.div
+                    layoutId="sidebarActiveBg"
+                    className="agent-list-active-bg"
+                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  />
+                  <motion.div
+                    layoutId="sidebarActiveIndicator"
+                    className="agent-list-indicator"
+                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                  />
+                </>
+              )}
               <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
                 <WaddleAvatar
                   color={visual.color}
@@ -225,9 +293,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
       <div className="sidebar-footer">
         <button
           className={`sidebar-footer-btn theme-toggle-btn ${isDarkTheme ? 'is-dark' : ''}`}
-          onClick={(e) => onToggleTheme(e.currentTarget)}
+          onClick={onToggleTheme}
           title={isDarkTheme ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
-          aria-pressed={isDarkTheme}
         >
           <span className="theme-toggle-icon">
             <svg className="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -272,6 +339,62 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
           </span>
         </button>
       </div>
+
+      <AnimatePresence>
+        {hoveredAgent && hoverPos && (
+          <motion.div
+            className="agent-hover-card"
+            style={{
+              position: 'fixed',
+              top: Math.max(12, Math.min(hoverPos.top - 16, window.innerHeight - 240)),
+              left: hoverPos.left,
+              zIndex: 9999,
+            }}
+            initial={{ opacity: 0, x: -8, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -6, scale: 0.96 }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            onMouseEnter={() => clearTimeout(hoverTimerRef.current)}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="agent-hover-card-header">
+              <WaddleAvatar
+                color={agentVisual(hoveredAgent.name, hoveredAgent.role, hoveredAgent).color}
+                state={agentStateFromStatus(hoveredAgent.status)}
+                size={34}
+                marking={agentVisual(hoveredAgent.name, hoveredAgent.role, hoveredAgent).marking}
+                cosmetics={agentVisual(hoveredAgent.name, hoveredAgent.role, hoveredAgent).cosmetics}
+                imageUrl={agentVisual(hoveredAgent.name, hoveredAgent.role, hoveredAgent).imageUrl}
+                plain
+              />
+              <div className="agent-hover-card-titles">
+                <div className="agent-hover-name">{hoveredAgent.name}</div>
+                <div className="agent-hover-role">{roleLabel(hoveredAgent.role)}</div>
+              </div>
+              <span className={`agent-hover-status-badge is-${hoveredAgent.status}`}>
+                {STATE_LABELS[agentStateFromStatus(hoveredAgent.status)]}
+              </span>
+            </div>
+
+            <div className="agent-hover-card-body">
+              <div className="agent-hover-task-label">Atividade atual</div>
+              <div className="agent-hover-task-text">
+                {previewFor(hoveredAgent, agentStateFromStatus(hoveredAgent.status))}
+              </div>
+              {hoveredAgent.description && (
+                <div className="agent-hover-desc">{hoveredAgent.description}</div>
+              )}
+            </div>
+
+            <div className="agent-hover-card-footer">
+              <span className="agent-hover-time">
+                {['working', 'thinking', 'waiting'].includes(hoveredAgent.status) ? '⚡ Ativo agora' : `Visto há ${activityTime(hoveredAgent.last_activity_at)}`}
+              </span>
+              <span className="agent-hover-hint">Clique para abrir</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </aside>
   );
 };

@@ -4,7 +4,7 @@ import { Bot, ListTodo, FolderKanban, Repeat, Terminal } from 'lucide-react';
 import { Agent, Task, ArtifactSummary, RoutineSummary } from '../types';
 import { WaddleAvatar } from './WaddleAvatar';
 import { StatusBadge, getAgentStatusBadge } from './StatusBadge';
-import { roleLabel } from '../utils/agentState';
+import { roleLabel, agentStateFromStatus } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { formatBytes } from '../hooks/use-dropzone';
 import { cn } from '../lib/utils';
@@ -130,6 +130,8 @@ export const ToolbarExpandable: React.FC<ToolbarExpandableProps> = ({
               color={agentVis.color}
               marking={agentVis.marking}
               imageUrl={agentVis.imageUrl}
+              cosmetics={agentVis.cosmetics}
+              state={agentStateFromStatus(currentAgent?.status)}
             />
             <div className="toolbar-agent-meta">
               <div className="toolbar-agent-name-row">

@@ -14,8 +14,8 @@ export interface AgentVisual {
  * system: same clean pod face, different role-coded micro details.
  */
 export const AGENT_VISUALS: Record<string, AgentVisual> = {
-  Quinta:  { color: '#8b5cf6', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'command_module', body: 'status_bar' } },
-  Manager: { color: '#8b5cf6', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'command_module', body: 'status_bar' } },
+  Quinta:  { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'crown' } },
+  Manager: { color: '#2d1b4e', marking: 'none',      clickAnim: 'hop',   quote: 'Delegando. O bando resolve.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'crown' } },
   Atlas:   { color: '#0ea5e9', marking: 'chevron',   clickAnim: 'fast',  quote: 'Já pesquisei isso — inclusive ontem.', imageUrl: '/avatars/sabio.png', cosmetics: { face: 'visor', hand: 'side_panel' } },
   Nero:    { color: '#3b82f6', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { face: 'code_cursor', body: 'status_bar' } },
   Worker:  { color: '#3b82f6', marking: 'tuft',      clickAnim: 'jump2', quote: 'Na minha máquina funciona.', imageUrl: '/avatars/turbo.png', cosmetics: { face: 'code_cursor', body: 'status_bar' } },

@@ -2,9 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { registerEye } from '../lib/eyeTracker';
 import './WaddleAvatar.css';
 
-export type AgentState =
-  | 'idle' | 'listening' | 'thinking' | 'planning' | 'waiting'
-  | 'working' | 'creating' | 'done' | 'blocked' | 'stopped';
+export type AgentState = 'idle' | 'working' | 'thinking' | 'waiting' | 'done' | 'blocked' | 'stopped';
 export type MarkingType = 'none' | 'chevron' | 'tuft' | 'chinstrap' | 'tie' | 'whistle';
 export type ClickAnim = 'hop' | 'fast' | 'jump2' | 'tilt';
 
@@ -13,22 +11,28 @@ export interface AvatarCosmetics {
   face?: 'none' | 'zoro_scar' | 'glasses' | 'sunglasses' | string;
   body?: 'none' | 'tie' | 'bowtie' | 'whistle' | string;
   hand?: 'none' | 'coffee' | string;
+  bodyShape?: 'pill' | 'circle' | 'squircle' | 'crown' | string;
 }
 
+export type EyeStyle = 'default' | 'nico' | 'slashes';
+export type BodyShape = 'pill' | 'circle' | 'squircle' | 'crown';
+
 export const STATE_LABELS: Record<AgentState, string> = {
-  idle: 'Disponível', listening: 'Ouvindo', thinking: 'Pensando', planning: 'Planejando',
-  waiting: 'Aguardando', working: 'Trabalhando', creating: 'Criando',
-  done: 'Concluído', blocked: 'Precisa de atenção', stopped: 'Parado',
+  idle: 'Disponível', working: 'Trabalhando', thinking: 'Pensando',
+  waiting: 'Aguardando', done: 'Pronto 😉', blocked: 'Dúvida (o que falta)', stopped: 'Parado',
 };
 
 export interface WaddleAvatarProps {
   color?: string; state?: AgentState; size?: number; className?: string;
   showPresence?: boolean; trackMouse?: boolean; interactive?: boolean;
   marking?: MarkingType; clickAnim?: ClickAnim; quote?: string; plain?: boolean;
-  gazeX?: number; onClick?: () => void;
+  gazeX?: number;
+  gazeY?: number;
+  onClick?: () => void;
   cosmetics?: AvatarCosmetics;
   imageUrl?: string;
-  motion?: 'off' | 'standard' | 'organic';
+  eyeStyle?: EyeStyle;
+  bodyShape?: BodyShape;
 }
 
 interface AvatarPalette {
@@ -66,29 +70,29 @@ function getContrastEyeColor(hexColor: string): string {
 export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
   color, state = 'idle', size = 36, className = '', showPresence = false,
   trackMouse = false, interactive = false, marking = 'none', clickAnim = 'hop',
-  quote, gazeX = 0, onClick, imageUrl, cosmetics,
+  quote: _quote, gazeX = 0, gazeY = 0, onClick, imageUrl, cosmetics, eyeStyle = 'default',
+  bodyShape,
 }) => {
   const [jump, setJump] = useState(false);
-  const [bubble, setBubble] = useState(false);
+  const [isAnnoyed, setIsAnnoyed] = useState(false);
   const jumpTimer = useRef<ReturnType<typeof setTimeout>>();
-  const bubbleTimer = useRef<ReturnType<typeof setTimeout>>();
+  const annoyedTimer = useRef<ReturnType<typeof setTimeout>>();
   const gazeRef = useRef<SVGGElement>(null);
+  const activeBodyShape: BodyShape = bodyShape || (cosmetics?.bodyShape as BodyShape) || (cosmetics?.head === 'crown' ? 'crown' : 'pill');
 
   useEffect(() => () => {
     clearTimeout(jumpTimer.current);
-    clearTimeout(bubbleTimer.current);
+    clearTimeout(annoyedTimer.current);
   }, []);
 
   const reactToClick = () => {
     if (interactive) {
+      setIsAnnoyed(true);
       setJump(true);
       clearTimeout(jumpTimer.current);
-      jumpTimer.current = setTimeout(() => setJump(false), 600);
-      if (quote) {
-        setBubble(true);
-        clearTimeout(bubbleTimer.current);
-        bubbleTimer.current = setTimeout(() => setBubble(false), 2800);
-      }
+      jumpTimer.current = setTimeout(() => setJump(false), 700);
+      clearTimeout(annoyedTimer.current);
+      annoyedTimer.current = setTimeout(() => setIsAnnoyed(false), 1400);
     }
     onClick?.();
   };
@@ -131,7 +135,10 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
     eyeColor = '#1e3a5f';
   }
 
+  const isNicoEyes = eyeStyle === 'nico' || cosmetics?.face === 'nico_eyes' || state === 'blocked';
+  const isSlashesEyes = !isNicoEyes && (eyeStyle === 'slashes' || cosmetics?.face === 'slashes_eyes');
   const manualGazeX = Math.max(-1, Math.min(1, gazeX)) * 3.2;
+  const manualGazeY = Math.max(-1, Math.min(1, gazeY)) * 2.8;
 
   useEffect(() => {
     const gaze = gazeRef.current;
@@ -142,21 +149,70 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
 
   return (
     <div
-      className={`waddle-avatar-wrapper ${className}`}
+      className={`waddle-avatar-wrapper ${className} ${isAnnoyed ? 'is-annoyed' : ''}`}
       data-state={state}
-      data-reaction={jump ? clickAnim : undefined}
+      data-reaction={isAnnoyed ? 'annoyed' : jump ? clickAnim : undefined}
       data-interactive={interactive || undefined}
       style={{ width: size, height: size, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={reactToClick}
       title={STATE_LABELS[state]}
     >
       {isCustomUploadedImage ? (
-        <img
-          className="waddle-avatar-image"
-          src={imageUrl}
-          alt=""
-          style={{ width: size, height: size, objectFit: 'cover', borderRadius: '50%', display: 'block' }}
-        />
+        <>
+          <img
+            className="waddle-avatar-image"
+            src={imageUrl}
+            alt=""
+            style={{
+              width: size,
+              height: size,
+              objectFit: 'cover',
+              borderRadius: '50%',
+              display: 'block',
+              opacity: (state === 'thinking' || state === 'blocked') ? 0 : 1,
+              transform: manualGazeY > 0 ? `translateY(${Math.min(manualGazeY * 0.5, 2)}px)` : undefined,
+              transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
+
+          {state === 'thinking' && (
+            <svg
+              className="waddle-vector-avatar"
+              viewBox="0 0 100 100"
+              width={size}
+              height={size}
+              style={{ position: 'absolute', inset: 0 }}
+              aria-hidden="true"
+              focusable="false"
+            >
+              <g className="waddle-thinking-dots" style={{ opacity: 1, transform: 'scale(1)' }} aria-label="Pensando">
+                <circle className="waddle-thinking-dot dot-1" cx="28" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
+                <circle className="waddle-thinking-dot dot-2" cx="50" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
+                <circle className="waddle-thinking-dot dot-3" cx="72" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
+              </g>
+            </svg>
+          )}
+          {state === 'blocked' && (
+            <svg
+              className="waddle-vector-avatar"
+              viewBox="0 0 100 100"
+              width={size}
+              height={size}
+              style={{ position: 'absolute', inset: 0 }}
+              aria-hidden="true"
+              focusable="false"
+            >
+              <g className="waddle-blocked-mark" style={{ opacity: 1, transform: 'scale(1)' }} aria-label="Bloqueado / Dúvida">
+                <path
+                  className="waddle-blocked-stem"
+                  d="M 45.5 29 C 45.5 26 54.5 26 54.5 29 L 53.2 59 C 53.2 61.2 46.8 61.2 46.8 59 Z"
+                  fill={eyeColor}
+                />
+                <circle className="waddle-blocked-dot" cx="50" cy="70.5" r="4.3" fill={eyeColor} />
+              </g>
+            </svg>
+          )}
+        </>
       ) : (
         <svg
           className="waddle-vector-avatar"
@@ -166,16 +222,160 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
           aria-hidden="true"
           focusable="false"
         >
-          <g className="waddle-body">
-            <rect x="14" y="30" width="72" height="42" rx="21" fill={faceColor} />
+          <g className="waddle-thinking-dots" aria-label="Pensando">
+            <circle className="waddle-thinking-dot dot-1" cx="28" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
+            <circle className="waddle-thinking-dot dot-2" cx="50" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
+            <circle className="waddle-thinking-dot dot-3" cx="72" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
+          </g>
+          <g className="waddle-blocked-mark" aria-label="Bloqueado / Dúvida">
+            <path
+              className="waddle-blocked-stem"
+              d="M 45.5 29 C 45.5 26 54.5 26 54.5 29 L 53.2 59 C 53.2 61.2 46.8 61.2 46.8 59 Z"
+              fill={eyeColor}
+            />
+            <circle className="waddle-blocked-dot" cx="50" cy="70.5" r="4.3" fill={eyeColor} />
+          </g>
+          <g className="waddle-body" data-shape={activeBodyShape}>
+            {activeBodyShape === 'crown' ? (
+              <path
+                className="waddle-body-shape waddle-body-crown"
+                d="M 14 51 L 14 36 Q 14 32, 19 29 L 23 23 Q 26 19, 29 23 L 35 29 Q 38 31, 41 28 L 47 19 Q 50 15, 53 19 L 59 28 Q 62 31, 65 29 L 71 23 Q 74 19, 77 23 L 81 29 Q 86 32, 86 36 L 86 51 A 21 21 0 0 1 65 72 L 35 72 A 21 21 0 0 1 14 51 Z"
+                fill={faceColor}
+              />
+            ) : activeBodyShape === 'circle' ? (
+              <circle cx="50" cy="51" r="30" fill={faceColor} />
+            ) : activeBodyShape === 'squircle' ? (
+              <rect x="21" y="22" width="58" height="58" rx="18" fill={faceColor} />
+            ) : (
+              <rect x="14" y="30" width="72" height="42" rx="21" fill={faceColor} />
+            )}
+
+            {/* Emblemas & Logos no Corpo */}
+            {cosmetics?.body === 'figma' && (
+              <g
+                className="cosmetic-emblem cosmetic-figma"
+                transform={`translate(50, 51) scale(${activeBodyShape === 'pill' ? 0.92 : 1.15})`}
+              >
+                {/* 5 peças icônicas da logo do Figma */}
+                <path d="M -9 -13.5 L 0 -13.5 L 0 -4.5 L -9 -4.5 A 4.5 4.5 0 0 1 -9 -13.5 Z" fill="#F24E1E" />
+                <path d="M 0 -13.5 L 9 -13.5 A 4.5 4.5 0 0 1 9 -4.5 L 0 -4.5 Z" fill="#A259FF" />
+                <path d="M -9 -4.5 L 0 -4.5 L 0 4.5 L -9 4.5 A 4.5 4.5 0 0 1 -9 -4.5 Z" fill="#FF7262" />
+                <circle cx="4.5" cy="0" r="4.5" fill="#1ABCFE" />
+                <path d="M -9 4.5 L 0 4.5 L 0 9 A 4.5 4.5 0 0 1 -4.5 13.5 A 4.5 4.5 0 0 1 -9 9 Z" fill="#0ACF83" />
+              </g>
+            )}
+
+            {cosmetics?.body === 'dev_code' && (
+              <g className="cosmetic-emblem cosmetic-dev-code" transform="translate(50, 51)">
+                <rect x="-19" y="-9.5" width="38" height="19" rx="5" fill="rgba(0,0,0,0.28)" />
+                <text x="0" y="3.5" fontFamily="var(--font-mono, monospace)" fontSize="11" fontWeight="bold" textAnchor="middle" fill="#38bdf8">&lt;/&gt;</text>
+              </g>
+            )}
+
+            {cosmetics?.body === 'terminal' && (
+              <g className="cosmetic-emblem cosmetic-terminal" transform="translate(50, 51)">
+                <rect x="-19" y="-9.5" width="38" height="19" rx="5" fill="rgba(0,0,0,0.32)" />
+                <text x="-2" y="3.5" fontFamily="var(--font-mono, monospace)" fontSize="11" fontWeight="bold" textAnchor="middle" fill="#4ade80">&gt;_</text>
+              </g>
+            )}
+
+            {cosmetics?.body === 'react' && (
+              <g className="cosmetic-emblem cosmetic-react" transform="translate(50, 51) scale(0.85)">
+                <ellipse cx="0" cy="0" rx="14" ry="5" fill="none" stroke="#61dafb" strokeWidth="1.2" opacity="0.9" />
+                <ellipse cx="0" cy="0" rx="14" ry="5" fill="none" stroke="#61dafb" strokeWidth="1.2" opacity="0.9" transform="rotate(60)" />
+                <ellipse cx="0" cy="0" rx="14" ry="5" fill="none" stroke="#61dafb" strokeWidth="1.2" opacity="0.9" transform="rotate(120)" />
+                <circle cx="0" cy="0" r="2.2" fill="#61dafb" />
+              </g>
+            )}
+
+            {cosmetics?.body === 'python' && (
+              <g className="cosmetic-emblem cosmetic-python" transform="translate(50, 51) scale(0.65)">
+                <path d="M -1.5 -13 C -8 -13 -10 -10 -10 -6 L -10 -3 L -1 -3 L -1 -1 L -12 -1 C -16 -1 -16 5 -16 8 C -16 12 -12 13 -8 13 L -5 13 L -5 10 C -5 7 -2 5 1 5 L 5 5 C 7 5 9 3 9 0 L 9 -6 C 9 -10 6 -13 -1.5 -13 Z" fill="#387eb8" />
+                <path d="M 1.5 13 C 8 13 10 10 10 6 L 10 3 L 1 3 L 1 1 L 12 1 C 16 1 16 -5 16 -8 C 16 -12 12 -13 8 -13 L 5 -13 L 5 -10 C 5 -7 2 -5 -1 -5 L -5 -5 C -7 -5 -9 -3 -9 0 L -9 6 C -9 10 -6 13 1.5 13 Z" fill="#ffe052" />
+                <circle cx="-5" cy="-8" r="1.2" fill="#ffffff" />
+                <circle cx="5" cy="8" r="1.2" fill="#ffffff" />
+              </g>
+            )}
+
+            {cosmetics?.body === 'github' && (
+              <g className="cosmetic-emblem cosmetic-github" transform="translate(50, 51) scale(0.75)">
+                <circle cx="0" cy="0" r="13" fill="rgba(0,0,0,0.3)" />
+                <path d="M0 -10 C -5.5 -10 -10 -5.5 -10 0 C -10 4.4 -7.1 8.1 -3.2 9.4 C -2.7 9.5 -2.5 9.2 -2.5 8.9 L -2.5 7.1 C -5.3 7.7 -5.9 5.8 -5.9 5.8 C -6.3 4.7 -7 4.4 -7 4.4 C -7.9 3.8 -6.9 3.8 -6.9 3.8 C -5.9 3.9 -5.4 4.9 -5.4 4.9 C -4.5 6.4 -3.1 6 -2.5 5.7 C -2.4 5 -2.1 4.5 -1.8 4.2 C -4 4 -6.4 3.1 -6.4 -0.7 C -6.4 -1.8 -6 -2.7 -5.3 -3.4 C -5.4 -3.7 -5.8 -4.7 -5.2 -6.1 C -5.2 -6.1 -4.3 -6.4 -2.3 -5 C -1.4 -5.2 -0.5 -5.3 0.4 -5.3 C 1.3 -5.3 2.2 -5.2 3.1 -5 C 5.1 -6.4 6 -6.1 6 -6.1 C 6.6 -4.7 6.2 -3.7 6.1 -3.4 C 6.8 -2.7 7.2 -1.8 7.2 -0.7 C 7.2 3.1 4.8 4 2.6 4.2 C 3 4.5 3.3 5.2 3.3 6.2 L 3.3 8.9 C 3.3 9.2 3.5 9.5 4 9.4 C 7.9 8.1 10.8 4.4 10.8 0 C 10.8 -5.5 6.3 -10 0 -10 Z" fill="#ffffff" />
+              </g>
+            )}
+
             <g className={`waddle-eye-state waddle-eye-state--${state}`}>
               <g ref={gazeRef} className="waddle-gaze">
-                <g className="waddle-manual-gaze" transform={`translate(${manualGazeX} 0)`}>
-                  <ellipse className="waddle-eye-shape" cx="37" cy="52" rx="4.4" ry="5.8" fill={eyeColor} />
-                  <ellipse className="waddle-eye-shape" cx="63" cy="52" rx="4.4" ry="5.8" fill={eyeColor} />
+                <g className="waddle-manual-gaze" transform={`translate(${manualGazeX} ${manualGazeY})`}>
+                  {isAnnoyed ? (
+                    <g className="waddle-eyes-annoyed" aria-label="Olhos irritados">
+                      <path
+                        className="waddle-eye-shape waddle-eye-annoyed-left"
+                        d="M 32.6 49.5 L 41.4 54.5 A 4.4 5.8 0 0 1 32.6 49.5 Z"
+                        fill={eyeColor}
+                      />
+                      <path
+                        className="waddle-eye-shape waddle-eye-annoyed-right"
+                        d="M 67.4 49.5 L 58.6 54.5 A 4.4 5.8 0 0 0 67.4 49.5 Z"
+                        fill={eyeColor}
+                      />
+                    </g>
+                  ) : isNicoEyes ? (
+                    <g className="waddle-eyes-nico">
+                      <rect
+                        className="waddle-eye-shape waddle-eye-nico-left"
+                        x="32.5"
+                        y="41.5"
+                        width="9"
+                        height="19"
+                        rx="4.5"
+                        fill={eyeColor}
+                        transform="rotate(6 37 51)"
+                      />
+                      <rect
+                        className="waddle-eye-shape waddle-eye-nico-right"
+                        x="53"
+                        y="48"
+                        width="19"
+                        height="6.2"
+                        rx="3.1"
+                        fill={eyeColor}
+                        transform="rotate(8 62.5 51.1)"
+                      />
+                    </g>
+                  ) : isSlashesEyes ? (
+                    <g className="waddle-eyes-slashes">
+                      <rect
+                        className="waddle-eye-shape waddle-eye-slashes-left"
+                        x="33.5"
+                        y="42"
+                        width="7.5"
+                        height="18"
+                        rx="3.75"
+                        fill={eyeColor}
+                        transform="rotate(18 37.25 51)"
+                      />
+                      <rect
+                        className="waddle-eye-shape waddle-eye-slashes-right"
+                        x="52.5"
+                        y="42"
+                        width="7.5"
+                        height="18"
+                        rx="3.75"
+                        fill={eyeColor}
+                        transform="rotate(18 56.25 51)"
+                      />
+                    </g>
+                  ) : (
+                    <>
+                      <ellipse className="waddle-eye-shape waddle-eye-left" cx="37" cy="52" rx="4.4" ry="5.8" fill={eyeColor} />
+                      <ellipse className="waddle-eye-shape waddle-eye-right" cx="63" cy="52" rx="4.4" ry="5.8" fill={eyeColor} />
+                    </>
+                  )}
                 </g>
               </g>
             </g>
+
 
             {/* Cosmetics: Body */}
             {cosmetics?.body === 'tie' && (
@@ -239,16 +439,7 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
               </g>
             )}
 
-            {/* Cosmetics: Head */}
-            {cosmetics?.head === 'crown' && (
-              <g className="cosmetic-crown">
-                <polygon points="34,31 38,18 44,25 50,16 56,25 62,18 66,31" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
-                <rect x="34" y="29" width="32" height="3.5" rx="1.5" fill="#d97706" />
-                <circle cx="50" cy="20" r="1.5" fill="#ef4444" />
-                <circle cx="38" cy="22" r="1.2" fill="#3b82f6" />
-                <circle cx="62" cy="22" r="1.2" fill="#22c55e" />
-              </g>
-            )}
+
             {cosmetics?.head === 'luffy_hat' && (
               <g className="cosmetic-luffy-hat">
                 <ellipse cx="50" cy="30" rx="26" ry="6" fill="#fbbf24" stroke="#d97706" strokeWidth="1.2" />
@@ -285,7 +476,6 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
         </svg>
       )}
       {showPresence && state !== 'idle' && <span className="waddle-presence-dot" />}
-      {bubble && quote && <span className="waddle-bubble">{quote}</span>}
     </div>
   );
 };

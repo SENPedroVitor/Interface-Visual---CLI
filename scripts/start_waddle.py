@@ -57,6 +57,26 @@ def main():
 
     # Check npm availability for frontend
     npm_path = shutil.which("npm") or shutil.which("npm.cmd")
+    if not npm_path and sys.platform.startswith("win"):
+        user_profile = os.environ.get("USERPROFILE", "")
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        app_data = os.environ.get("APPDATA", "")
+        candidates = [
+            Path(local_app_data) / "JetBrains" / "GoLand2026.2" / "acp-agents" / ".runtimes" / "node" / "24.13.0",
+            Path(local_app_data) / "OpenAI" / "Codex" / "runtimes" / "cua_node" / "e7fe122ad3cbcd58" / "bin",
+            Path(user_profile) / ".cache" / "codex-runtimes" / "codex-primary-runtime" / "dependencies" / "node" / "bin",
+            Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "nodejs",
+            Path(app_data) / "npm",
+        ]
+        for candidate_dir in candidates:
+            cand_npm = candidate_dir / "npm.cmd"
+            if cand_npm.exists():
+                npm_path = str(cand_npm)
+                node_dir_str = str(candidate_dir)
+                if node_dir_str not in env.get("PATH", ""):
+                    env["PATH"] = f"{node_dir_str}{os.pathsep}{env.get('PATH', '')}"
+                break
+
     has_web = WEB_DIR.exists() and npm_path is not None
 
     backend_proc = None
@@ -116,6 +136,7 @@ def main():
                 frontend_cmd,
                 cwd=str(WEB_DIR),
                 shell=sys.platform.startswith("win"),
+                env=env,
             )
             target_url = "http://localhost:5173"
         else:

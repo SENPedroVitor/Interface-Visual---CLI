@@ -103,8 +103,39 @@
           <button data-v="idle" class="on">Idle</button>
           <button data-v="thinking">Pensando</button>
           <button data-v="typing">Digitando</button>
-          <button data-v="error">Erro</button>
-          <button data-v="success">Sucesso</button>
+          <button data-v="error">Blocked (!)</button>
+          <button data-v="success">Pronto 😉</button>
+          <button data-v="annoyed">Raiva 💢</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Formato do Corpo (Silhueta)</label>
+        <div class="seg" id="segFormato">
+          <button data-v="pill" class="on">Pílula 💊</button>
+          <button data-v="crown">Coroa 👑</button>
+          <button data-v="circle">Círculo ⚪</button>
+          <button data-v="squircle">Squircle ⬛</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Emblema / Logo no Corpo</label>
+        <div class="seg" id="segEmblema">
+          <button data-v="none" class="on">Nenhum</button>
+          <button data-v="figma">Figma Bro 🎨</button>
+          <button data-v="dev_code">Dev Code &lt;/&gt;</button>
+          <button data-v="terminal">Terminal &gt;_</button>
+          <button data-v="react">React ⚛</button>
+          <button data-v="python">Python 🐍</button>
+          <button data-v="github">GitHub 🐙</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Estilo dos Olhos</label>
+        <div class="seg" id="segEstiloOlho">
+          <button data-v="default" class="on">Padrão</button>
+          <button data-v="slashes">Slashes //</button>
+          <button data-v="nico">Nico</button>
         </div>
       </div>
 
@@ -154,10 +185,10 @@ const TEAM = [
   { id: 'totem',  nome: 'Tótem',  cor: '#e7d1b8', olho: '#3a2a1d' },
 ];
 
-/* pose(state, t) -> {sx, sy, dx, dy, rot, eyeDx, eyeDy, eyeP, arcs, dots, sweat} */
+/* pose(state, t) -> {sx, sy, dx, dy, rot, eyeDx, eyeDy, eyeP, arcs, sweat} */
 function pose(state, t) {
   const ph = (t / LOOP) * Math.PI * 2;
-  const p = { sx: 1, sy: 1, dx: 0, dy: 0, rot: 0, eyeDx: 0, eyeDy: 0, eyeP: 0, arcs: false, dots: false, sweat: false };
+  const p = { sx: 1, sy: 1, dx: 0, dy: 0, rot: 0, eyeDx: 0, eyeDy: 0, eyeP: 0, arcs: false, sweat: false };
   const blink = (() => { const c = (t % 2) / 2; return c > 0.88 ? Math.sin(((c - 0.88) / 0.12) * Math.PI) : 0; })();
   switch (state) {
     case 'idle':
@@ -166,20 +197,52 @@ function pose(state, t) {
       break;
     case 'thinking':
       p.rot = 0.06 * Math.sin(ph); p.eyeDx = 2.2; p.eyeDy = -2.6;
-      p.dots = true;
       break;
     case 'typing': {
       const j = Math.abs(Math.sin(ph * 3));
-      p.dy = -j * 4; p.sx = 1 + 0.05 * j; p.sy = 1 - 0.05 * j;
-      p.eyeP = blink; break;
+      p.dy = -j * 3; p.sx = 1 + 0.04 * j; p.sy = 1 - 0.04 * j;
+      p.eyeDy = 2.4; // olha para baixo (composer reativo)
+      p.eyeDx = Math.sin(ph * 2) * 2.0; // leitura de texto
+      p.eyeP = blink;
+      break;
     }
     case 'error':
-      p.dx = 1.6 * Math.sin(ph * 6); p.eyeP = 0.65; p.sweat = true;
+      p.rot = -0.07 + 0.02 * Math.sin(ph * 2);
+      p.dy = -1.2;
+      p.eyeP = 0.08;
       break;
     case 'success': {
-      const j = Math.abs(Math.sin(ph * 2));
-      p.dy = -j * 9; p.sy = 1 + 0.06 * j - 0.05 * (1 - j); p.sx = 1 - 0.06 * j + 0.05 * (1 - j);
-      p.arcs = true; break;
+      // Loop de 4s para estado "pronto":
+      // De 0.8s a 1.6s: piscadela charmosa no olho direito (wink 😉) com pulinho alegre
+      const cWink = (t % 4);
+      let wink = 0;
+      if (cWink >= 0.8 && cWink <= 1.6) {
+        wink = Math.sin(((cWink - 0.8) / 0.8) * Math.PI);
+      }
+      // De 2.6s a 2.9s: pisca ambos os olhos suavemente
+      let dualBlink = 0;
+      if (cWink >= 2.6 && cWink <= 2.9) {
+        dualBlink = Math.sin(((cWink - 2.6) / 0.3) * Math.PI);
+      }
+      // Pulinho alegre e satisfeito durante a piscada
+      const hop = Math.max(0, Math.sin(ph * 2));
+      p.dy = -hop * 6;
+      p.rot = 0.05 * Math.sin(ph);
+      p.sx = 1 - 0.03 * hop;
+      p.sy = 1 + 0.04 * hop;
+      p.eyeP = dualBlink;
+      p.winkRight = wink;
+      p.arcs = false;
+      break;
+    }
+    case 'annoyed': {
+      const shake = Math.sin(ph * 8);
+      p.rot = shake * 0.08;
+      p.dx = shake * 2.2;
+      p.dy = -Math.abs(Math.sin(ph * 4)) * 3;
+      p.eyeP = 0.25;
+      p.annoyed = true;
+      break;
     }
   }
   return p;
@@ -196,9 +259,61 @@ function rr(ctx, x, y, w, h, r) {
 }
 
 /* Desenha o boneco preenchendo o canvas W×H. spec = {cor, olho} */
-function draw(ctx, W, H, spec, state, t, eyeMode = 'auto') {
+function draw(ctx, W, H, spec, state, t, eyeMode = 'auto', eyeStyle = 'default', emblem = 'none', bodyShape = 'pill') {
   const U = Math.min(W, H) / 100;
   const ph = (t / LOOP) * Math.PI * 2;
+
+  // No estado "pensando", o avatar se transforma literalmente nos 3 pontinhos saltitantes
+  if (state === 'thinking') {
+    const cx = W / 2, cy = H * 0.53;
+    const offsets = [-22, 0, 22];
+    offsets.forEach((ox, i) => {
+      const wave = Math.max(0, Math.sin(ph * 4 - i * 0.7));
+      const dotDy = -wave * 9 * U;
+      const dotR = (7.5 + wave * 0.8) * U;
+      ctx.beginPath();
+      ctx.arc(cx + ox * U, cy + dotDy, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = spec.cor;
+      ctx.globalAlpha = 0.5 + 0.5 * wave;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    return;
+  }
+
+  // No estado "blocked" / "dúvida", o avatar se transforma no ponto de exclamação "!"
+  if (state === 'error' || state === 'blocked') {
+    const cx = W / 2, cy = H * 0.51;
+    const wave = Math.sin(ph * 2);
+    const pulse = 1 + 0.04 * wave;
+    const corOlho = eyeMode === 'white' ? '#ffffff' : eyeMode === 'black' ? '#111111' : spec.olho;
+    const corMark = (ui.fundo === 'dark' && eyeMode === 'auto')
+      ? (spec.cor === '#f3f4f6' ? '#ffffff' : spec.cor)
+      : corOlho;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(pulse, pulse);
+
+    // Haste superior do !
+    ctx.fillStyle = corMark;
+    ctx.beginPath();
+    ctx.moveTo(-4.5 * U, -22 * U);
+    ctx.bezierCurveTo(-4.5 * U, -25 * U, 4.5 * U, -25 * U, 4.5 * U, -22 * U);
+    ctx.lineTo(3.2 * U, 8 * U);
+    ctx.bezierCurveTo(3.2 * U, 10.2 * U, -3.2 * U, 10.2 * U, -3.2 * U, 8 * U);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ponto inferior do !
+    ctx.beginPath();
+    ctx.arc(0, 19.5 * U, 4.3 * U, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+    return;
+  }
+
   const p = pose(state, t);
   const corOlho = eyeMode === 'white' ? '#ffffff' : eyeMode === 'black' ? '#111111' : spec.olho;
 
@@ -208,19 +323,191 @@ function draw(ctx, W, H, spec, state, t, eyeMode = 'auto') {
   ctx.rotate(p.rot);
   ctx.scale(p.sx, p.sy);
 
-  // corpo: pílula 72×42 (cantos 21) centrada em (0,0)
-  rr(ctx, -36 * U, -21 * U, 72 * U, 42 * U, 21 * U);
-  ctx.fillStyle = spec.cor;
-  ctx.fill();
+  // corpo: coroa, pílula, círculo ou squircle centrado em (0,0)
+  if (bodyShape === 'crown') {
+    ctx.save();
+    ctx.translate(-50 * U, -51 * U);
+    ctx.scale(U, U);
+    ctx.fillStyle = spec.cor;
+    ctx.fill(new Path2D("M 14 51 L 14 36 Q 14 32, 19 29 L 23 23 Q 26 19, 29 23 L 35 29 Q 38 31, 41 28 L 47 19 Q 50 15, 53 19 L 59 28 Q 62 31, 65 29 L 71 23 Q 74 19, 77 23 L 81 29 Q 86 32, 86 36 L 86 51 A 21 21 0 0 1 65 72 L 35 72 A 21 21 0 0 1 14 51 Z"));
+    ctx.restore();
+  } else if (bodyShape === 'circle') {
+    ctx.beginPath();
+    ctx.arc(0, 0, 30 * U, 0, Math.PI * 2);
+    ctx.fillStyle = spec.cor;
+    ctx.fill();
+  } else if (bodyShape === 'squircle') {
+    rr(ctx, -28 * U, -28 * U, 56 * U, 56 * U, 17 * U);
+    ctx.fillStyle = spec.cor;
+    ctx.fill();
+  } else {
+    // corpo clássico: pílula 72×42 (cantos 21)
+    rr(ctx, -36 * U, -21 * U, 72 * U, 42 * U, 21 * U);
+    ctx.fillStyle = spec.cor;
+    ctx.fill();
+  }
+
+  // Emblemas / Logos no corpo (abaixo dos olhos)
+  if (emblem === 'figma') {
+    const s = (bodyShape === 'pill' ? 0.95 : 1.2) * U;
+    // Row 0 Left: Orange
+    rr(ctx, -9 * s, -13.5 * s, 9 * s, 9 * s, 4.5 * s);
+    ctx.fillStyle = '#F24E1E';
+    ctx.fill();
+    // Row 0 Right: Purple
+    rr(ctx, 0, -13.5 * s, 9 * s, 9 * s, 4.5 * s);
+    ctx.fillStyle = '#A259FF';
+    ctx.fill();
+    // Row 1 Left: Pink/Coral
+    rr(ctx, -9 * s, -4.5 * s, 9 * s, 9 * s, 4.5 * s);
+    ctx.fillStyle = '#FF7262';
+    ctx.fill();
+    // Row 1 Right: Cyan Circle
+    ctx.beginPath();
+    ctx.arc(4.5 * s, 0, 4.5 * s, 0, Math.PI * 2);
+    ctx.fillStyle = '#1ABCFE';
+    ctx.fill();
+    // Row 2 Left: Green
+    rr(ctx, -9 * s, 4.5 * s, 9 * s, 9 * s, 4.5 * s);
+    ctx.fillStyle = '#0ACF83';
+    ctx.fill();
+  } else if (emblem === 'dev_code') {
+    rr(ctx, -19 * U, -9.5 * U, 38 * U, 19 * U, 5 * U);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = `bold ${11 * U}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('</>', 0, 1.5 * U);
+  } else if (emblem === 'terminal') {
+    rr(ctx, -19 * U, -9.5 * U, 38 * U, 19 * U, 5 * U);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+    ctx.fillStyle = '#4ade80';
+    ctx.font = `bold ${11 * U}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('>_', 0, 1.5 * U);
+  } else if (emblem === 'react') {
+    ctx.strokeStyle = '#61dafb';
+    ctx.lineWidth = 1.2 * U;
+    for (const rot of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 14 * U, 5 * U, rot, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.2 * U, 0, Math.PI * 2);
+    ctx.fillStyle = '#61dafb';
+    ctx.fill();
+  } else if (emblem === 'python') {
+    ctx.save();
+    ctx.scale(0.65 * U, 0.65 * U);
+    const p1 = new Path2D("M -1.5 -13 C -8 -13 -10 -10 -10 -6 L -10 -3 L -1 -3 L -1 -1 L -12 -1 C -16 -1 -16 5 -16 8 C -16 12 -12 13 -8 13 L -5 13 L -5 10 C -5 7 -2 5 1 5 L 5 5 C 7 5 9 3 9 0 L 9 -6 C 9 -10 6 -13 -1.5 -13 Z");
+    const p2 = new Path2D("M 1.5 13 C 8 13 10 10 10 6 L 10 3 L 1 3 L 1 1 L 12 1 C 16 1 16 -5 16 -8 C 16 -12 12 -13 8 -13 L 5 -13 L 5 -10 C 5 -7 2 -5 -1 -5 L -5 -5 C -7 -5 -9 -3 -9 0 L -9 6 C -9 10 -6 13 1.5 13 Z");
+    ctx.fillStyle = '#387eb8'; ctx.fill(p1);
+    ctx.fillStyle = '#ffe052'; ctx.fill(p2);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(-5, -8, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, 8, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  } else if (emblem === 'github') {
+    ctx.save();
+    ctx.scale(0.75 * U, 0.75 * U);
+    ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+    const pGit = new Path2D("M0 -10 C -5.5 -10 -10 -5.5 -10 0 C -10 4.4 -7.1 8.1 -3.2 9.4 C -2.7 9.5 -2.5 9.2 -2.5 8.9 L -2.5 7.1 C -5.3 7.7 -5.9 5.8 -5.9 5.8 C -6.3 4.7 -7 4.4 -7 4.4 C -7.9 3.8 -6.9 3.8 -6.9 3.8 C -5.9 3.9 -5.4 4.9 -5.4 4.9 C -4.5 6.4 -3.1 6 -2.5 5.7 C -2.4 5 -2.1 4.5 -1.8 4.2 C -4 4 -6.4 3.1 -6.4 -0.7 C -6.4 -1.8 -6 -2.7 -5.3 -3.4 C -5.4 -3.7 -5.8 -4.7 -5.2 -6.1 C -5.2 -6.1 -4.3 -6.4 -2.3 -5 C -1.4 -5.2 -0.5 -5.3 0.4 -5.3 C 1.3 -5.3 2.2 -5.2 3.1 -5 C 5.1 -6.4 6 -6.1 6 -6.1 C 6.6 -4.7 6.2 -3.7 6.1 -3.4 C 6.8 -2.7 7.2 -1.8 7.2 -0.7 C 7.2 3.1 4.8 4 2.6 4.2 C 3 4.5 3.3 5.2 3.3 6.2 L 3.3 8.9 C 3.3 9.2 3.5 9.5 4 9.4 C 7.9 8.1 10.8 4.4 10.8 0 C 10.8 -5.5 6.3 -10 0 -10 Z");
+    ctx.fillStyle = '#ffffff'; ctx.fill(pGit);
+    ctx.restore();
+  }
 
   // olhos
   const ex = 13 * U, ey = 1 * U + p.eyeDy * U, erx = 4.4 * U, ery = 5.8 * U * (1 - 0.85 * p.eyeP);
-  if (p.arcs) {
+  if (p.annoyed) {
+    ctx.fillStyle = corOlho;
+    // Olho esquerdo cortado para dentro \
+    ctx.save();
+    ctx.translate(-ex + p.eyeDx * U, ey);
+    ctx.beginPath();
+    ctx.moveTo(-4.4 * U, -2.5 * U);
+    ctx.lineTo(4.4 * U, 2.5 * U);
+    ctx.arc(0, 0, 4.4 * U, 0.52, Math.PI * 1.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Olho direito cortado para dentro /
+    ctx.save();
+    ctx.translate(ex + p.eyeDx * U, ey);
+    ctx.beginPath();
+    ctx.moveTo(4.4 * U, -2.5 * U);
+    ctx.lineTo(-4.4 * U, 2.5 * U);
+    ctx.arc(0, 0, 4.4 * U, Math.PI * 0.85, Math.PI * 1.48, true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  } else if (p.arcs) {
     ctx.strokeStyle = corOlho; ctx.lineWidth = 2.6 * U; ctx.lineCap = 'round';
     for (const s of [-1, 1]) {
       ctx.beginPath();
       ctx.arc(s * ex, ey + 2 * U, 6 * U, Math.PI * 1.12, Math.PI * 1.88);
       ctx.stroke();
+    }
+  } else if (p.winkRight && p.winkRight > 0.4) {
+    ctx.fillStyle = corOlho;
+    // Olho esquerdo aberto
+    if (eyeStyle === 'slashes') {
+      ctx.save();
+      ctx.translate(-10 * U + p.eyeDx * U, ey);
+      ctx.rotate(0.31);
+      const slashH = Math.max(17 * (1 - 0.88 * p.eyeP), 2.2) * U;
+      rr(ctx, -3.75 * U, -slashH / 2, 7.5 * U, slashH, 3.75 * U);
+      ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      ctx.ellipse(-ex + p.eyeDx * U, ey, erx, Math.max(ery, 0.3 * U), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Olho direito fechado em piscadela charmosa 😉 (arco)
+    ctx.strokeStyle = corOlho;
+    ctx.lineWidth = 2.6 * U;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(ex + p.eyeDx * U, ey + 1.8 * U, 5.8 * U, Math.PI * 1.12, Math.PI * 1.88);
+    ctx.stroke();
+  } else if (eyeStyle === 'nico' || state === 'error') {
+    // Olho esquerdo: pílula vertical inclinada (~6°)
+    ctx.save();
+    ctx.translate(-ex + p.eyeDx * U, ey);
+    ctx.rotate(0.1);
+    const leftH = Math.max(19 * (1 - 0.88 * p.eyeP), 2.2) * U;
+    rr(ctx, -4.5 * U, -leftH / 2, 9 * U, leftH, 4.5 * U);
+    ctx.fillStyle = corOlho;
+    ctx.fill();
+    ctx.restore();
+
+    // Olho direito: traço horizontal inclinado (~8°)
+    ctx.save();
+    ctx.translate(ex + p.eyeDx * U, ey);
+    ctx.rotate(0.14);
+    const rightH = Math.max(6.2 * (1 - 0.65 * p.eyeP), 1.8) * U;
+    rr(ctx, -9.5 * U, -rightH / 2, 19 * U, rightH, 3.1 * U);
+    ctx.fillStyle = corOlho;
+    ctx.fill();
+    ctx.restore();
+  } else if (eyeStyle === 'slashes') {
+    ctx.fillStyle = corOlho;
+    for (const s of [-1, 1]) {
+      ctx.save();
+      ctx.translate(s * 10 * U + p.eyeDx * U, ey);
+      ctx.rotate(0.31); // ~18°
+      const slashH = Math.max(17 * (1 - 0.88 * p.eyeP), 2.2) * U;
+      rr(ctx, -3.75 * U, -slashH / 2, 7.5 * U, slashH, 3.75 * U);
+      ctx.fill();
+      ctx.restore();
     }
   } else if (ery > 0.3 * U) {
     ctx.fillStyle = corOlho;
@@ -231,18 +518,6 @@ function draw(ctx, W, H, spec, state, t, eyeMode = 'auto') {
     }
   }
   ctx.restore();
-
-  // bolhas de pensamento (fora do squash, relativas ao centro)
-  if (p.dots) {
-    const cx = W / 2, cyv = H * 0.53;
-    ctx.fillStyle = corOlho; ctx.globalAlpha = 0.75;
-    const pts = [[-12, -26], [0, -33], [12, -26]];
-    pts.forEach(([x, y], i) => {
-      const r = (1.6 + 0.8 * Math.sin(ph * 2 - i * 0.9)) * U;
-      ctx.beginPath(); ctx.arc(cx + x * U, cyv + y * U, Math.max(r, 0.5 * U), 0, Math.PI * 2); ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-  }
 
   // gota de suor (erro)
   if (p.sweat) {
@@ -261,35 +536,128 @@ function draw(ctx, W, H, spec, state, t, eyeMode = 'auto') {
 }
 
 /* SVG estático do frame atual (mesma matemática do draw) */
-function toSVG(spec, state, t, eyeMode, bg) {
+function toSVG(spec, state, t, eyeMode, bg, eyeStyle = 'default', emblem = 'none', bodyShape = 'pill') {
+  const bgRect = bg && bg !== 'transparent' ? `<rect width="100" height="100" fill="${bg === 'dark' ? '#12141a' : '#f8fafc'}"/>` : '';
+
+  if (state === 'thinking') {
+    const ph = (t / LOOP) * Math.PI * 2;
+    const dots = [-22, 0, 22].map((ox, i) => {
+      const wave = Math.max(0, Math.sin(ph * 4 - i * 0.7));
+      const dotDy = (-wave * 9).toFixed(2);
+      const dotR = (7.5 + wave * 0.8).toFixed(2);
+      const op = (0.5 + 0.5 * wave).toFixed(2);
+      return `<circle cx="${50 + ox}" cy="${(53 + parseFloat(dotDy)).toFixed(2)}" r="${dotR}" fill="${spec.cor}" opacity="${op}"/>`;
+    }).join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1024" height="1024">\n${bgRect}${dots}\n</svg>`;
+  }
+
+  if (state === 'error' || state === 'blocked') {
+    const corOlho = eyeMode === 'white' ? '#ffffff' : eyeMode === 'black' ? '#111111' : spec.olho;
+    const corMark = (bg === 'dark' && eyeMode === 'auto')
+      ? (spec.cor === '#f3f4f6' ? '#ffffff' : spec.cor)
+      : corOlho;
+    const markSvg = `
+  <g transform="translate(50 51)">
+    <path d="M -4.5 -22 C -4.5 -25 4.5 -25 4.5 -22 L 3.2 8 C 3.2 10.2 -3.2 10.2 -3.2 8 Z" fill="${corMark}"/>
+    <circle cx="0" cy="19.5" r="4.3" fill="${corMark}"/>
+  </g>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1024" height="1024">\n${bgRect}${markSvg}\n</svg>`;
+  }
+
   const p = pose(state, t);
   const corOlho = eyeMode === 'white' ? '#ffffff' : eyeMode === 'black' ? '#111111' : spec.olho;
   const ery = 5.8 * (1 - 0.85 * p.eyeP);
   const deg = (p.rot * 180 / Math.PI).toFixed(2);
+
+  let bodySvg;
+  if (bodyShape === 'crown') {
+    bodySvg = `<path d="M 14 51 L 14 36 Q 14 32, 19 29 L 23 23 Q 26 19, 29 23 L 35 29 Q 38 31, 41 28 L 47 19 Q 50 15, 53 19 L 59 28 Q 62 31, 65 29 L 71 23 Q 74 19, 77 23 L 81 29 Q 86 32, 86 36 L 86 51 A 21 21 0 0 1 65 72 L 35 72 A 21 21 0 0 1 14 51 Z" fill="${spec.cor}" transform="translate(-50 -51)"/>`;
+  } else if (bodyShape === 'circle') {
+    bodySvg = `<circle cx="0" cy="0" r="30" fill="${spec.cor}"/>`;
+  } else if (bodyShape === 'squircle') {
+    bodySvg = `<rect x="-28" y="-28" width="56" height="56" rx="17" fill="${spec.cor}"/>`;
+  } else {
+    bodySvg = `<rect x="-36" y="-21" width="72" height="42" rx="21" fill="${spec.cor}"/>`;
+  }
+
+  let emblemSvg = '';
+  if (emblem === 'figma') {
+    const s = bodyShape === 'pill' ? 0.95 : 1.2;
+    emblemSvg = `
+  <!-- Figma Emblem -->
+  <rect x="${-9 * s}" y="${-13.5 * s}" width="${9 * s}" height="${9 * s}" rx="${4.5 * s}" fill="#F24E1E"/>
+  <rect x="0" y="${-13.5 * s}" width="${9 * s}" height="${9 * s}" rx="${4.5 * s}" fill="#A259FF"/>
+  <rect x="${-9 * s}" y="${-4.5 * s}" width="${9 * s}" height="${9 * s}" rx="${4.5 * s}" fill="#FF7262"/>
+  <circle cx="${4.5 * s}" cy="0" r="${4.5 * s}" fill="#1ABCFE"/>
+  <rect x="${-9 * s}" y="${4.5 * s}" width="${9 * s}" height="${9 * s}" rx="${4.5 * s}" fill="#0ACF83"/>`;
+  } else if (emblem === 'dev_code') {
+    emblemSvg = `
+  <rect x="-19" y="-9.5" width="38" height="19" rx="5" fill="rgba(0,0,0,0.3)"/>
+  <text x="0" y="3.5" font-family="monospace" font-weight="bold" font-size="11" fill="#38bdf8" text-anchor="middle">&lt;/&gt;</text>`;
+  } else if (emblem === 'terminal') {
+    emblemSvg = `
+  <rect x="-19" y="-9.5" width="38" height="19" rx="5" fill="rgba(0,0,0,0.3)"/>
+  <text x="0" y="3.5" font-family="monospace" font-weight="bold" font-size="11" fill="#4ade80" text-anchor="middle">&gt;_</text>`;
+  } else if (emblem === 'react') {
+    emblemSvg = `
+  <ellipse cx="0" cy="0" rx="14" ry="5" fill="none" stroke="#61dafb" stroke-width="1.2"/>
+  <ellipse cx="0" cy="0" rx="14" ry="5" fill="none" stroke="#61dafb" stroke-width="1.2" transform="rotate(60 0 0)"/>
+  <ellipse cx="0" cy="0" rx="14" ry="5" fill="none" stroke="#61dafb" stroke-width="1.2" transform="rotate(120 0 0)"/>
+  <circle cx="0" cy="0" r="2.2" fill="#61dafb"/>`;
+  } else if (emblem === 'python') {
+    emblemSvg = `
+  <g transform="scale(0.65)">
+    <path d="M -1.5 -13 C -8 -13 -10 -10 -10 -6 L -10 -3 L -1 -3 L -1 -1 L -12 -1 C -16 -1 -16 5 -16 8 C -16 12 -12 13 -8 13 L -5 13 L -5 10 C -5 7 -2 5 1 5 L 5 5 C 7 5 9 3 9 0 L 9 -6 C 9 -10 6 -13 -1.5 -13 Z" fill="#387eb8"/>
+    <path d="M 1.5 13 C 8 13 10 10 10 6 L 10 3 L 1 3 L 1 1 L 12 1 C 16 1 16 -5 16 -8 C 16 -12 12 -13 8 -13 L 5 -13 L 5 -10 C 5 -7 2 -5 -1 -5 L -5 -5 C -7 -5 -9 -3 -9 0 L -9 6 C -9 10 -6 13 1.5 13 Z" fill="#ffe052"/>
+    <circle cx="-5" cy="-8" r="1.2" fill="#ffffff"/>
+    <circle cx="5" cy="8" r="1.2" fill="#ffffff"/>
+  </g>`;
+  } else if (emblem === 'github') {
+    emblemSvg = `
+  <g transform="scale(0.75)">
+    <circle cx="0" cy="0" r="13" fill="rgba(0,0,0,0.3)"/>
+    <path d="M0 -10 C -5.5 -10 -10 -5.5 -10 0 C -10 4.4 -7.1 8.1 -3.2 9.4 C -2.7 9.5 -2.5 9.2 -2.5 8.9 L -2.5 7.1 C -5.3 7.7 -5.9 5.8 -5.9 5.8 C -6.3 4.7 -7 4.4 -7 4.4 C -7.9 3.8 -6.9 3.8 -6.9 3.8 C -5.9 3.9 -5.4 4.9 -5.4 4.9 C -4.5 6.4 -3.1 6 -2.5 5.7 C -2.4 5 -2.1 4.5 -1.8 4.2 C -4 4 -6.4 3.1 -6.4 -0.7 C -6.4 -1.8 -6 -2.7 -5.3 -3.4 C -5.4 -3.7 -5.8 -4.7 -5.2 -6.1 C -5.2 -6.1 -4.3 -6.4 -2.3 -5 C -1.4 -5.2 -0.5 -5.3 0.4 -5.3 C 1.3 -5.3 2.2 -5.2 3.1 -5 C 5.1 -6.4 6 -6.1 6 -6.1 C 6.6 -4.7 6.2 -3.7 6.1 -3.4 C 6.8 -2.7 7.2 -1.8 7.2 -0.7 C 7.2 3.1 4.8 4 2.6 4.2 C 3 4.5 3.3 5.2 3.3 6.2 L 3.3 8.9 C 3.3 9.2 3.5 9.5 4 9.4 C 7.9 8.1 10.8 4.4 10.8 0 C 10.8 -5.5 6.3 -10 0 -10 Z" fill="#ffffff"/>
+  </g>`;
+  }
+
   let eyes;
-  if (p.arcs) {
+  if (p.annoyed) {
+    eyes = `
+    <path d="M ${-17.4 + p.eyeDx} ${ey - 1.5} L ${-8.6 + p.eyeDx} ${ey + 3.5} A 4.4 5.8 0 0 1 ${-17.4 + p.eyeDx} ${ey - 1.5} Z" fill="${corOlho}"/>
+    <path d="M ${17.4 + p.eyeDx} ${ey - 1.5} L ${8.6 + p.eyeDx} ${ey + 3.5} A 4.4 5.8 0 0 0 ${17.4 + p.eyeDx} ${ey - 1.5} Z" fill="${corOlho}"/>`;
+  } else if (p.arcs) {
     eyes = [-13, 13].map(x =>
       `<path d="M ${x - 6} ${1 + p.eyeDy + 2} A 6 6 0 0 1 ${x + 6} ${1 + p.eyeDy + 2}" fill="none" stroke="${corOlho}" stroke-width="2.6" stroke-linecap="round" transform="translate(${p.eyeDx} 0)"/>`).join('');
+  } else if (p.winkRight && p.winkRight > 0.4) {
+    eyes = `
+    <ellipse cx="${-13 + p.eyeDx}" cy="${1 + p.eyeDy}" rx="4.4" ry="${Math.max(ery, 0.3).toFixed(2)}" fill="${corOlho}"/>
+    <path d="M ${13 - 5.8 + p.eyeDx} ${1 + p.eyeDy + 1.8} A 5.8 5.8 0 0 1 ${13 + 5.8 + p.eyeDx} ${1 + p.eyeDy + 1.8}" fill="none" stroke="${corOlho}" stroke-width="2.6" stroke-linecap="round"/>`;
+  } else if (state === 'error' || eyeStyle === 'nico') {
+    const leftH = Math.max(19 * (1 - 0.88 * p.eyeP), 2.2).toFixed(2);
+    const rightH = Math.max(6.2 * (1 - 0.65 * p.eyeP), 1.8).toFixed(2);
+    eyes = [
+      `<rect x="${(-13 - 4.5).toFixed(1)}" y="${(1 - leftH / 2).toFixed(1)}" width="9" height="${leftH}" rx="4.5" fill="${corOlho}" transform="rotate(6 -13 1)"/>`,
+      `<rect x="${(13 - 9.5).toFixed(1)}" y="${(1 - rightH / 2).toFixed(1)}" width="19" height="${rightH}" rx="3.1" fill="${corOlho}" transform="rotate(8 13 1)"/>`
+    ].join('');
+  } else if (eyeStyle === 'slashes') {
+    const slashH = Math.max(17 * (1 - 0.88 * p.eyeP), 2.2).toFixed(2);
+    eyes = [-10, 10].map(x =>
+      `<rect x="${(x + p.eyeDx - 3.75).toFixed(1)}" y="${(1 + p.eyeDy - slashH / 2).toFixed(1)}" width="7.5" height="${slashH}" rx="3.75" fill="${corOlho}" transform="rotate(18 ${x + p.eyeDx} ${1 + p.eyeDy})"/>`
+    ).join('');
   } else {
     eyes = [-13, 13].map(x =>
       `<ellipse cx="${x + p.eyeDx}" cy="${1 + p.eyeDy}" rx="4.4" ry="${Math.max(ery, 0.3).toFixed(2)}" fill="${corOlho}"/>`).join('');
   }
   let extra = '';
-  if (p.dots) {
-    extra += [[-12, -26], [0, -33], [12, -26]].map(([x, y], i) => {
-      const r = Math.max(1.6 + 0.8 * Math.sin((t / LOOP) * Math.PI * 4 - i * 0.9), 0.5);
-      return `<circle cx="${(50 + x).toFixed(1)}" cy="${(53 + y).toFixed(1)}" r="${r.toFixed(2)}" fill="${corOlho}" opacity="0.75"/>`;
-    }).join('');
-  }
   if (p.sweat) {
     const a = (Math.sin((t / LOOP) * Math.PI * 2) + 1) / 2;
     const sxp = 50 + 29, syp = 53 + (-25 + a * 3);
     extra += `<path d="M ${sxp} ${syp - 5} Q ${sxp + 4.5} ${syp + 1} ${sxp} ${syp + 4} Q ${sxp - 4.5} ${syp + 1} ${sxp} ${syp - 5} Z" fill="${corOlho}" opacity="${(0.4 + 0.5 * a).toFixed(2)}"/>`;
   }
-  const bgRect = bg && bg !== 'transparent' ? `<rect width="100" height="100" fill="${bg === 'dark' ? '#12141a' : '#f8fafc'}"/>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1024" height="1024">
 ${bgRect}<g transform="translate(50 ${53 + p.dy}) rotate(${deg}) scale(${p.sx.toFixed(4)} ${p.sy.toFixed(4)})">
-  <rect x="-36" y="-21" width="72" height="42" rx="21" fill="${spec.cor}"/>
+  ${bodySvg}
+  ${emblemSvg}
   ${eyes}
 </g>${extra}
 </svg>`;
@@ -301,12 +669,15 @@ const ui = {
   nome: 'Padrão',
   state: 'idle',
   eyeMode: 'auto',
+  eyeStyle: 'default',
+  emblem: 'none',
+  bodyShape: 'pill',
   fundo: 'transparent',
 };
 let tabAtual = 'studio';
 const wallTiles = [];
 
-const ESTADOS = { idle: 'idle', thinking: 'pensando', typing: 'digitando', error: 'erro', success: 'sucesso' };
+const ESTADOS = { idle: 'idle', thinking: 'pensando', typing: 'digitando', error: 'blocked (!)', success: 'pronto (pisca 😉)', annoyed: 'raiva / incomodado 💢' };
 const slug = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'agente';
 
 function setTab(tab) {
@@ -319,6 +690,7 @@ function setTab(tab) {
 
 function seg(id, fn) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
@@ -326,7 +698,13 @@ function seg(id, fn) {
   });
 }
 seg('segOlho', v => { ui.eyeMode = v; });
-seg('segEstado', v => { ui.state = v; document.getElementById('capEstado').textContent = `${ESTADOS[v]} · loop contínuo`; });
+seg('segFormato', v => { ui.bodyShape = v; });
+seg('segEmblema', v => { ui.emblem = v; });
+seg('segEstiloOlho', v => { ui.eyeStyle = v; });
+seg('segEstado', v => {
+  ui.state = v;
+  document.getElementById('capEstado').textContent = `${ESTADOS[v]} · loop contínuo`;
+});
 seg('segFundo', v => {
   ui.fundo = v;
   const w = document.getElementById('canvasWrap');
@@ -386,6 +764,9 @@ function initFromURL() {
   if (q.get('nome')) ui.nome = q.get('nome');
   const st = q.get('estado'); if (st && ESTADOS[st]) ui.state = st;
   const em = q.get('olhos'); if (['auto', 'black', 'white'].includes(em)) ui.eyeMode = em;
+  const fs = q.get('formato'); if (['pill', 'circle', 'squircle'].includes(fs)) ui.bodyShape = fs;
+  const es = q.get('estilo'); if (['default', 'nico', 'slashes'].includes(es)) ui.eyeStyle = es;
+  const emb = q.get('emblema'); if (['none', 'figma', 'dev_code', 'terminal', 'react', 'python', 'github'].includes(emb)) ui.emblem = emb;
   const fd = q.get('fundo'); if (['transparent', 'dark', 'light'].includes(fd)) ui.fundo = fd;
   return q.get('view');
 }
@@ -395,6 +776,9 @@ function syncUI() {
   document.getElementById('capEstado').textContent = `${ESTADOS[ui.state]} · loop contínuo`;
   document.querySelectorAll('#segEstado button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.state));
   document.querySelectorAll('#segOlho button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.eyeMode));
+  document.querySelectorAll('#segFormato button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.bodyShape));
+  document.querySelectorAll('#segEmblema button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.emblem));
+  document.querySelectorAll('#segEstiloOlho button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.eyeStyle));
   document.querySelectorAll('#segFundo button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.fundo));
   const wrap = document.getElementById('canvasWrap');
   wrap.classList.remove('checker', 'dark', 'light');
@@ -417,10 +801,27 @@ syncUI();
 if (view === 'wall') setTab('wall');
 resizePreview();
 
+let annoyedTimeout;
+cv.style.cursor = 'pointer';
+cv.title = 'Clique para cutucar o mascote!';
+cv.addEventListener('click', () => {
+  const previousState = ui.state === 'annoyed' ? 'idle' : ui.state;
+  ui.state = 'annoyed';
+  const cap = document.getElementById('capEstado');
+  if (cap) cap.textContent = `${ESTADOS.annoyed} · cutucado!`;
+  document.querySelectorAll('#segEstado button').forEach(b => b.classList.toggle('on', b.dataset.v === 'annoyed'));
+  clearTimeout(annoyedTimeout);
+  annoyedTimeout = setTimeout(() => {
+    ui.state = previousState;
+    if (cap) cap.textContent = `${ESTADOS[ui.state]} · loop contínuo`;
+    document.querySelectorAll('#segEstado button').forEach(b => b.classList.toggle('on', b.dataset.v === ui.state));
+  }, 1500);
+});
+
 function frame(now) {
   const t = (now / 1000) % LOOP;
   pctx.clearRect(0, 0, cv.width, cv.height);
-  draw(pctx, cv.width, cv.height, ui.spec, ui.state, t, ui.eyeMode);
+  draw(pctx, cv.width, cv.height, ui.spec, ui.state, t, ui.eyeMode, ui.eyeStyle, ui.emblem, ui.bodyShape);
   if (tabAtual === 'wall') wallTick(now);
   else tilesTick(now);
   requestAnimationFrame(frame);
@@ -443,8 +844,8 @@ function buildWall() {
     wallTiles.push({ canvas: c, ctx: c.getContext('2d'), spec: { cor: a.cor, olho: a.olho } });
   });
 }
-function wallTick(now) { const t = (now / 1000) % LOOP; wallTiles.forEach(o => { o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height); draw(o.ctx, o.canvas.width, o.canvas.height, o.spec, 'idle', t); }); }
-function tilesTick(now) { const t = (now / 1000) % LOOP; wallTiles.forEach(o => { o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height); draw(o.ctx, o.canvas.width, o.canvas.height, o.spec, 'idle', t); }); }
+function wallTick(now) { const t = (now / 1000) % LOOP; wallTiles.forEach(o => { o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height); draw(o.ctx, o.canvas.width, o.canvas.height, o.spec, 'idle', t, 'auto', ui.eyeStyle, ui.emblem, ui.bodyShape); }); }
+function tilesTick(now) { const t = (now / 1000) % LOOP; wallTiles.forEach(o => { o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height); draw(o.ctx, o.canvas.width, o.canvas.height, o.spec, 'idle', t, 'auto', ui.eyeStyle, ui.emblem, ui.bodyShape); }); }
 
 /* ============================ EXPORTAÇÕES ============================ */
 function bgFill(ctx, W, H) {
@@ -456,7 +857,7 @@ function renderFrame(size, t, keyBg = false) {
   const x = c.getContext('2d');
   if (keyBg) { x.fillStyle = '#ff00ff'; x.fillRect(0, 0, size, size); } // cor-chave p/ GIF transparente
   else bgFill(x, size, size);
-  draw(x, size, size, ui.spec, ui.state, t, ui.eyeMode);
+  draw(x, size, size, ui.spec, ui.state, t, ui.eyeMode, ui.eyeStyle, ui.emblem, ui.bodyShape);
   return c;
 }
 function download(blob, nome) {
@@ -469,7 +870,7 @@ const baseNome = () => `${slug(ui.nome)}-${ui.state}`;
 function expPNG() { renderFrame(1024, 0).toBlob(b => download(b, `${baseNome()}.png`), 'image/png'); }
 function expSVG() {
   const bg = ui.fundo === 'transparent' ? null : ui.fundo;
-  download(new Blob([toSVG(ui.spec, ui.state, 0, ui.eyeMode, bg)], { type: 'image/svg+xml' }), `${baseNome()}.svg`);
+  download(new Blob([toSVG(ui.spec, ui.state, 0, ui.eyeMode, bg, ui.eyeStyle, ui.emblem, ui.bodyShape)], { type: 'image/svg+xml' }), `${baseNome()}.svg`);
 }
 async function expGIF(btn) {
   btn.disabled = true; const old = btn.textContent; btn.textContent = 'Gerando GIF…';
@@ -501,7 +902,7 @@ async function expWebM(btn) {
     (function tick(now) {
       const t = ((now - t0) / 1000) % LOOP;
       x.clearRect(0, 0, size, size);
-      draw(x, size, size, ui.spec, ui.state, t, ui.eyeMode);
+      draw(x, size, size, ui.spec, ui.state, t, ui.eyeMode, ui.eyeStyle, ui.emblem, ui.bodyShape);
       if ((now - t0) / 1000 < LOOP) requestAnimationFrame(tick); else res();
     })(t0);
   });

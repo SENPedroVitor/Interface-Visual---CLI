@@ -23,10 +23,14 @@
 .quick-action-btn { min-height: 38px; padding: 9px 15px; box-shadow: none; background: var(--bg-main); border-color: var(--border); color: var(--text-secondary); }
 .quick-action-btn:hover { transform: none; box-shadow: none; background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-hover); }
 .composer-area { max-width: 760px; padding: 14px 24px 24px; }
-.composer-box { min-height: 52px; border-radius: 18px; padding-inline: 14px 10px; box-shadow: 0 8px 28px var(--shadow-soft), 0 1px 2px var(--hairline); }
-.composer-box:focus-within { border-color: var(--border-hover); box-shadow: 0 0 0 3px rgba(145, 89, 254, .10), 0 10px 32px var(--shadow-soft); }
-.agent-list-item.active { background: var(--bg-selected); }
-.agent-list-item.active::before { content: ""; position: absolute; left: -8px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent, #9159fe); }
+.composer-box { min-height: 52px; border-radius: 18px; padding-inline: 14px 10px; box-shadow: 0 8px 28px var(--shadow-soft), 0 1px 2px var(--hairline); transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.24s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease; will-change: transform, box-shadow; }
+.composer-box:focus-within, .composer-box.is-focused { transform: translateY(-2px); border-color: rgba(145, 89, 254, 0.45); box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.35), 0 4px 12px var(--shadow-soft), 0 0 0 1px rgba(145, 89, 254, .25); }
+.agent-list-item { position: relative; z-index: 1; }
+.agent-list-item.active { background: transparent !important; }
+.agent-list-item.active::before { display: none !important; }
+.agent-list-active-bg { position: absolute; inset: 0; border-radius: 12px; background: var(--bg-selected, rgba(145, 89, 254, 0.09)); border: 1px solid rgba(145, 89, 254, 0.20); pointer-events: none; z-index: 0; }
+.agent-list-indicator { position: absolute; left: -8px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent, #9159fe); box-shadow: 0 0 10px rgba(145, 89, 254, 0.65); pointer-events: none; z-index: 2; }
+.agent-list-item > * { position: relative; z-index: 1; }
 .agent-list-item:hover { transform: none; box-shadow: none; }
 .agent-list-row1 { align-items: center; }
 .agent-list-row2 { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -95,4 +99,116 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .panel-header { padding-inline: 14px; }
   .empty-state { padding-inline: 16px; }
   .empty-title { font-size: 25px; }
+}
+
+/* Floating Agent Hover Card */
+.agent-hover-card {
+  width: 280px;
+  background: var(--bg-main, #14151c);
+  border: 1px solid var(--border-hover, rgba(145, 89, 254, 0.35));
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+[data-theme="light"] .agent-hover-card {
+  background: #ffffff;
+  border-color: rgba(145, 89, 254, 0.3);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.agent-hover-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.08));
+}
+
+[data-theme="light"] .agent-hover-card-header {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+.agent-hover-card-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-hover-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-hover-role {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.agent-hover-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.agent-hover-status-badge.is-working,
+.agent-hover-status-badge.is-thinking {
+  background: rgba(145, 89, 254, 0.16);
+  color: #c084fc;
+  border: 1px solid rgba(145, 89, 254, 0.3);
+}
+
+.agent-hover-card-body {
+  margin-bottom: 10px;
+}
+
+.agent-hover-task-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.agent-hover-task-text {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.agent-hover-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.agent-hover-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  padding-top: 6px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.06));
+}
+
+[data-theme="light"] .agent-hover-card-footer {
+  border-top-color: rgba(0, 0, 0, 0.05);
+}
+
+.agent-hover-hint {
+  color: var(--accent, #9159fe);
+  font-weight: 600;
 }

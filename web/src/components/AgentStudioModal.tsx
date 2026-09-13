@@ -32,6 +32,10 @@ import {
   Leaf,
   Coffee,
   Activity,
+  Eye,
+  Code,
+  Circle,
+  Square,
 } from 'lucide-react';
 import './AgentStudioModal.css';
 
@@ -160,7 +164,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
       setDescription('');
       setColor('#38bdf8');
       setMarking('none');
-      setCosmetics({ head: 'command_module', face: 'none', body: 'status_bar', hand: 'none' });
+      setCosmetics({ head: 'luffy_hat', face: 'none', body: 'none', hand: 'coffee' });
       setImageUrl(undefined);
       setSoulPrompt('');
       setWhatItDoes('');
@@ -219,13 +223,24 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
 
   const renderCosmeticIcon = (id: string) => {
     switch (id) {
+      case 'pill':
+      case 'circle': return <Circle size={14} />;
+      case 'squircle': return <Square size={14} />;
       case 'crown': return <Crown size={14} />;
       case 'luffy_hat': return <Sun size={14} />;
       case 'headphones': return <Headphones size={14} />;
       case 'sports_headband': return <Trophy size={14} />;
       case 'zoro_scar': return <Swords size={14} />;
+      case 'nico_eyes':
+      case 'slashes_eyes': return <Eye size={14} />;
       case 'glasses':
       case 'sunglasses': return <Glasses size={14} />;
+      case 'figma': return <Palette size={14} />;
+      case 'dev_code': return <Code size={14} />;
+      case 'terminal': return <Terminal size={14} />;
+      case 'react': return <Sparkles size={14} />;
+      case 'python': return <FolderCode size={14} />;
+      case 'github': return <Globe size={14} />;
       case 'tie': return <Briefcase size={14} />;
       case 'money_tie': return <DollarSign size={14} />;
       case 'bowtie': return <Award size={14} />;
@@ -462,13 +477,14 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
 
                 {/* Cosmetics Categories */}
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Módulo superior</span>
+                  <span className="studio-label">Cabeça (Head Accessory)</span>
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
-                      { id: 'command_module', label: 'Comando' },
-                      { id: 'signal_band', label: 'Sinal' },
-                      { id: 'timeline_rig', label: 'Timeline' },
+                      { id: 'sports_headband', label: 'Faixa Esportiva' },
+                      { id: 'luffy_hat', label: 'Chapéu do Luffy' },
+                      { id: 'headphones', label: 'Fone de Ouvido' },
+                      { id: 'crown', label: 'Coroa Real' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -484,13 +500,15 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 </div>
 
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Detalhe do rosto</span>
+                  <span className="studio-label">Rosto & Expressão</span>
                   <div className="cosmetics-pills-row">
                     {[
-                      { id: 'none', label: 'Nenhum' },
-                      { id: 'visor', label: 'Visor' },
-                      { id: 'design_nodes', label: 'Design nodes' },
-                      { id: 'code_cursor', label: 'Cursor dev' },
+                      { id: 'none', label: 'Padrão' },
+                      { id: 'slashes_eyes', label: 'Olhos Slashes //' },
+                      { id: 'nico_eyes', label: 'Olhar Nico' },
+                      { id: 'glasses', label: 'Óculos Nerd' },
+                      { id: 'sunglasses', label: 'Óculos Escuros' },
+                      { id: 'zoro_scar', label: 'Cicatriz' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -506,14 +524,43 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 </div>
 
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Marca funcional</span>
+                  <span className="studio-label">Formato do Corpo (Silhueta)</span>
+                  <div className="cosmetics-pills-row">
+                    {[
+                      { id: 'pill', label: 'Pílula Waddle 💊' },
+                      { id: 'crown', label: 'Coroa Integrada (Quinta) 👑' },
+                      { id: 'circle', label: 'Círculo (Figma Bro) ⚪' },
+                      { id: 'squircle', label: 'Squircle / App (DevBot) ⬛' },
+                    ].map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`cosmetic-pill-btn ${(cosmetics.bodyShape || 'pill') === item.id ? 'active' : ''}`}
+                        onClick={() => setCosmetics(prev => ({ ...prev, bodyShape: item.id }))}
+                      >
+                        {renderCosmeticIcon(item.id)}
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="cosmetics-category-block">
+                  <span className="studio-label">Emblemas & Logos no Corpo</span>
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
-                      { id: 'status_bar', label: 'Status bar' },
-                      { id: 'data_grid', label: 'Data grid' },
-                      { id: 'shield_mark', label: 'Quality mark' },
-                      { id: 'orbit_mark', label: 'Motion orbit' },
+                      { id: 'figma', label: 'Figma Bro 🎨' },
+                      { id: 'dev_code', label: 'Dev Code </>' },
+                      { id: 'terminal', label: 'Terminal >_' },
+                      { id: 'react', label: 'React ⚛' },
+                      { id: 'python', label: 'Python 🐍' },
+                      { id: 'github', label: 'GitHub 🐙' },
+                      { id: 'money_tie', label: 'Gravata Dinheiro ($)' },
+                      { id: 'tie', label: 'Gravata Vermelha' },
+                      { id: 'bowtie', label: 'Gravata Borboleta' },
+                      { id: 'leaf_badge', label: 'Broche Eco' },
+                      { id: 'whistle', label: 'Apito de Árbitro' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -529,11 +576,11 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                 </div>
 
                 <div className="cosmetics-category-block">
-                  <span className="studio-label">Painel lateral</span>
+                  <span className="studio-label">Mão & Acessórios</span>
                   <div className="cosmetics-pills-row">
                     {[
                       { id: 'none', label: 'Nenhum' },
-                      { id: 'side_panel', label: 'Painel' },
+                      { id: 'coffee', label: 'Café Fumegante' },
                     ].map(item => (
                       <button
                         key={item.id}
@@ -557,7 +604,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                     value={name}
                     disabled={isEditing}
                     onChange={e => setName(e.target.value)}
-                    placeholder="Ex: Pixel, Motion, Data, Ops..."
+                    placeholder="Ex: Luffy, Zoro, DevSage..."
                     maxLength={32}
                   />
                 </div>
@@ -574,10 +621,6 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
                     <option value="Research">Research (Pesquisa, síntese de documentações e web)</option>
                     <option value="Reviewer">Reviewer (Revisão de qualidade e testes)</option>
                     <option value="Investor">Investor (Mercado financeiro, B3 e dividendos)</option>
-                    <option value="Designer">Designer (UI, Figma e direção visual)</option>
-                    <option value="Motion">Motion (Microinterações e animações)</option>
-                    <option value="Data">Data (Análise, métricas e estruturação)</option>
-                    <option value="Operations">Operations (Rotinas, automações e organização)</option>
                   </select>
                 </div>
 

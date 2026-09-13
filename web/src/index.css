@@ -187,22 +187,6 @@
   :root:not([data-theme="light"])[data-daypart="night"]   { --daypart-tint: rgba(100, 120, 230, 0.16); }
 }
 
-/* Theme reveal animation. The flag exists only while the toggle is running,
-   so other future view transitions are not affected. */
-html[data-waddle-theme-vt="active"]::view-transition-old(root),
-html[data-waddle-theme-vt="active"]::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-html[data-waddle-theme-vt="active"]::view-transition-group(root) {
-  animation-duration: var(--waddle-theme-toggle-vt-duration);
-}
-
-html[data-waddle-theme-vt="active"]::view-transition-new(root) {
-  clip-path: var(--waddle-theme-vt-clip-from);
-}
-
 /* ── Reset ────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -718,6 +702,15 @@ button, input, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.hero-penguin {
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.hero-penguin.is-composer-attentive {
+  transform: translateY(2px) scale(1.015);
 }
 
 .empty-title {
@@ -1325,166 +1318,6 @@ button, input, textarea {
   font-weight: 600;
 }
 
-/* Inline team summary for squad chats. It mirrors the visual preview's
-   "Trabalho em equipe" block, but uses live agents/tasks/artifacts. */
-.team-work-card {
-  width: calc(100% - 40px);
-  max-width: 620px;
-  align-self: flex-start;
-  margin: 6px 20px 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--hairline);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--bg-main) 88%, var(--text-primary) 5%);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  animation: appleMsgSlideIn 0.32s var(--ease-spring) both;
-}
-
-.team-work-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.team-work-card__header div {
-  display: grid;
-  gap: 3px;
-}
-
-.team-work-card__eyebrow {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.team-work-card__header strong {
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.team-work-card__meta {
-  color: var(--text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.team-work-card__agents {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  padding: 10px 0 12px;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-}
-
-.team-work-card__agent {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  column-gap: 8px;
-  row-gap: 1px;
-  align-items: center;
-}
-
-.team-work-card__agent .waddle-avatar-wrapper {
-  grid-row: span 2;
-}
-
-.team-work-card__agent span,
-.team-work-card__artifact strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.team-work-card__agent small,
-.team-work-card__artifact small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-muted);
-  font-size: 10.5px;
-}
-
-.team-work-card__checks {
-  display: grid;
-  gap: 7px;
-  padding-top: 12px;
-}
-
-.team-work-card__check {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.team-work-card__check svg {
-  color: #38a169;
-}
-
-.team-work-card__check span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.team-work-card__check small {
-  color: var(--text-muted);
-  font-size: 10.5px;
-  text-align: right;
-}
-
-.team-work-card__artifact {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 10px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-main) 92%, var(--text-primary) 3%);
-}
-
-.team-work-card__artifact div {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-@media (max-width: 760px) {
-  .team-work-card {
-    width: calc(100% - 32px);
-    margin-inline: 16px;
-    padding: 13px;
-  }
-
-  .team-work-card__agents {
-    grid-template-columns: 1fr;
-  }
-
-  .team-work-card__check {
-    grid-template-columns: 16px minmax(0, 1fr);
-  }
-
-  .team-work-card__check small {
-    grid-column: 2;
-    text-align: left;
-  }
-}
-
 /* Created routine / summary pill */
 .routine-pill {
   display: flex;
@@ -1542,8 +1375,12 @@ button, input, textarea {
   border: 1px solid var(--border-input-glass);
   border-radius: var(--radius-xl);
   padding: 8px 10px 8px 14px;
-  box-shadow: 0 1px 3px var(--shadow-soft);
-  transition: all 0.25s var(--ease-spring);
+  box-shadow: 0 4px 18px var(--shadow-soft), 0 1px 2px var(--hairline);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease,
+              background 0.2s ease;
+  will-change: transform, box-shadow;
 }
 
 .composer-input-row {
@@ -1658,9 +1495,22 @@ button, input, textarea {
   pointer-events: auto;
 }
 
-.composer-box:focus-within {
+.composer-box:focus-within,
+.composer-box.is-focused {
+  transform: translateY(-2px);
   border-color: rgba(145, 89, 254, 0.45);
-  box-shadow: 0 0 0 3px rgba(145, 89, 254, 0.12), 0 4px 14px var(--hairline);
+  box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.35),
+              0 4px 12px rgba(0, 0, 0, 0.2),
+              0 0 0 1px rgba(145, 89, 254, 0.25);
+}
+
+[data-theme="light"] .composer-box:focus-within,
+[data-theme="light"] .composer-box.is-focused {
+  transform: translateY(-2px);
+  border-color: rgba(145, 89, 254, 0.55);
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.12),
+              0 4px 10px rgba(0, 0, 0, 0.05),
+              0 0 0 1px rgba(145, 89, 254, 0.25);
 }
 
 .btn-composer-attach {
@@ -1757,10 +1607,11 @@ button, input, textarea {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.btn-composer-plus:hover {
+.btn-composer-plus:hover:not(.is-active) {
   background: var(--bg-hover, rgba(255, 255, 255, 0.08));
   color: var(--text-primary, #ffffff);
   border-color: var(--border-hover, rgba(255, 255, 255, 0.22));
+  transform: rotate(90deg);
 }
 
 .btn-composer-plus.is-active {
@@ -1775,10 +1626,11 @@ button, input, textarea {
   color: #64748b;
 }
 
-[data-theme="light"] .btn-composer-plus:hover {
+[data-theme="light"] .btn-composer-plus:hover:not(.is-active) {
   background: #f1f5f9;
   color: #0f172a;
   border-color: #cbd5e1;
+  transform: rotate(90deg);
 }
 
 [data-theme="light"] .btn-composer-plus.is-active {
@@ -1996,15 +1848,27 @@ button, input, textarea {
   right: 0;
   bottom: 0;
   width: 440px;
-  background: var(--glass-94);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  background: var(--white);
   border-left: 1px solid var(--border-strong);
   z-index: 101;
   display: flex;
   flex-direction: column;
   box-shadow: -12px 0 40px var(--shadow-drawer);
   animation: appleDrawerSlideIn 0.5s var(--ease-spring-snappy) both;
+}
+
+:root[data-theme="dark"] .dev-drawer,
+:root[data-theme="dark"] .routine-drawer {
+  background: #151420;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dev-drawer,
+  :root:not([data-theme="light"]) .routine-drawer {
+    background: #151420;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+  }
 }
 
 /* Slide + scale + fade together, with a snappy spring overshoot — reads
@@ -2203,6 +2067,126 @@ button, input, textarea {
 .btn-kill-switch:active {
   background: #fecaca;
   box-shadow: none;
+}
+
+/* Architecture Tab in Dev Drawer */
+.dev-drawer.dev-drawer-wide {
+  width: 680px;
+  max-width: 95vw;
+  transition: width 0.3s var(--ease-spring);
+}
+
+.dev-drawer.dev-drawer-maximized {
+  width: 940px;
+  max-width: 96vw;
+  transition: width 0.3s var(--ease-spring);
+}
+
+.btn-dev-header-action {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  transition: background 0.1s, color 0.1s;
+}
+
+.btn-dev-header-action:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .btn-dev-header-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.btn-arch-preset {
+  background: var(--surface-neutral);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-arch-preset:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-arch-preset.active {
+  background: var(--gray-900);
+  border-color: var(--gray-900);
+  color: var(--white);
+  font-weight: 600;
+}
+
+:root[data-theme="dark"] .btn-arch-preset.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-arch-preset.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: #ffffff;
+  }
+}
+
+.btn-arch-toggle {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-arch-toggle:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+.btn-arch-toggle.active {
+  background: var(--white);
+  border-color: var(--border);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme="dark"] .btn-arch-toggle.active {
+  background: #252433;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-arch-toggle.active {
+    background: #252433;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
+}
+
+.dev-arch-inspector {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--surface-neutral);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  animation: appleFadeIn 0.2s ease;
 }
 
 /* =====================================================================
