@@ -8,7 +8,7 @@ type MotionVariant = 'off' | 'standard' | 'organic';
 const LAB_AGENTS = ['Quinta', 'Atlas', 'Nero', 'Iris', 'Ma', 'Livro', 'Pixel', 'Motion', 'Data', 'Ops'];
 
 const LAB_STATES: AgentState[] = [
-  'idle', 'listening', 'thinking', 'planning', 'waiting', 'creating', 'done', 'blocked', 'stopped',
+  'idle', 'thinking', 'working', 'waiting', 'blocked', 'done', 'stopped',
 ];
 
 const VARIANTS: { id: MotionVariant; label: string; hint: string }[] = [
@@ -16,6 +16,8 @@ const VARIANTS: { id: MotionVariant; label: string; hint: string }[] = [
   { id: 'standard', label: 'Estúdio', hint: 'Loops constantes e previsíveis.' },
   { id: 'organic', label: 'Vivos', hint: 'Piscar irregular, olhar e respiração orgânicos.' },
 ];
+
+const EXPRESSION_CARD_VARIANT: MotionVariant = 'organic';
 
 const SCALE_SIZES = [20, 28, 36, 48, 64, 96];
 
@@ -47,19 +49,57 @@ const AvatarMotionLab: React.FC = () => {
       <section className="amlab__stage" aria-label="Palco do avatar">
         <WaddleAvatar
           key={agent}
+          className={`amlab__avatar amlab__avatar--${variant}`}
           color={visual.color}
           marking={visual.marking}
           cosmetics={visual.cosmetics}
           imageUrl={visual.imageUrl}
           quote={visual.quote}
           state={state}
-          motion={variant}
           trackMouse={trackMouse}
           interactive
           clickAnim={visual.clickAnim}
           size={300}
-          showPresence
         />
+      </section>
+
+      <section className="amlab__expression-board" aria-labelledby="expression-board-title">
+        <div className="amlab__section-header">
+          <p className="amlab__label">EXPRESSÕES DO CICLO</p>
+          <h2 id="expression-board-title">Todos os estados do {agent}</h2>
+          <p>
+            Comparação rápida do mesmo mascote em cada fase do trabalho: parado, pensando,
+            executando, aguardando, bloqueado e concluído.
+          </p>
+        </div>
+        <div className="amlab__expression-grid" role="list" aria-label={`Estados visuais do agente ${agent}`}>
+          {LAB_STATES.filter(s => s !== 'stopped').map(s => (
+            <article
+              key={`${agent}-${s}`}
+              className={`amlab__expression-card ${state === s ? 'is-selected' : ''}`}
+              role="listitem"
+              aria-label={`${agent}: ${STATE_LABELS[s]}`}
+            >
+              <div className="amlab__expression-avatar">
+                <WaddleAvatar
+                  className={`amlab__avatar amlab__avatar--${EXPRESSION_CARD_VARIANT}`}
+                  color={visual.color}
+                  marking={visual.marking}
+                  cosmetics={visual.cosmetics}
+                  imageUrl={visual.imageUrl}
+                  quote={visual.quote}
+                  state={s}
+                  trackMouse={false}
+                  interactive={false}
+                  clickAnim={visual.clickAnim}
+                  size={86}
+                />
+              </div>
+              <strong>{STATE_LABELS[s]}</strong>
+              <span>{s}</span>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="amlab__panel" aria-label="Controles">
@@ -113,12 +153,12 @@ const AvatarMotionLab: React.FC = () => {
                 onClick={() => setAgent(name)}
               >
                 <WaddleAvatar
+                  className={`amlab__avatar amlab__avatar--${agent === name ? variant : 'standard'}`}
                   color={AGENT_VISUALS[name].color}
                   marking={AGENT_VISUALS[name].marking}
                   cosmetics={AGENT_VISUALS[name].cosmetics}
                   imageUrl={AGENT_VISUALS[name].imageUrl}
                   state="idle"
-                  motion={agent === name ? 'organic' : 'standard'}
                   size={44}
                 />
                 <span>{name}</span>
@@ -133,12 +173,12 @@ const AvatarMotionLab: React.FC = () => {
             {SCALE_SIZES.map(sz => (
               <WaddleAvatar
                 key={sz}
+                className={`amlab__avatar amlab__avatar--${variant}`}
                 color={visual.color}
                 marking={visual.marking}
                 cosmetics={visual.cosmetics}
                 imageUrl={visual.imageUrl}
                 state={state}
-                motion={variant}
                 size={sz}
               />
             ))}

@@ -11,6 +11,7 @@ import {
   type GraphDirection,
   type GraphFit,
 } from './agent-graph';
+import { OpenUIPlayground } from '../waddle-ui/playground/OpenUIPlayground.tsx';
 
 interface DeveloperDrawerProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ interface DeveloperDrawerProps {
   onKillSwitch?: () => void;
 }
 
-type Tab = 'tasks' | 'architecture' | 'tools' | 'providers' | 'events';
+type Tab = 'tasks' | 'architecture' | 'openui' | 'tools' | 'providers' | 'events';
 type ArchitecturePreset = 'active_tasks' | 'waddle_core' | 'parallel' | 'loop';
 
 /** Maps Waddle Task[] to topological AgentGraphPayload */
@@ -281,7 +282,7 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
 
         {/* Tab nav */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          {(['tasks', 'architecture', 'tools', 'providers', 'events'] as Tab[]).map((t) => (
+          {(['tasks', 'architecture', 'openui', 'tools', 'providers', 'events'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -303,6 +304,8 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
                 ? 'Tarefas'
                 : t === 'architecture'
                 ? 'Arquitetura'
+                : t === 'openui'
+                ? 'OpenUI'
                 : t === 'tools'
                 ? 'Ferramentas'
                 : t === 'providers'
@@ -568,6 +571,13 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* OpenUI Generative UI Playground */}
+          {tab === 'openui' && (
+            <div style={{ margin: '-16px', position: 'relative', height: 'calc(100% + 32px)', minHeight: '600px' }}>
+              <OpenUIPlayground onClose={() => setTab('tasks')} />
             </div>
           )}
 

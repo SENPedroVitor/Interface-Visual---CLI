@@ -719,7 +719,30 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                     {isUser ? (
                       item.content
                     ) : looksLikeMarkdown(item.content) ? (
-                      <MarkdownMessage text={item.content} />
+                      <MarkdownMessage
+                        text={item.content}
+                        onAction={(action, payload) => {
+                          if (action === 'approval.allow_once' || action === 'approval.allow_always') {
+                            onSendMessage(`[Aprovado pelo usuário: ${payload?.action || 'Permitido'}]`, []);
+                          } else if (action === 'approval.deny') {
+                            onSendMessage(`[Negado pelo usuário: ${payload?.action || 'Negado'}]`, []);
+                          } else if (action === 'task.cancel') {
+                            onSendMessage(`[Cancelado pelo usuário: ${payload?.planTitle || payload?.title || 'Tarefa'}]`, []);
+                          } else if (action === 'task.details') {
+                            onSendMessage(`Quais são os detalhes e logs de execução desta tarefa?`, []);
+                          } else if (action === 'match.follow') {
+                            onSendMessage(`Acompanhe e me mantenha informado sobre o jogo ${payload?.homeTeam} x ${payload?.awayTeam}.`, []);
+                          } else if (action === 'match.notify') {
+                            onSendMessage(`Avise-me com antecedência sobre o jogo ${payload?.homeTeam} x ${payload?.awayTeam}.`, []);
+                          } else if (action === 'stock.watchlist') {
+                            onSendMessage(`Adicione ${payload?.symbol} à minha carteira e monitore a cotação.`, []);
+                          } else if (action === 'review.fix') {
+                            onSendMessage(`Corrija o seguinte problema apontado na revisão: ${payload?.mainIssue || payload?.title}.`, []);
+                          } else if (action === 'source.open') {
+                            onSendMessage(`Mostre mais detalhes das fontes pesquisadas em "${payload?.topic || payload?.title}".`, []);
+                          }
+                        }}
+                      />
                     ) : (
                       <RevealText text={item.content} animate={!!item.justArrived} />
                     )}

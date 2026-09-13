@@ -1,0 +1,442 @@
+/* ==========================================================================
+   Waddle UI — Generative UI Design System Styles
+   Theme-aware, accessible, fluid animations and glassmorphism.
+   ========================================================================== */
+
+:root {
+  --wui-bg: rgba(255, 255, 255, 0.95);
+  --wui-surface: #f8fafc;
+  --wui-surface-hover: #f1f5f9;
+  --wui-border: rgba(0, 0, 0, 0.08);
+  --wui-border-focus: rgba(99, 102, 241, 0.4);
+  --wui-text: #0f172a;
+  --wui-text-muted: #64748b;
+  --wui-text-faint: #94a3b8;
+  --wui-primary: #6366f1;
+  --wui-primary-hover: #4f46e5;
+  --wui-primary-bg: rgba(99, 102, 241, 0.08);
+  --wui-success: #10b981;
+  --wui-success-bg: rgba(16, 185, 129, 0.1);
+  --wui-warning: #f59e0b;
+  --wui-warning-bg: rgba(245, 158, 11, 0.1);
+  --wui-danger: #ef4444;
+  --wui-danger-bg: rgba(239, 68, 68, 0.1);
+  --wui-radius: 12px;
+  --wui-radius-sm: 8px;
+  --wui-radius-lg: 16px;
+  --wui-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --wui-shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] {
+  --wui-bg: rgba(26, 31, 46, 0.96);
+  --wui-surface: #1e2436;
+  --wui-surface-hover: #262e45;
+  --wui-border: rgba(255, 255, 255, 0.08);
+  --wui-border-focus: rgba(129, 140, 248, 0.4);
+  --wui-text: #f8fafc;
+  --wui-text-muted: #94a3b8;
+  --wui-text-faint: #64748b;
+  --wui-primary: #818cf8;
+  --wui-primary-hover: #6366f1;
+  --wui-primary-bg: rgba(129, 140, 248, 0.12);
+  --wui-success: #34d399;
+  --wui-success-bg: rgba(52, 211, 153, 0.12);
+  --wui-warning: #fbbf24;
+  --wui-warning-bg: rgba(251, 191, 36, 0.12);
+  --wui-danger: #f87171;
+  --wui-danger-bg: rgba(248, 113, 113, 0.12);
+  --wui-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --wui-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Base Card Container */
+.wui-card {
+  position: relative;
+  background: var(--wui-bg);
+  border: 1px solid var(--wui-border);
+  border-radius: var(--wui-radius);
+  box-shadow: var(--wui-shadow);
+  overflow: hidden;
+  margin: 10px 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(12px);
+  color: var(--wui-text);
+  font-family: inherit;
+  font-size: 13.5px;
+}
+
+.wui-card:hover {
+  border-color: var(--wui-border-focus);
+  box-shadow: var(--wui-shadow-hover);
+}
+
+.wui-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--wui-border);
+  background: var(--wui-surface);
+}
+
+.wui-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wui-card-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--wui-text);
+  letter-spacing: -0.01em;
+}
+
+.wui-card-subtitle {
+  font-size: 12px;
+  color: var(--wui-text-muted);
+}
+
+.wui-card-body {
+  padding: 14px 16px;
+}
+
+.wui-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--wui-surface);
+  border-top: 1px solid var(--wui-border);
+}
+
+/* Action Button */
+.wui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--wui-radius-sm);
+  font-weight: 500;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: all 0.15s ease;
+  user-select: none;
+  line-height: 1.2;
+}
+
+.wui-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wui-btn-primary {
+  background: var(--wui-primary);
+  color: #ffffff;
+}
+.wui-btn-primary:hover:not(:disabled) {
+  background: var(--wui-primary-hover);
+  transform: translateY(-1px);
+}
+
+.wui-btn-secondary {
+  background: var(--wui-surface);
+  border-color: var(--wui-border);
+  color: var(--wui-text);
+}
+.wui-btn-secondary:hover:not(:disabled) {
+  background: var(--wui-surface-hover);
+  border-color: var(--wui-border-focus);
+}
+
+.wui-btn-danger {
+  background: var(--wui-danger-bg);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--wui-danger);
+}
+.wui-btn-danger:hover:not(:disabled) {
+  background: var(--wui-danger);
+  color: #ffffff;
+}
+
+.wui-btn-success {
+  background: var(--wui-success-bg);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--wui-success);
+}
+.wui-btn-success:hover:not(:disabled) {
+  background: var(--wui-success);
+  color: #ffffff;
+}
+
+.wui-btn-ghost {
+  background: transparent;
+  color: var(--wui-text-muted);
+}
+.wui-btn-ghost:hover:not(:disabled) {
+  background: var(--wui-surface);
+  color: var(--wui-text);
+}
+
+.wui-btn-sm {
+  padding: 4px 8px;
+  font-size: 11.5px;
+}
+.wui-btn-lg {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+/* Status Pill */
+.wui-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.wui-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.wui-pill.is-running {
+  background: var(--wui-primary-bg);
+  color: var(--wui-primary);
+}
+.wui-pill.is-running .wui-pill-dot {
+  background: var(--wui-primary);
+  animation: wui-pulse 1.4s infinite;
+}
+.wui-pill.is-done {
+  background: var(--wui-success-bg);
+  color: var(--wui-success);
+}
+.wui-pill.is-done .wui-pill-dot {
+  background: var(--wui-success);
+}
+.wui-pill.is-failed {
+  background: var(--wui-danger-bg);
+  color: var(--wui-danger);
+}
+.wui-pill.is-failed .wui-pill-dot {
+  background: var(--wui-danger);
+}
+.wui-pill.is-pending {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--wui-text-muted);
+}
+.wui-pill.is-pending .wui-pill-dot {
+  background: var(--wui-text-faint);
+}
+
+/* Progress Bar */
+.wui-progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--wui-surface-hover);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.wui-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--wui-primary), #a855f7);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* Metric Card */
+.wui-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.wui-metric-box {
+  background: var(--wui-surface);
+  border: 1px solid var(--wui-border);
+  border-radius: var(--wui-radius-sm);
+  padding: 10px 12px;
+}
+.wui-metric-label {
+  font-size: 11px;
+  color: var(--wui-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.wui-metric-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--wui-text);
+  line-height: 1.1;
+}
+.wui-metric-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.wui-trend-up {
+  color: var(--wui-success);
+}
+.wui-trend-down {
+  color: var(--wui-danger);
+}
+
+/* Task Plan List */
+.wui-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wui-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--wui-surface);
+  border-radius: var(--wui-radius-sm);
+  border: 1px solid var(--wui-border);
+}
+.wui-task-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wui-task-agent-badge {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--wui-primary);
+  min-width: 50px;
+}
+.wui-task-desc {
+  font-size: 13px;
+  color: var(--wui-text);
+}
+
+/* Approval Card Specifics */
+.wui-approval-card.is-critical {
+  border-left: 4px solid var(--wui-danger);
+}
+.wui-approval-card.is-high {
+  border-left: 4px solid var(--wui-warning);
+}
+.wui-approval-card.is-medium {
+  border-left: 4px solid #3b82f6;
+}
+.wui-approval-card.is-low {
+  border-left: 4px solid var(--wui-success);
+}
+
+.wui-code-chip {
+  display: block;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--wui-border);
+  border-radius: 6px;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--wui-text);
+  overflow-x: auto;
+  margin: 8px 0;
+}
+[data-theme='dark'] .wui-code-chip {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* Sports Cards */
+.wui-match-scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 12px 0;
+}
+.wui-team-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  text-align: center;
+}
+.wui-team-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 4px;
+}
+.wui-score-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--wui-text);
+  padding: 0 16px;
+}
+.wui-live-pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.wui-live-pulse-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: wui-pulse 1.2s infinite;
+}
+
+/* Goal events */
+.wui-events-list {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--wui-border);
+  font-size: 12px;
+  color: var(--wui-text-muted);
+}
+.wui-event-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+
+/* Animations */
+@keyframes wui-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+@keyframes wui-slide-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wui-animate-in {
+  animation: wui-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Fallback card */
+.wui-fallback-card {
+  padding: 12px 14px;
+  border: 1px dashed var(--wui-border);
+  border-radius: var(--wui-radius-sm);
+  background: var(--wui-surface);
+  font-size: 12px;
+  color: var(--wui-text-muted);
+}

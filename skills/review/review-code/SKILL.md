@@ -12,6 +12,9 @@ waddle:
   required_tools:
     - read_file
     - run_command
+  recommended_ui:
+    - ReviewSummary
+    - RiskCard
 ---
 
 # Procedimento: Revisão Rigorosa de Código

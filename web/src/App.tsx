@@ -14,6 +14,7 @@ import { PluginsModal } from './components/PluginsModal';
 import { UserConfigModal, UserProfile, DEFAULT_USER_PROFILE } from './components/UserConfigModal';
 import { ConversationOverview } from './components/ConversationOverview';
 import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
+import { OpenUIPlayground } from './waddle-ui/playground/OpenUIPlayground.tsx';
 import { formatBytes } from './hooks/use-dropzone';
 
 /** agent_id from the event bus looks like "agent-nero" — recover a display name from it. */
@@ -102,6 +103,11 @@ export const App: React.FC = () => {
       return true;
     }
     return localStorage.getItem(ONBOARDING_KEY) !== 'true';
+  });
+  const [isOpenUIRoute, setIsOpenUIRoute] = useState<boolean>(() => {
+    const path = window.location.pathname;
+    const search = window.location.search;
+    return path.startsWith('/dev/openui') || search.includes('openui');
   });
   const { isDark, toggleTheme } = useTheme();
   const dayPart = useTimeOfDay();
@@ -715,6 +721,17 @@ export const App: React.FC = () => {
         events={events}
         onKillSwitch={handleKillSwitch}
       />
+
+      {isOpenUIRoute && (
+        <OpenUIPlayground
+          onClose={() => {
+            setIsOpenUIRoute(false);
+            try {
+              window.history.replaceState({}, '', '/');
+            } catch (_) {}
+          }}
+        />
+      )}
     </div>
   );
 };

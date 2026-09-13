@@ -29,6 +29,80 @@
   place-items: center;
 }
 
+.amlab__expression-board {
+  width: min(1040px, 94vw);
+  background: #151f38;
+  border: 1px solid #263450;
+  border-radius: 24px;
+  padding: 22px;
+}
+
+.amlab__section-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.amlab__section-header h2 {
+  color: #f4f7fb;
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.amlab__section-header p {
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 680px;
+  margin: 0;
+}
+
+.amlab__expression-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px;
+}
+
+.amlab__expression-card {
+  min-height: 156px;
+  border: 1px solid #263450;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 26%, rgba(148, 163, 184, .11), transparent 58%),
+    #0f172a;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 16px 12px 14px;
+  text-align: center;
+}
+
+.amlab__expression-card.is-selected {
+  border-color: #7dd3fc;
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, .32);
+}
+
+.amlab__expression-avatar {
+  min-height: 92px;
+  display: grid;
+  place-items: center;
+}
+
+.amlab__expression-card strong {
+  color: #eef2ff;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.amlab__expression-card span {
+  color: #7c8db0;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 .amlab__panel {
   width: min(920px, 94vw);
   display: grid;
@@ -70,3 +144,17 @@
 .amlab__agent.is-active { background: #1d2a4a; border-color: #4c6a9e; color: #fff; }
 
 .amlab__scale { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+
+.amlab__avatar--off *,
+.amlab__avatar--off[data-reaction] .waddle-body {
+  animation: none !important;
+  transition: none !important;
+}
+
+.amlab__avatar--standard {
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .12));
+}
+
+.amlab__avatar--organic {
+  filter: drop-shadow(0 10px 22px rgba(15, 23, 42, .22));
+}

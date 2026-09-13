@@ -19,7 +19,7 @@ export type BodyShape = 'pill' | 'circle' | 'squircle' | 'crown';
 
 export const STATE_LABELS: Record<AgentState, string> = {
   idle: 'Disponível', working: 'Trabalhando', thinking: 'Pensando',
-  waiting: 'Aguardando', done: 'Pronto 😉', blocked: 'Dúvida (o que falta)', stopped: 'Parado',
+  waiting: 'Aguardando', done: 'Pronto', blocked: 'Dúvida (o que falta)', stopped: 'Parado',
 };
 
 export interface WaddleAvatarProps {
@@ -74,25 +74,25 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
   bodyShape,
 }) => {
   const [jump, setJump] = useState(false);
-  const [isAnnoyed, setIsAnnoyed] = useState(false);
+  const [isDelighted, setIsDelighted] = useState(false);
   const jumpTimer = useRef<ReturnType<typeof setTimeout>>();
-  const annoyedTimer = useRef<ReturnType<typeof setTimeout>>();
+  const delightedTimer = useRef<ReturnType<typeof setTimeout>>();
   const gazeRef = useRef<SVGGElement>(null);
   const activeBodyShape: BodyShape = bodyShape || (cosmetics?.bodyShape as BodyShape) || (cosmetics?.head === 'crown' ? 'crown' : 'pill');
 
   useEffect(() => () => {
     clearTimeout(jumpTimer.current);
-    clearTimeout(annoyedTimer.current);
+    clearTimeout(delightedTimer.current);
   }, []);
 
   const reactToClick = () => {
     if (interactive) {
-      setIsAnnoyed(true);
+      setIsDelighted(true);
       setJump(true);
       clearTimeout(jumpTimer.current);
       jumpTimer.current = setTimeout(() => setJump(false), 700);
-      clearTimeout(annoyedTimer.current);
-      annoyedTimer.current = setTimeout(() => setIsAnnoyed(false), 1400);
+      clearTimeout(delightedTimer.current);
+      delightedTimer.current = setTimeout(() => setIsDelighted(false), 1200);
     }
     onClick?.();
   };
@@ -139,6 +139,7 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
   const isSlashesEyes = !isNicoEyes && (eyeStyle === 'slashes' || cosmetics?.face === 'slashes_eyes');
   const manualGazeX = Math.max(-1, Math.min(1, gazeX)) * 3.2;
   const manualGazeY = Math.max(-1, Math.min(1, gazeY)) * 2.8;
+  const blockedSignalColor = '#f8fafc';
 
   useEffect(() => {
     const gaze = gazeRef.current;
@@ -149,9 +150,9 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
 
   return (
     <div
-      className={`waddle-avatar-wrapper ${className} ${isAnnoyed ? 'is-annoyed' : ''}`}
+      className={`waddle-avatar-wrapper ${className} ${isDelighted ? 'is-delighted' : ''}`}
       data-state={state}
-      data-reaction={isAnnoyed ? 'annoyed' : jump ? clickAnim : undefined}
+      data-reaction={isDelighted ? 'delighted' : jump ? clickAnim : undefined}
       data-interactive={interactive || undefined}
       style={{ width: size, height: size, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={reactToClick}
@@ -169,7 +170,7 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
               objectFit: 'cover',
               borderRadius: '50%',
               display: 'block',
-              opacity: (state === 'thinking' || state === 'blocked') ? 0 : 1,
+              opacity: (state === 'thinking' || state === 'blocked') ? 0 : state === 'stopped' ? 0.55 : 1,
               transform: manualGazeY > 0 ? `translateY(${Math.min(manualGazeY * 0.5, 2)}px)` : undefined,
               transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
@@ -185,7 +186,7 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
               aria-hidden="true"
               focusable="false"
             >
-              <g className="waddle-thinking-dots" style={{ opacity: 1, transform: 'scale(1)' }} aria-label="Pensando">
+              <g className="waddle-thinking-dots" aria-label="Pensando">
                 <circle className="waddle-thinking-dot dot-1" cx="28" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
                 <circle className="waddle-thinking-dot dot-2" cx="50" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
                 <circle className="waddle-thinking-dot dot-3" cx="72" cy="50" r="7.5" fill={faceColor} stroke="rgba(0,0,0,0.08)" strokeWidth="0.8" />
@@ -202,13 +203,13 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
               aria-hidden="true"
               focusable="false"
             >
-              <g className="waddle-blocked-mark" style={{ opacity: 1, transform: 'scale(1)' }} aria-label="Bloqueado / Dúvida">
+              <g className="waddle-blocked-mark" aria-label="Bloqueado / Dúvida">
                 <path
                   className="waddle-blocked-stem"
                   d="M 45.5 29 C 45.5 26 54.5 26 54.5 29 L 53.2 59 C 53.2 61.2 46.8 61.2 46.8 59 Z"
-                  fill={eyeColor}
+                  fill={blockedSignalColor}
                 />
-                <circle className="waddle-blocked-dot" cx="50" cy="70.5" r="4.3" fill={eyeColor} />
+                <circle className="waddle-blocked-dot" cx="50" cy="70.5" r="4.3" fill={blockedSignalColor} />
               </g>
             </svg>
           )}
@@ -231,9 +232,9 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
             <path
               className="waddle-blocked-stem"
               d="M 45.5 29 C 45.5 26 54.5 26 54.5 29 L 53.2 59 C 53.2 61.2 46.8 61.2 46.8 59 Z"
-              fill={eyeColor}
+              fill={blockedSignalColor}
             />
-            <circle className="waddle-blocked-dot" cx="50" cy="70.5" r="4.3" fill={eyeColor} />
+            <circle className="waddle-blocked-dot" cx="50" cy="70.5" r="4.3" fill={blockedSignalColor} />
           </g>
           <g className="waddle-body" data-shape={activeBodyShape}>
             {activeBodyShape === 'crown' ? (
@@ -307,17 +308,86 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
             <g className={`waddle-eye-state waddle-eye-state--${state}`}>
               <g ref={gazeRef} className="waddle-gaze">
                 <g className="waddle-manual-gaze" transform={`translate(${manualGazeX} ${manualGazeY})`}>
-                  {isAnnoyed ? (
-                    <g className="waddle-eyes-annoyed" aria-label="Olhos irritados">
+                  {isDelighted ? (
+                    <g className="waddle-eyes-delighted" aria-label="Olhos felizes">
                       <path
-                        className="waddle-eye-shape waddle-eye-annoyed-left"
-                        d="M 32.6 49.5 L 41.4 54.5 A 4.4 5.8 0 0 1 32.6 49.5 Z"
-                        fill={eyeColor}
+                        className="waddle-eye-shape waddle-eye-delighted-left"
+                        d="M 32.5 50.5 Q 37 56 41.5 50.5"
+                        fill="none"
+                        stroke={eyeColor}
+                        strokeWidth="3.6"
+                        strokeLinecap="round"
                       />
                       <path
-                        className="waddle-eye-shape waddle-eye-annoyed-right"
-                        d="M 67.4 49.5 L 58.6 54.5 A 4.4 5.8 0 0 0 67.4 49.5 Z"
+                        className="waddle-eye-shape waddle-eye-delighted-right"
+                        d="M 58.5 50.5 Q 63 56 67.5 50.5"
+                        fill="none"
+                        stroke={eyeColor}
+                        strokeWidth="3.6"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  ) : state === 'done' ? (
+                    <g className="waddle-eyes-done" aria-label="Olhos calmos de concluído">
+                      <ellipse
+                        className="waddle-eye-shape waddle-eye-done-left"
+                        cx="37"
+                        cy="52"
+                        rx="4.2"
+                        ry="5"
                         fill={eyeColor}
+                      />
+                      <ellipse
+                        className="waddle-eye-shape waddle-eye-done-right"
+                        cx="63"
+                        cy="52"
+                        rx="4.2"
+                        ry="5"
+                        fill={eyeColor}
+                      />
+                    </g>
+                  ) : state === 'working' ? (
+                    <g className="waddle-eyes-working" aria-label="Olhos focados">
+                      <rect
+                        className="waddle-eye-shape waddle-eye-working-left"
+                        x="34"
+                        y="45"
+                        width="7"
+                        height="14"
+                        rx="3.5"
+                        fill={eyeColor}
+                      />
+                      <rect
+                        className="waddle-eye-shape waddle-eye-working-right"
+                        x="59"
+                        y="45"
+                        width="7"
+                        height="14"
+                        rx="3.5"
+                        fill={eyeColor}
+                      />
+                    </g>
+                  ) : state === 'waiting' ? (
+                    <g className="waddle-eyes-waiting" aria-label="Olhos aguardando">
+                      <rect
+                        className="waddle-eye-shape waddle-eye-waiting-left"
+                        x="32.5"
+                        y="53"
+                        width="13.5"
+                        height="3.2"
+                        rx="1.6"
+                        fill={eyeColor}
+                        transform="rotate(4 39.25 54.6)"
+                      />
+                      <rect
+                        className="waddle-eye-shape waddle-eye-waiting-right"
+                        x="56.5"
+                        y="53"
+                        width="13.5"
+                        height="3.2"
+                        rx="1.6"
+                        fill={eyeColor}
+                        transform="rotate(4 63.25 54.6)"
                       />
                     </g>
                   ) : isNicoEyes ? (
@@ -475,7 +545,7 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
           </g>
         </svg>
       )}
-      {showPresence && state !== 'idle' && <span className="waddle-presence-dot" />}
+      {showPresence && !['idle', 'thinking', 'blocked'].includes(state) && <span className="waddle-presence-dot" />}
     </div>
   );
 };

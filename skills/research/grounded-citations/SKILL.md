@@ -13,6 +13,9 @@ waddle:
     - list_directory
     - read_file
     - run_command
+  recommended_ui:
+    - ResearchSummary
+    - SourceCard
 ---
 
 # Procedimento: Pesquisa e Ancoragem com Citações
