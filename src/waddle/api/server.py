@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -73,6 +74,21 @@ _default_cors_origins = [
     "http://localhost:5174",
 ]
 _configured_cors = [origin.strip() for origin in (os.getenv("WADDLE_CORS_ORIGINS") or "").split(",") if origin.strip()]
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return validation details without reflecting credential-like inputs."""
+    safe_errors = []
+    sensitive_fields = {"api_key", "authorization", "password", "secret", "token"}
+    for error in exc.errors():
+        safe_error = dict(error)
+        location = [str(item) for item in error.get("loc", ())]
+        if any(field in sensitive_fields for field in location):
+            safe_error["input"] = "[REDACTED]"
+            safe_error.pop("ctx", None)
+        safe_errors.append(safe_error)
+    return JSONResponse(status_code=422, content={"detail": safe_errors})
 
 app.add_middleware(
     CORSMiddleware,
