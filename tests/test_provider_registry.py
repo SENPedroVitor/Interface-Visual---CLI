@@ -2,6 +2,7 @@ import tempfile
 import unittest
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 from waddle.providers import ProviderRegistry
 
@@ -46,6 +47,34 @@ class TestProviderRegistry(unittest.TestCase):
                 providers_module.DEFAULT_CODEX_ROOT = original
 
         self.assertEqual(found, newer / "codex.exe")
+
+    @patch("waddle.providers.subprocess.run")
+    @patch("waddle.providers.shutil.which")
+    def test_detects_cli_from_path_and_does_not_claim_authentication(self, which, run):
+        which.side_effect = lambda name: {"codex": r"C:\Tools\codex.exe", "claude": r"C:\Tools\claude.cmd"}.get(name)
+        run.return_value = type("Result", (), {"stdout": "codex 1.2.3\n", "stderr": "", "returncode": 0})()
+
+        providers = {item["id"]: item for item in ProviderRegistry(ollama_path=Path("Z:/missing/ollama.exe")).list_providers()}
+
+        self.assertTrue(providers["codex"]["installed"])
+        self.assertEqual(providers["codex"]["path"], r"C:\Tools\codex.exe")
+        self.assertIn("autenticação não verificada", providers["codex"]["detail"])
+        self.assertTrue(providers["claude"]["installed"])
+
+    @patch("waddle.providers.subprocess.run", side_effect=TimeoutError)
+    def test_version_probe_is_optional(self, _run):
+        self.assertIsNone(ProviderRegistry()._run_version(["missing", "--version"]))
+
+    @patch("waddle.providers.subprocess.run")
+    def test_version_output_is_bounded_to_one_line(self, run):
+        run.return_value = type(
+            "Result", (), {"stdout": ("v" + "x" * 400 + "\nsecond line"), "stderr": ""}
+        )()
+
+        version = ProviderRegistry()._run_version(["tool", "--version"])
+
+        self.assertEqual(len(version), 240)
+        self.assertNotIn("second line", version)
 
 
 if __name__ == "__main__":

@@ -179,8 +179,15 @@ class ManagerAgent(Agent):
         *,
         rounds: int = 1,
         with_critique: bool = False,
+        group_members: Optional[list[str]] = None,
+        conversation_agent: str = "quinta",
     ) -> list[dict[str, str]]:
-        """Ask the local team for short role-based opinions and surface them in Quinta's thread."""
+        """Ask the local team for short role-based opinions.
+
+        When ``group_members`` is supplied, it is an explicit routing scope:
+        only existing collaborators named by the group may participate.  The
+        default routing remains unchanged when the parameter is omitted.
+        """
         fin_word_match = bool(re.search(r"\b(ação|ações|acoes|acao|fii|fiis|rsi)\b", objective, re.IGNORECASE))
         fin_keywords = [
             "bolsa", "invest", "mercado", "cotação", "cotacao",
@@ -204,10 +211,26 @@ class ManagerAgent(Agent):
             allowed = {"Atlas", "Nero", "Iris", "Ma"}
         else:
             allowed = {"Atlas", "Nero", "Iris"}
-        participants = [
-            agent for name, agent in self.collaborators.items()
-            if name in allowed
-        ]
+        if group_members is None:
+            participants = [
+                agent for name, agent in self.collaborators.items()
+                if name in allowed
+            ]
+        else:
+            # Preserve the group's order while normalizing names and dropping
+            # stale/deleted members.  Quinta is the coordinator, not a
+            # collaborator, so it cannot accidentally be re-entered here.
+            collaborators_by_name = {
+                name.casefold(): agent for name, agent in self.collaborators.items()
+            }
+            participants = []
+            seen: set[str] = set()
+            for raw_name in group_members:
+                normalized = str(raw_name).strip().casefold()
+                agent = collaborators_by_name.get(normalized)
+                if agent is not None and normalized not in seen:
+                    participants.append(agent)
+                    seen.add(normalized)
         opinions: list[dict[str, str]] = []
         # Round 1: Initial opinions
         for agent in participants:
@@ -224,7 +247,7 @@ class ManagerAgent(Agent):
                 to_agent="Quinta",
                 msg_type="discussion",
                 content=answer,
-                data={"conversation_agent": "quinta", "provider_id": agent.provider_id, "round": 1},
+                data={"conversation_agent": conversation_agent, "provider_id": agent.provider_id, "round": 1},
             )
             opinions.append({"agent": agent.name, "role": agent.role, "content": answer})
             await agent.set_status(AgentStatus.IDLE)
@@ -247,7 +270,7 @@ class ManagerAgent(Agent):
                 to_agent="Quinta",
                 msg_type="discussion",
                 content=f"[Revisão Crítica] {critique}",
-                data={"conversation_agent": "quinta", "provider_id": iris.provider_id, "round": 2},
+                data={"conversation_agent": conversation_agent, "provider_id": iris.provider_id, "round": 2},
             )
             opinions.append({"agent": "Iris", "role": "Reviewer", "content": f"[Revisão Crítica] {critique}"})
             await iris.set_status(AgentStatus.IDLE)
@@ -268,7 +291,7 @@ class ManagerAgent(Agent):
                     to_agent="Quinta",
                     msg_type="discussion",
                     content=f"[Ajuste Técnico] {refinement}",
-                    data={"conversation_agent": "quinta", "provider_id": nero.provider_id, "round": 2},
+                    data={"conversation_agent": conversation_agent, "provider_id": nero.provider_id, "round": 2},
                 )
                 opinions.append({"agent": "Nero", "role": "Developer", "content": f"[Ajuste Técnico] {refinement}"})
                 await nero.set_status(AgentStatus.IDLE)
@@ -380,15 +403,28 @@ class ManagerAgent(Agent):
 
         return tasks
 
-    async def _respond_as_chat(self, speaker: Agent, objective: str) -> None:
+    async def _respond_as_chat(
+        self,
+        speaker: Agent,
+        objective: str,
+        *,
+        group_members: Optional[list[str]] = None,
+        conversation_agent: Optional[str] = None,
+    ) -> None:
         opinions = []
+        conversation_key = conversation_agent or speaker.name.lower()
         if speaker is self:
             await speaker.send_message(
                 to_agent="System",
                 msg_type="status_update",
                 content="Chamando Atlas, Nero e Iris para uma rodada curta de discussão local.",
+                data={"conversation_agent": conversation_key},
             )
-            opinions = await self.discuss_with_team(objective)
+            opinions = await self.discuss_with_team(
+                objective,
+                group_members=group_members,
+                conversation_agent=conversation_key,
+            )
         try:
             llm_answer = self._ollama_answer(
                 speaker, objective, mode="answer", team_opinions=opinions or None,
@@ -403,26 +439,35 @@ class ManagerAgent(Agent):
             to_agent="System",
             msg_type="answer",
             content=llm_answer or f'Recebi sua mensagem: "{objective}". O motor {speaker.provider_id} está conectado, mas ainda não executei uma sessão de trabalho completa por ele.',
-            data={"conversation_agent": speaker.name.lower(), "provider_id": speaker.provider_id, "model": str(speaker.model_config.get("model") or self._default_model_for(speaker.provider_id)) if llm_answer else None, "opinions": opinions},
+            data={"conversation_agent": conversation_key, "provider_id": speaker.provider_id, "model": str(speaker.model_config.get("model") or self._default_model_for(speaker.provider_id)) if llm_answer else None, "opinions": opinions},
         )
 
     async def plan_objective(self, objective: str, parameters: Optional[dict[str, Any]] = None, response_agent: Optional[Agent] = None) -> list[Task]:
         """Decompose a high-level user objective into executable tasks for the team."""
         speaker = response_agent or self
+        params = parameters or {}
+        raw_group_members = params.get("_group_members")
+        group_members = raw_group_members if isinstance(raw_group_members, list) else None
+        conversation_key = str(params.get("_conversation_agent") or params.get("_group_id") or speaker.name.lower())
         await speaker.set_status(AgentStatus.THINKING)
         await speaker.send_message(
             to_agent="System",
             msg_type="status_update",
             content=f"Analisando objetivo e coordenando a equipe: '{objective}'",
+            data={"conversation_agent": conversation_key},
         )
 
-        params = parameters or {}
         tasks_created: list[Task] = []
         obj_lower = objective.lower()
 
         # If it's a plain greeting or conversational question without task verbs, reply directly
         if self._is_plain_message(objective):
-            await self._respond_as_chat(speaker, objective)
+            await self._respond_as_chat(
+                speaker,
+                objective,
+                group_members=group_members,
+                conversation_agent=conversation_key,
+            )
             await speaker.set_status(AgentStatus.IDLE)
             return []
 
@@ -651,13 +696,34 @@ class ManagerAgent(Agent):
                 tasks_created.append(task)
             else:
                 # No tasks created — plain chat response
-                await self._respond_as_chat(speaker, objective)
+                await self._respond_as_chat(
+                    speaker,
+                    objective,
+                    group_members=group_members,
+                    conversation_agent=conversation_key,
+                )
+
+        if tasks_created and group_members is not None:
+            # A group is a routing boundary.  Keep every generated task inside
+            # it, including deterministic finance/file branches and LLM plans.
+            allowed_names = {
+                str(name).strip().casefold()
+                for name in group_members
+                if str(name).strip()
+            }
+            fallback_name = next((str(name).strip() for name in group_members if str(name).strip()), None)
+            if fallback_name:
+                for task in tasks_created:
+                    if not task.assigned_agent or task.assigned_agent.casefold() not in allowed_names:
+                        task.assigned_agent = fallback_name
+                    task.input_data["_conversation_agent"] = conversation_key
 
         if tasks_created:
             await speaker.send_message(
                 to_agent="System",
                 msg_type="status_update",
                 content=f"Plano pronto: {len(tasks_created)} etapas para executar.",
+                data={"conversation_agent": conversation_key},
             )
         await speaker.set_status(AgentStatus.IDLE)
         return tasks_created

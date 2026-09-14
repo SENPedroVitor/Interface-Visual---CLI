@@ -2,9 +2,65 @@ import unittest
 
 from waddle.agents.worker import WorkerAgent
 from waddle.llm.provider_client import LLMProviderClient
+from waddle.security.credentials import CredentialStore
 
 
 class TestLLMProviderClient(unittest.TestCase):
+    def test_client_reads_key_from_protected_store_at_call_time(self):
+        calls = []
+
+        def post_json(url, payload, headers, timeout):
+            calls.append((url, payload, headers))
+            return {"output_text": "Resposta armazenada"}
+
+        store = CredentialStore(backend="memory")
+        store.set("codex", "stored-secret")
+        agent = WorkerAgent("Nero", "Developer", provider_id="codex")
+        client = LLMProviderClient(post_json=post_json, credential_store=store)
+
+        result = client.generate(agent, "Use a chave salva.")
+
+        self.assertEqual(result.content, "Resposta armazenada")
+        self.assertEqual(calls[0][2]["Authorization"], "Bearer stored-secret")
+
+    def test_openai_ui_alias_is_used_by_existing_codex_agent(self):
+        calls = []
+
+        def post_json(url, payload, headers, timeout):
+            calls.append(headers)
+            return {"output_text": "Resposta via alias"}
+
+        store = CredentialStore(backend="memory")
+        store.set("openai", "openai-secret")
+        agent = WorkerAgent("Nero", "Developer", provider_id="codex")
+        result = LLMProviderClient(post_json=post_json, credential_store=store).generate(agent, "Oi")
+
+        self.assertEqual(result.content, "Resposta via alias")
+        self.assertEqual(calls[0]["Authorization"], "Bearer openai-secret")
+
+    def test_custom_provider_uses_saved_key_and_openai_compatible_base_url(self):
+        calls = []
+
+        def post_json(url, payload, headers, timeout):
+            calls.append((url, payload, headers))
+            return {"choices": [{"message": {"content": "Resposta customizada"}}]}
+
+        store = CredentialStore(backend="memory")
+        store.set("deepseek", "deep-secret")
+        agent = WorkerAgent(
+            "Atlas",
+            "Research",
+            provider_id="deepseek",
+            model_config={"model": "deepseek-chat", "base_url": "https://example.test/v1"},
+        )
+        client = LLMProviderClient(post_json=post_json, credential_store=store)
+
+        result = client.generate(agent, "Pesquise.")
+
+        self.assertEqual(result.content, "Resposta customizada")
+        self.assertEqual(calls[0][0], "https://example.test/v1/responses")
+        self.assertEqual(calls[0][2]["Authorization"], "Bearer deep-secret")
+
     def test_ollama_uses_agent_model_config_and_parses_response(self):
         calls = []
 
@@ -130,4 +186,3 @@ class TestLLMProviderClient(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

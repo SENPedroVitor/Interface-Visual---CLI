@@ -5,6 +5,7 @@ import { WaddleAvatar, STATE_LABELS } from './WaddleAvatar';
 import { agentStateFromStatus, activityTime, roleLabel } from '../utils/agentState';
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconPlug } from './Icons';
+import { Settings } from 'lucide-react';
 import { UserProfile } from './UserConfigModal';
 import { UserAvatar } from './UserAvatar';
 
@@ -19,6 +20,7 @@ export interface AgentSidebarProps {
   onOpenDeveloperMode: () => void;
   onOpenPlugins: () => void;
   onKillSwitch: () => void;
+  onResume?: () => void;
   isKillSwitchActive: boolean;
   systemStatus: 'active' | 'stopped';
   agentPreviews: Record<string, string>;
@@ -27,6 +29,7 @@ export interface AgentSidebarProps {
   onOpenActionMenu: (rect: DOMRect) => void;
   userProfile?: UserProfile;
   onOpenUserConfig?: () => void;
+  onOpenProviderSettings?: () => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
@@ -39,12 +42,15 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   onSelectGroup,
   onOpenDeveloperMode,
   onOpenPlugins,
+  systemStatus,
   agentPreviews,
   isDarkTheme,
   onToggleTheme,
   onOpenActionMenu,
   userProfile,
   onOpenUserConfig,
+  onOpenProviderSettings,
+  onResume,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredAgent, setHoveredAgent] = useState<Agent | null>(null);
@@ -291,6 +297,12 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
 
       {/* Footer */}
       <div className="sidebar-footer">
+        {systemStatus === 'stopped' && onResume && (
+          <button className="sidebar-footer-btn" onClick={onResume} title="Retomar agentes e rotinas">
+            <span aria-hidden="true">▶</span>
+            Retomar agentes
+          </button>
+        )}
         <button
           className={`sidebar-footer-btn theme-toggle-btn ${isDarkTheme ? 'is-dark' : ''}`}
           onClick={onToggleTheme}
@@ -319,6 +331,11 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
             <path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" strokeLinecap="round" />
           </svg>
           Desenvolvedor
+        </button>
+
+        <button className="sidebar-footer-btn" onClick={onOpenProviderSettings} title="Configurar provedores e chaves de IA">
+          <Settings size={16} />
+          Configurações de IA
         </button>
 
         <button

@@ -5,6 +5,7 @@ Coordinates agents, task lifecycle, tool executions, storage persistence, and em
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 import uuid
@@ -46,6 +47,10 @@ class AgentRuntime:
         self.agents: dict[str, Agent] = {}
         self._is_stopped = False
         self._active_run_id: Optional[str] = None
+        self._active_routine_run_ids: set[str] = set()
+        # Objectives share task-manager and run state. Serialize entry points
+        # so a scheduled routine cannot interleave with a manual request.
+        self._run_lock = asyncio.Lock()
 
         # Register standard default tools
         register_filesystem_tools(self.tool_registry)
@@ -108,8 +113,7 @@ class AgentRuntime:
             raise ValueError('Já existe um agente com esse nome ou o nome é reservado.')
         if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor', 'Sports'}:
             raise ValueError('Escolha uma função válida.')
-        if provider_id not in {'ollama', 'codex', 'claude'}:
-            raise ValueError('Escolha um motor válido.')
+        provider_id = self._validate_provider_id(provider_id)
         agent = WorkerAgent(
             name=name,
             role=role,
@@ -148,13 +152,19 @@ class AgentRuntime:
             raise ValueError('Esse agente do sistema não pode ser editado por aqui.')
         if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor', 'Sports'}:
             raise ValueError('Escolha uma função válida.')
-        if provider_id not in {'ollama', 'codex', 'claude'}:
-            raise ValueError('Escolha um motor válido.')
+        provider_id = self._validate_provider_id(provider_id)
         agent.role = role
         agent.description = description.strip()
         agent.provider_id = provider_id
         self.database.update_agent(agent.name, agent.role, agent.description, agent.provider_id)
         return agent.to_dict()
+
+    @staticmethod
+    def _validate_provider_id(provider_id: str) -> str:
+        value = str(provider_id or '').strip().lower()
+        if not re.fullmatch(r'[a-z0-9][a-z0-9_.:-]{0,63}', value):
+            raise ValueError('Identificador de motor inválido.')
+        return value
 
     def get_agent_details(self, name: str) -> dict[str, Any]:
         agent = self.get_agent(name)
@@ -179,7 +189,7 @@ class AgentRuntime:
         if "description" in data:
             agent.description = data["description"].strip()
         if "provider_id" in data and data["provider_id"]:
-            agent.provider_id = data["provider_id"]
+            agent.provider_id = self._validate_provider_id(data["provider_id"])
         if "soul" in data:
             agent.soul = data["soul"]
         if "skills" in data:
@@ -522,6 +532,15 @@ class AgentRuntime:
     def get_agent(self, name: str) -> Optional[Agent]:
         return self.agents.get(name)
 
+    def mark_routine_run_active(self, run_id: str) -> None:
+        self._active_routine_run_ids.add(run_id)
+
+    def mark_routine_run_finished(self, run_id: str) -> None:
+        self._active_routine_run_ids.discard(run_id)
+
+    def is_routine_run_active(self, run_id: str) -> bool:
+        return run_id in self._active_routine_run_ids
+
     def list_agents(self) -> list[dict[str, Any]]:
         activity = self.database.agent_activity()
         seen_ids = set()
@@ -533,12 +552,72 @@ class AgentRuntime:
         return result
 
     async def run_objective(self, objective: str, parameters: Optional[dict[str, Any]] = None, agent_name: Optional[str] = None) -> dict[str, Any]:
-        """Execute a full workflow starting from a user objective."""
-        self._is_stopped = False
-        run_id = f"run-{uuid.uuid4().hex[:8]}"
-        self._active_run_id = run_id
-        start_ts = _utc_iso()
+        """Execute one objective at a time across all callers."""
+        async with self._run_lock:
+            return await self._run_objective_unlocked(objective, parameters, agent_name)
 
+    async def _run_objective_unlocked(self, objective: str, parameters: Optional[dict[str, Any]] = None, agent_name: Optional[str] = None) -> dict[str, Any]:
+        """Supervise one run so cancellation cannot leave it permanently running."""
+        run_id = f"run-{uuid.uuid4().hex[:8]}"
+        start_ts = _utc_iso()
+        self._active_run_id = run_id
+        try:
+            return await self._run_objective_body(
+                objective, parameters, agent_name, run_id=run_id, start_ts=start_ts
+            )
+        except asyncio.CancelledError:
+            self.database.save_run(
+                run_id=run_id,
+                objective=objective,
+                status="cancelled",
+                created_at=start_ts,
+                completed_at=_utc_iso(),
+            )
+            await self.event_bus.emit(
+                "run.cancelled",
+                {
+                    "run_id": run_id,
+                    "status": "cancelled",
+                    "objective": objective,
+                    "agent_name": agent_name or "Quinta",
+                },
+                source="runtime",
+            )
+            raise
+        except Exception as exc:
+            self.database.save_run(
+                run_id=run_id,
+                objective=objective,
+                status="failed",
+                created_at=start_ts,
+                completed_at=_utc_iso(),
+            )
+            await self.event_bus.emit(
+                "run.failed",
+                {
+                    "run_id": run_id,
+                    "status": "failed",
+                    "objective": objective,
+                    "agent_name": agent_name or "Quinta",
+                    "error": str(exc),
+                },
+                source="runtime",
+            )
+            raise
+        finally:
+            if self._active_run_id == run_id:
+                self._active_run_id = None
+
+    async def _run_objective_body(
+        self,
+        objective: str,
+        parameters: Optional[dict[str, Any]] = None,
+        agent_name: Optional[str] = None,
+        *,
+        run_id: str,
+        start_ts: str,
+    ) -> dict[str, Any]:
+        """Execute a full workflow starting from a user objective."""
         self.database.save_run(run_id=run_id, objective=objective, status="running", created_at=start_ts)
 
         await self.event_bus.emit(
@@ -546,6 +625,24 @@ class AgentRuntime:
             {"run_id": run_id, "objective": objective, "agent_name": agent_name or 'Quinta'},
             source="runtime",
         )
+
+        # A request that was queued before the kill switch may acquire the
+        # serialization lock afterwards. Do not let it revive the runtime;
+        # only resume_all() can clear this state explicitly.
+        if self._is_stopped:
+            self.database.save_run(
+                run_id=run_id,
+                objective=objective,
+                status="cancelled",
+                created_at=start_ts,
+                completed_at=_utc_iso(),
+            )
+            await self.event_bus.emit(
+                "run.cancelled",
+                {"run_id": run_id, "status": "cancelled", "objective": objective, "agent_name": agent_name or "Quinta"},
+                source="runtime",
+            )
+            return {"run_id": run_id, "status": "cancelled", "tasks": []}
 
         manager: Optional[ManagerAgent] = self.agents.get("Quinta") or self.agents.get("Manager")  # type: ignore
         if not manager or not isinstance(manager, ManagerAgent):
@@ -567,6 +664,7 @@ class AgentRuntime:
         # Step 2: Loop until all runnable tasks are executed or system stopped
         all_completed = True
         has_failed = False
+        current_task: Optional[Task] = None
 
         while not self._is_stopped:
             runnable_task = self.task_manager.get_next_runnable_task()
@@ -588,6 +686,7 @@ class AgentRuntime:
             # Mark task running
             await self.task_manager.update_status(runnable_task.id, TaskStatus.RUNNING)
             self.database.save_task(runnable_task.to_dict(), run_id=run_id)
+            current_task = runnable_task
 
             # Determine agent
             assigned_name = runnable_task.assigned_agent or "Nero"
@@ -606,6 +705,14 @@ class AgentRuntime:
                     runnable_task.id, TaskStatus.COMPLETED, output=task_output
                 )
                 self.database.save_task(runnable_task.to_dict(), run_id=run_id)
+                current_task = None
+            except asyncio.CancelledError:
+                await self.task_manager.update_status(
+                    runnable_task.id, TaskStatus.CANCELLED, error="Objective cancelled"
+                )
+                self.database.save_task(runnable_task.to_dict(), run_id=run_id)
+                current_task = None
+                raise
             except Exception as exc:
                 err = str(exc)
                 await self.task_manager.update_status(
@@ -613,6 +720,7 @@ class AgentRuntime:
                 )
                 self.database.save_task(runnable_task.to_dict(), run_id=run_id)
                 has_failed = True
+                current_task = None
 
         final_status = "cancelled" if self._is_stopped else ("failed" if has_failed else "completed")
         self.database.save_run(
@@ -657,3 +765,13 @@ class AgentRuntime:
             "cancelled_tasks": cancelled,
             "reason": reason,
         }
+
+    async def resume_all(self) -> dict[str, Any]:
+        """Resume execution after an explicit kill-switch reset."""
+        self._is_stopped = False
+        resumed = 0
+        for agent in self.agents.values():
+            if agent.status == AgentStatus.STOPPED:
+                await agent.set_status(AgentStatus.IDLE)
+                resumed += 1
+        return {"status": "active", "resumed_agents": resumed}

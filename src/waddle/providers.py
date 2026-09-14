@@ -5,12 +5,15 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Optional
+import os
+from typing import Any, Optional
 
 
 DEFAULT_OLLAMA_PATH = Path.home() / "AppData" / "Local" / "Programs" / "OllamaPortable" / "ollama.exe"
 DEFAULT_CLAUDE_PATH = Path.home() / ".local" / "bin" / "claude.exe"
 DEFAULT_CODEX_ROOT = Path.home() / "AppData" / "Local" / "OpenAI" / "Codex" / "bin"
+VERSION_TIMEOUT_SECONDS = 3
+VERSION_OUTPUT_LIMIT = 240
 
 
 @dataclass
@@ -49,11 +52,13 @@ class ProviderRegistry:
         return [
             self._detect_ollama().to_dict(),
             self._detect_cli("codex", "Codex", "code-agent", "codex --version", self._find_codex()).to_dict(),
-            self._detect_cli("claude", "Claude Code", "code-agent", "claude --version", DEFAULT_CLAUDE_PATH).to_dict(),
+            self._detect_cli("claude", "Claude Code", "code-agent", "claude --version", self._find_claude()).to_dict(),
         ]
 
     def _detect_ollama(self) -> ProviderStatus:
-        resolved = str(self.ollama_path) if self.ollama_path.exists() else shutil.which("ollama")
+        resolved = str(self.ollama_path) if self.ollama_path.is_file() else self._which_or_known(
+            "ollama", self._ollama_candidates()
+        )
 
         if not resolved:
             return ProviderStatus(
@@ -63,7 +68,7 @@ class ProviderRegistry:
                 installed=False,
                 available=False,
                 command="ollama --version",
-                detail="Ollama não foi encontrado no PATH nem no caminho portátil padrão.",
+                detail="Ollama não foi encontrado no PATH nem nos caminhos padrão do Windows.",
             )
 
         version = self._run_version([resolved, "--version"])
@@ -77,7 +82,9 @@ class ProviderRegistry:
             command="ollama serve",
             path=resolved,
             version=version,
-            detail="Servidor local ativo em 127.0.0.1:11434." if server_available else "CLI encontrada; servidor local não respondeu.",
+            detail="Servidor local ativo em 127.0.0.1:11434."
+            if server_available
+            else "CLI encontrada; servidor local não respondeu.",
         )
 
     def _detect_cli(
@@ -88,9 +95,7 @@ class ProviderRegistry:
         command: str,
         fallback_path: Optional[Path] = None,
     ) -> ProviderStatus:
-        resolved = shutil.which(executable)
-        if not resolved and fallback_path and fallback_path.exists():
-            resolved = str(fallback_path)
+        resolved = self._which_or_known(executable, [fallback_path] if fallback_path else [])
         if not resolved:
             return ProviderStatus(
                 id=executable,
@@ -99,7 +104,7 @@ class ProviderRegistry:
                 installed=False,
                 available=False,
                 command=command,
-                detail=f"{name} não foi encontrado no PATH.",
+                detail=f"{name} não foi encontrado no PATH nem nos caminhos padrão do Windows.",
             )
         version = self._run_version([resolved, "--version"])
         return ProviderStatus(
@@ -111,22 +116,64 @@ class ProviderRegistry:
             command=command,
             path=resolved,
             version=version,
-            detail=f"{name} CLI pronta para receber tarefas locais.",
+            detail=f"{name} CLI encontrada; autenticação não verificada.",
         )
 
     def _find_codex(self) -> Optional[Path]:
-        if not DEFAULT_CODEX_ROOT.exists():
-            return None
-        matches = sorted(DEFAULT_CODEX_ROOT.glob("*/codex.exe"), key=lambda path: path.stat().st_mtime, reverse=True)
-        return matches[0] if matches else None
+        candidates = [
+            DEFAULT_CODEX_ROOT / "codex.exe",
+            Path.home() / "AppData" / "Local" / "Programs" / "OpenAI Codex" / "codex.exe",
+        ]
+        if DEFAULT_CODEX_ROOT.exists():
+            matches = list(DEFAULT_CODEX_ROOT.glob("*/codex.exe"))
+            matches.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+            candidates.extend(matches)
+        return self._first_file(candidates)
+
+    def _find_claude(self) -> Optional[Path]:
+        local_app_data = Path(os.environ.get("LOCALAPPDATA", ""))
+        app_data = Path(os.environ.get("APPDATA", ""))
+        return self._first_file(
+            [
+                DEFAULT_CLAUDE_PATH,
+                app_data / "npm" / "claude.cmd",
+                app_data / "npm" / "claude.exe",
+                local_app_data / "Programs" / "Claude" / "claude.exe",
+            ]
+        )
+
+    def _ollama_candidates(self) -> list[Path]:
+        local_app_data = Path(os.environ.get("LOCALAPPDATA", ""))
+        return [
+            self.ollama_path,
+            local_app_data / "Programs" / "Ollama" / "ollama.exe",
+            local_app_data / "Programs" / "OllamaPortable" / "ollama.exe",
+        ]
+
+    @staticmethod
+    def _first_file(candidates: list[Path]) -> Optional[Path]:
+        for candidate in candidates:
+            try:
+                if candidate.is_file():
+                    return candidate
+            except OSError:
+                continue
+        return None
+
+    def _which_or_known(self, executable: str, candidates: list[Optional[Path]]) -> Optional[str]:
+        resolved = shutil.which(executable)
+        if resolved:
+            return resolved
+        known = self._first_file([candidate for candidate in candidates if candidate is not None])
+        return str(known) if known else None
 
     def _run_version(self, command: list[str]) -> Optional[str]:
         try:
-            result = subprocess.run(command, text=True, capture_output=True, timeout=8, check=False)
-        except Exception:
+            result = subprocess.run(command, text=True, capture_output=True, timeout=VERSION_TIMEOUT_SECONDS, check=False)
+        except (OSError, subprocess.SubprocessError):
             return None
         output = (result.stdout or result.stderr).strip()
-        return output.splitlines()[0] if output else None
+        return output.splitlines()[0][:VERSION_OUTPUT_LIMIT] if output else None
 
     def _ollama_server_available(self, executable: str) -> bool:
         try:
@@ -134,10 +181,10 @@ class ProviderRegistry:
                 [executable, "list"],
                 text=True,
                 capture_output=True,
-                timeout=8,
+                timeout=VERSION_TIMEOUT_SECONDS,
                 check=False,
             )
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False
         return result.returncode == 0 and "NAME" in result.stdout
 

@@ -152,7 +152,90 @@ Dependências web principais:
 
 ---
 
-## Como executar em desenvolvimento
+## Como executar
+
+O launcher supervisionado inicia a API, a interface e o Ollama local (quando
+instalado), espera os serviços ficarem prontos e encerra os processos filhos
+juntos. Instale as dependências uma vez:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cd web
+npm install
+cd ..
+```
+
+Depois, na raiz do repositório:
+
+```powershell
+.\start.ps1
+```
+
+Opções úteis:
+
+```powershell
+.\start.ps1 --headless       # não abrir o navegador
+.\start.ps1 --production     # usar o build estático, sem hot-reload
+.\start.ps1 --no-ollama      # não iniciar o Ollama automaticamente
+```
+
+### Iniciar automaticamente no Windows (opcional)
+
+Para iniciar o Waddle quando o usuário atual entrar no Windows, instale uma
+tarefa agendada com permissões limitadas:
+
+```powershell
+.\scripts\install_autostart.ps1
+```
+
+A tarefa é idempotente, usa o launcher com `--headless --no-browser` e não
+armazena chaves de API. Para remover o autostart:
+
+```powershell
+.\scripts\uninstall_autostart.ps1
+```
+
+O launcher só abre a interface após validar a API em
+`http://127.0.0.1:8000/health` e a interface em `http://127.0.0.1:5173`.
+O Ollama (`http://127.0.0.1:11434`) é opcional: sem ele, o fallback local
+continua disponível.
+
+Rotinas com status `active` são executadas pelo scheduler integrado ao
+backend. Os formatos automáticos suportados inicialmente são `todo dia às
+09:00` e `a cada 5 minutos`; use `manual` para manter uma rotina sob demanda.
+O botão de parada pausa novas rotinas; use “Retomar agentes” na interface (ou
+`POST /api/resume`) para reativar o runtime explicitamente.
+
+### Configurar chaves e provedores
+
+Na barra lateral, abra **Configurações de IA** para cadastrar uma integração.
+O formulário aceita nome, API key, modelo e Base URL. OpenAI/Codex,
+Anthropic/Claude e Ollama têm rotas próprias; outros provedores podem ser
+usados quando oferecem uma API compatível com OpenAI informando a Base URL.
+Ollama local não exige chave.
+
+As chaves são enviadas ao backend local e persistidas criptografadas com
+Windows DPAPI, vinculadas ao usuário atual. O navegador recebe somente estado
+e máscara da chave; o valor completo não aparece em respostas, eventos,
+`localStorage` ou logs. O botão **Verificar** confirma se a integração está
+armazenada sem executar uma chamada paga ao provedor.
+
+### Dados locais e descoberta de agentes
+
+O diretório persistente pode ser configurado com `WADDLE_DATA_DIR`. Nesta
+instalação ele aponta para `D:\\banco de dados waddle`, onde o Waddle cria o
+SQLite (`state.db`) e as pastas `database`, `contexts`, `conversations`,
+`artifacts`, `exports`, `logs` e `cache`. O diretório não deve ser versionado.
+
+Em cada inicialização, **Desenvolvedor → Provedores locais** detecta o Ollama,
+Codex CLI e Claude Code no `PATH` e em caminhos padrão do Windows, mostrando
+caminho e versão quando disponíveis. Encontrar a CLI não significa que a
+conta esteja autenticada; as chamadas de modelo continuam usando a integração
+configurada no Waddle.
+
+### Execução manual (desenvolvimento)
 
 ### 1. Backend
 
@@ -204,6 +287,7 @@ http://127.0.0.1:11434
 | Método | Rota | Uso |
 | --- | --- | --- |
 | `GET` | `/api/status` | Estado geral do runtime. |
+| `GET` | `/health` | Readiness da API, banco, runtime e provedores (sem segredos). |
 | `GET` | `/api/agents` | Lista agentes registrados. |
 | `POST` | `/api/agents` | Cria agente customizado. |
 | `PATCH` | `/api/agents/{agent_name}` | Atualiza perfil de agente customizado. |
@@ -215,6 +299,7 @@ http://127.0.0.1:11434
 | `POST` | `/api/objectives` | Envia objetivo ou mensagem para um agente. |
 | `POST` | `/api/routines` | Cria rotina local associada a um agente. |
 | `POST` | `/api/kill-switch` | Interrompe tarefas ativas. |
+| `POST` | `/api/resume` | Retoma agentes e rotinas após a parada. |
 | `WS` | `/ws/events` | Stream de eventos em tempo real. |
 
 Exemplo de envio de objetivo:

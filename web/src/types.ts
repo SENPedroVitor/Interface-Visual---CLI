@@ -103,6 +103,21 @@ export interface ProviderInfo {
   detail: string;
 }
 
+/** A server-side provider credential. The secret itself is never returned. */
+export interface ProviderCredential {
+  id: string;
+  provider_id?: string;
+  provider: string;
+  name: string;
+  configured?: boolean;
+  model?: string | null;
+  base_url?: string | null;
+  masked_key?: string | null;
+  status?: 'configured' | 'invalid' | 'unknown' | string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface WaddleEvent {
   id: string;
   type: string;

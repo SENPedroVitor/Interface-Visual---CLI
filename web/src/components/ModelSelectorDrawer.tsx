@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { VectorIcon } from './Icons';
+import { fetchProviderCredentials } from '../services/api';
 import './ModelSelectorDrawer.css';
 
 export interface ModelOption {
@@ -118,8 +119,30 @@ export const ModelSelectorDrawer: React.FC<ModelSelectorProps> = ({
   const [currentEffort, setCurrentEffort] = useState(selectedEffort);
   const [liveModels, setLiveModels] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [configuredProviders, setConfiguredProviders] = useState<ProviderMeta[]>([]);
 
-  const activeProvider = PROVIDERS.find(p => p.id === currentProvider) || PROVIDERS[0];
+  useEffect(() => {
+    let active = true;
+    void fetchProviderCredentials().then((credentials) => {
+      if (!active) return;
+      setConfiguredProviders(credentials.filter((credential) => credential.configured !== false).map((credential) => ({
+        id: credential.provider_id || credential.provider,
+        name: credential.name || credential.provider,
+        category: 'cloud',
+        icon: 'code',
+        version: 'configurado',
+        account: 'Chave protegida',
+        status: 'online',
+        description: 'Integração configurada nas Configurações de IA.',
+        defaultModels: [{ id: credential.model || 'default-model', name: credential.model || 'modelo configurado', tag: 'CONFIGURADO' }],
+      })));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  const allProviders = [...PROVIDERS, ...configuredProviders.filter((item) => !PROVIDERS.some((provider) => provider.id === item.id))];
+
+  const activeProvider = allProviders.find(p => p.id === currentProvider) || allProviders[0];
 
   // Fetch live models if provider supports listing
   useEffect(() => {
@@ -157,11 +180,11 @@ export const ModelSelectorDrawer: React.FC<ModelSelectorProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [currentProvider]);
+  }, [currentProvider, configuredProviders]);
 
   const handleProviderSelect = (providerId: string) => {
     setCurrentProvider(providerId);
-    const p = PROVIDERS.find(x => x.id === providerId) || PROVIDERS[0];
+    const p = allProviders.find(x => x.id === providerId) || allProviders[0];
     const newModel = p.defaultModels[0]?.id || 'default';
     setCurrentModel(newModel);
     onChange?.({ provider: providerId, model: newModel, reasoningEffort: currentEffort });
@@ -186,7 +209,7 @@ export const ModelSelectorDrawer: React.FC<ModelSelectorProps> = ({
         {/* Cloud Providers */}
         <div className="model-rail-section">
           <div className="model-rail-header">Nuvem (Cloud)</div>
-          {PROVIDERS.filter(p => p.category === 'cloud').map(p => (
+          {allProviders.filter(p => p.category === 'cloud').map(p => (
             <button
               key={p.id}
               className={`model-rail-item ${p.id === currentProvider ? 'active' : ''}`}
@@ -206,7 +229,7 @@ export const ModelSelectorDrawer: React.FC<ModelSelectorProps> = ({
         {/* Local Providers */}
         <div className="model-rail-section">
           <div className="model-rail-header">Local (Zero-Cost)</div>
-          {PROVIDERS.filter(p => p.category === 'local').map(p => (
+          {allProviders.filter(p => p.category === 'local').map(p => (
             <button
               key={p.id}
               className={`model-rail-item ${p.id === currentProvider ? 'active' : ''}`}

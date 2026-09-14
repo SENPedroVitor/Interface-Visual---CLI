@@ -540,6 +540,30 @@ class Database:
         finally:
             conn.close()
 
+    def list_active_routines(self) -> list[dict[str, Any]]:
+        """Return every active routine for the background scheduler.
+
+        This intentionally has no UI pagination limit: an old active routine
+        must not be starved by newer drafts or manually-triggered routines.
+        """
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("SELECT * FROM routines WHERE status = 'active' ORDER BY created_at ASC")
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
+    def update_routine_run(self, run_id: str, status: str) -> Optional[dict[str, Any]]:
+        """Update scheduler lifecycle status and return the persisted row."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute("UPDATE routine_runs SET status = ? WHERE id = ?", (status, run_id))
+            row = conn.execute("SELECT * FROM routine_runs WHERE id = ?", (run_id,)).fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
     def save_run(self, run_id: str, objective: str, status: str, created_at: str, completed_at: Optional[str] = None) -> None:
         conn = self._get_connection()
         try:

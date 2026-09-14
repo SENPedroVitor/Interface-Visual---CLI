@@ -38,6 +38,41 @@ class TestAgentRuntime(unittest.TestCase):
         self.assertEqual(provider_by_name["Nero"], "codex")
         self.assertEqual(provider_by_name["Iris"], "claude")
 
+    def test_objective_entry_points_are_serialized(self):
+        active = 0
+        max_active = 0
+
+        async def fake_objective(objective, parameters=None, agent_name=None):
+            nonlocal active, max_active
+            active += 1
+            max_active = max(max_active, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+            return {"status": "completed", "objective": objective}
+
+        self.runtime._run_objective_unlocked = fake_objective
+        async def run_both():
+            return await asyncio.gather(
+                self.runtime.run_objective("primeiro"),
+                self.runtime.run_objective("segundo"),
+            )
+
+        results = asyncio.run(run_both())
+        self.assertEqual(max_active, 1)
+        self.assertEqual([item["status"] for item in results], ["completed", "completed"])
+
+    def test_resume_all_reactivates_agents_after_kill_switch(self):
+        async def stop_and_resume():
+            await self.runtime.stop_all()
+            self.assertTrue(all(agent.status.value == "stopped" for agent in self.runtime.agents.values()))
+            blocked = await self.runtime.run_objective("não deve iniciar durante o stop")
+            self.assertEqual(blocked["status"], "cancelled")
+            return await self.runtime.resume_all()
+
+        result = asyncio.run(stop_and_resume())
+        self.assertEqual(result["status"], "active")
+        self.assertTrue(all(agent.status.value == "idle" for agent in self.runtime.agents.values()))
+
     def test_custom_agent_survives_restart_and_rejects_duplicate_names(self):
         self.runtime.create_agent('Luna', 'Research', 'Pesquisa local')
         with self.assertRaises(ValueError):
@@ -103,6 +138,84 @@ class TestAgentRuntime(unittest.TestCase):
         discussions = [msg for msg in messages if msg['type'] == 'discussion']
         self.assertTrue(any(msg['from'] == 'Nero' and 'codex' in msg['content'] for msg in discussions))
         self.assertTrue(any(msg['from'] == 'Iris' and 'claude' in msg['content'] for msg in discussions))
+
+    def test_quinta_routes_plain_group_message_only_to_valid_group_members(self):
+        manager = self.runtime.get_agent('Quinta')
+        manager.llm_generate = lambda agent, prompt: f"{agent.name} opinou sobre o pedido."
+
+        asyncio.run(
+            self.runtime.run_objective(
+                'como melhoramos o projeto?',
+                parameters={'_group_members': ['Motion', 'nao-existe', 'Atlas', 'Motion']},
+                agent_name='Quinta',
+            )
+        )
+
+        messages = self.runtime.database.list_messages(limit=20)
+        discussions = [msg for msg in messages if msg['type'] == 'discussion']
+        self.assertEqual({msg['from'] for msg in discussions}, {'Motion', 'Atlas'})
+        answer = next(msg for msg in messages if msg['type'] == 'answer' and msg['from'] == 'Quinta')
+        self.assertEqual(
+            {opinion['agent'] for opinion in answer['data']['opinions']},
+            {'Motion', 'Atlas'},
+        )
+
+    def test_quinta_group_with_no_valid_members_does_not_fall_back_to_default_team(self):
+        manager = self.runtime.get_agent('Quinta')
+        manager.llm_generate = lambda agent, prompt: f"{agent.name} opinou sobre o pedido."
+
+        asyncio.run(
+            self.runtime.run_objective(
+                'como melhoramos o projeto?',
+                parameters={'_group_members': ['nao-existe']},
+                agent_name='Quinta',
+            )
+        )
+
+        messages = self.runtime.database.list_messages(limit=20)
+        self.assertFalse([msg for msg in messages if msg['type'] == 'discussion'])
+        answer = next(msg for msg in messages if msg['type'] == 'answer' and msg['from'] == 'Quinta')
+        self.assertEqual(answer['data']['opinions'], [])
+
+    def test_group_scope_keeps_generated_tasks_inside_group(self):
+        manager = self.runtime.get_agent('Quinta')
+        tasks = asyncio.run(
+            manager.plan_objective(
+                'consultar cotação de PETR4',
+                parameters={
+                    '_group_members': ['Atlas'],
+                    '_group_id': 'group-atlas',
+                },
+            )
+        )
+        self.assertTrue(tasks)
+        self.assertTrue(all(task.assigned_agent == 'Atlas' for task in tasks))
+        self.assertTrue(all(task.input_data['_conversation_agent'] == 'group-atlas' for task in tasks))
+
+    def test_cancelled_objective_persists_terminal_run_and_clears_active_id(self):
+        manager = self.runtime.get_agent('Quinta')
+        original_plan = manager.plan_objective
+
+        async def blocked_plan(*args, **kwargs):
+            await asyncio.Event().wait()
+            return []
+
+        manager.plan_objective = blocked_plan
+
+        async def scenario():
+            task = asyncio.create_task(self.runtime.run_objective('aguardar cancelamento'))
+            await asyncio.sleep(0)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+        try:
+            asyncio.run(scenario())
+            runs = self.runtime.database.list_runs(limit=5)
+            self.assertEqual(runs[0]['status'], 'cancelled')
+            self.assertIsNone(self.runtime._active_run_id)
+        finally:
+            manager.plan_objective = original_plan
 
     def test_quinta_no_api_keys_request_gets_local_fallback_summary(self):
         manager = self.runtime.get_agent('Quinta')

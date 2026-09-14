@@ -193,13 +193,14 @@ class WorkerAgent(Agent):
     async def execute_task(self, task: Task) -> Any:
         self.current_task_id = task.id
         await self.set_status(AgentStatus.THINKING)
+        conversation_agent = str(task.input_data.get("_conversation_agent") or self.name.lower())
 
         await self.send_message(
             to_agent="Manager",
             msg_type="status_update",
             content=f"Starting execution of task: '{task.title}'",
             task_id=task.id,
-            data={"conversation_agent": self.name.lower()},
+            data={"conversation_agent": conversation_agent},
         )
 
         output: dict[str, Any] = {"summary": f"Completed task: {task.title}", "results": []}
@@ -259,7 +260,7 @@ class WorkerAgent(Agent):
                 msg_type="task_result",
                 content=summary,
                 task_id=task.id,
-                data={**output, "conversation_agent": self.name.lower()},
+                data={**output, "conversation_agent": conversation_agent},
             )
             return output
         except Exception as e:
@@ -269,7 +270,7 @@ class WorkerAgent(Agent):
                 msg_type="task_failed",
                 content=f"Failed task '{task.title}': {err_msg}",
                 task_id=task.id,
-                data={"error": err_msg},
+                data={"error": err_msg, "conversation_agent": conversation_agent},
             )
             raise
         finally:

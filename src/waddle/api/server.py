@@ -2,20 +2,25 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from ..runtime.agent_runtime import AgentRuntime
+from ..runtime.routine_scheduler import RoutineScheduler
 from ..core.event_bus import Event, global_event_bus
 from ..providers import ProviderRegistry
 from ..tools.registry import global_tool_registry
+from ..security.credentials import CredentialStoreError, get_default_credential_store
 
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
@@ -23,6 +28,11 @@ load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
 runtime = AgentRuntime(event_bus=global_event_bus, tool_registry=global_tool_registry)
 provider_registry = ProviderRegistry()
 active_websockets: set[WebSocket] = set()
+scheduler = RoutineScheduler(runtime)
+routine_run_tasks: set[asyncio.Task[Any]] = set()
+objective_tasks: set[asyncio.Task[Any]] = set()
+logger = logging.getLogger(__name__)
+credential_store = get_default_credential_store()
 
 
 @asynccontextmanager
@@ -41,25 +51,99 @@ async def lifespan(app: FastAPI):
         active_websockets.difference_update(dead)
 
     global_event_bus.subscribe("*", broadcast_event)
+    scheduler.start()
+    app.state.routine_scheduler = scheduler
     yield
+    for task in (*routine_run_tasks, *objective_tasks):
+        task.cancel()
+    if routine_run_tasks or objective_tasks:
+        await asyncio.gather(*routine_run_tasks, *objective_tasks, return_exceptions=True)
+    routine_run_tasks.clear()
+    objective_tasks.clear()
+    await scheduler.stop()
     active_websockets.clear()
 
 
 app = FastAPI(title="Waddle Agent OS API", version="0.2.0", lifespan=lifespan)
 
+_default_cors_origins = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:5174",
+    "http://localhost:5174",
+]
+_configured_cors = [origin.strip() for origin in (os.getenv("WADDLE_CORS_ORIGINS") or "").split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_configured_cors or _default_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+@app.middleware("http")
+async def reject_cross_origin_mutations(request: Request, call_next):
+    """Block browser CSRF attempts while keeping direct local API clients usable."""
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = (request.headers.get("origin") or "").strip()
+        if origin and origin not in (_configured_cors or _default_cors_origins):
+            return JSONResponse(status_code=403, content={"detail": "Origin não autorizado."})
+    return await call_next(request)
+
+
+def _websocket_origin_allowed(websocket: WebSocket) -> bool:
+    """Require browser WebSockets to come from the configured local UI."""
+    origin = (websocket.headers.get("origin") or "").strip()
+    # Browser clients always send Origin.  Rejecting an absent origin closes the
+    # historical loophole where an arbitrary local page could read event history.
+    return bool(origin) and origin in (_configured_cors or _default_cors_origins)
+
+
+@app.get("/health")
+async def health() -> dict[str, Any]:
+    """Non-secret readiness probe for local orchestration and process managers."""
+    database_ok = False
+    runtime_ok = False
+    try:
+        runtime.database.list_routines(limit=1)
+        database_ok = True
+    except Exception:
+        pass
+    try:
+        runtime_ok = bool(runtime.get_agent("Quinta"))
+    except Exception:
+        pass
+    # Provider availability is informative only: local fallback/runtime remains
+    # ready when optional cloud CLIs or credentials are absent.
+    providers: dict[str, bool] = {}
+    try:
+        providers = {str(item["id"]): bool(item.get("available")) for item in provider_registry.list_providers()}
+    except Exception:
+        providers = {}
+    payload = {
+        "status": "ok" if database_ok and runtime_ok else "degraded",
+        "ready": database_ok and runtime_ok,
+        "checks": {"database": database_ok, "runtime": runtime_ok, "providers": providers},
+    }
+    if not payload["ready"]:
+        raise HTTPException(status_code=503, detail=payload)
+    return payload
+
+
 class ObjectiveRequest(BaseModel):
     objective: str
     parameters: Optional[dict[str, Any]] = None
     agent_name: Optional[str] = None
+    group_id: Optional[str] = None
+
+
+class CredentialRequest(BaseModel):
+    api_key: str = Field(default="", max_length=4096)
+    name: str = Field(default="", max_length=60)
+    model: str = Field(default="", max_length=160)
+    base_url: str = Field(default="", max_length=500)
 
 
 class AgentRequest(BaseModel):
@@ -272,6 +356,73 @@ async def get_providers() -> list[dict[str, object]]:
     return provider_registry.list_providers()
 
 
+@app.get("/api/credentials")
+async def list_credentials() -> list[dict[str, Any]]:
+    """Return provider configuration state without returning any secret."""
+    try:
+        return credential_store.list_public()
+    except CredentialStoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Credential store listing failed")
+        raise HTTPException(status_code=503, detail="Armazenamento de credenciais indisponível.") from exc
+
+
+@app.put("/api/credentials/{provider_id}")
+@app.post("/api/credentials/{provider_id}")
+async def save_credential(provider_id: str, req: CredentialRequest) -> dict[str, Any]:
+    """Create or replace one provider key; the key never enters the response or event bus."""
+    try:
+        if not req.api_key.strip() and provider_id.strip().lower() != "ollama":
+            raise ValueError("A API key não pode ficar vazia para este provedor.")
+        return credential_store.set(
+            provider_id,
+            req.api_key,
+            name=req.name,
+            model=req.model,
+            base_url=req.base_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CredentialStoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Credential store write failed")
+        raise HTTPException(status_code=503, detail="Armazenamento de credenciais indisponível.") from exc
+
+
+@app.delete("/api/credentials/{provider_id}")
+async def delete_credential(provider_id: str) -> dict[str, Any]:
+    try:
+        credential_store.delete(provider_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CredentialStoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Credential store delete failed")
+        raise HTTPException(status_code=503, detail="Armazenamento de credenciais indisponível.") from exc
+    return {"provider_id": provider_id.strip().lower(), "configured": False}
+
+
+@app.post("/api/credentials/{provider_id}/test")
+async def test_credential(provider_id: str) -> dict[str, Any]:
+    """Check that a credential entry is readable without returning its secret.
+
+    Network calls are intentionally not performed here: provider-specific
+    connectivity belongs to the normal model request path and may cost money.
+    """
+    try:
+        config = credential_store.get_config(provider_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CredentialStoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not config:
+        raise HTTPException(status_code=404, detail="Integração não encontrada.")
+    return {"ok": True, "detail": "Integração armazenada e disponível para uso."}
+
+
 @app.get("/api/routines")
 async def get_routines(agent_name: Optional[str] = None, limit: int = 50) -> list[dict[str, Any]]:
     return runtime.database.list_routines(agent_name=agent_name, limit=limit)
@@ -331,9 +482,85 @@ async def run_routine_now(routine_id: str) -> dict[str, Any]:
     run = runtime.database.save_routine_run(
         run_id=f"run-{uuid.uuid4().hex[:10]}", routine_id=routine_id, status="triggered", triggered_at=triggered_at
     )
-    asyncio.create_task(runtime.run_objective(routine["prompt"], None, routine["agent_name"]))
+    task = asyncio.create_task(_execute_manual_routine_run(routine, run), name=f"routine-run:{run['id']}")
+    routine_run_tasks.add(task)
+    task.add_done_callback(_finish_manual_routine_task)
     await global_event_bus.emit('routine.run_triggered', {'routine': routine, 'run': run}, source=routine['agent_name'])
     return run
+
+
+async def _execute_manual_routine_run(routine: dict[str, Any], run: dict[str, Any]) -> None:
+    """Run a manually-triggered routine and persist its complete lifecycle.
+
+    The API responds immediately with ``triggered`` while this supervised task
+    carries the execution to a terminal state. Exceptions are persisted and
+    emitted so a background task can never fail silently.
+    """
+    run_id = run["id"]
+    routine_id = routine["id"]
+    source = routine["agent_name"]
+    mark_active = getattr(runtime, "mark_routine_run_active", None)
+    mark_finished = getattr(runtime, "mark_routine_run_finished", None)
+    if callable(mark_active):
+        mark_active(run_id)
+    try:
+        runtime.database.update_routine_run(run_id, "running")
+        result = await runtime.run_objective(routine["prompt"], None, source)
+        result_status = result.get("status") if isinstance(result, dict) else None
+        terminal_status = result_status if result_status in {"failed", "cancelled"} else "completed"
+        updated = runtime.database.update_routine_run(run_id, terminal_status)
+        await global_event_bus.emit(
+            f"routine.run_{terminal_status}",
+            {"routine_id": routine_id, "run": updated or {**run, "status": terminal_status}},
+            source=source,
+        )
+    except asyncio.CancelledError:
+        updated = runtime.database.update_routine_run(run_id, "cancelled")
+        await global_event_bus.emit(
+            "routine.run_cancelled",
+            {"routine_id": routine_id, "run": updated or {**run, "status": "cancelled"}},
+            source=source,
+        )
+        raise
+    except Exception as exc:
+        logger.exception("Manual routine run %s failed", run_id)
+        updated = runtime.database.update_routine_run(run_id, "failed")
+        await global_event_bus.emit(
+            "routine.run_failed",
+            {
+                "routine_id": routine_id,
+                "run": updated or {**run, "status": "failed"},
+                "error": str(exc),
+            },
+            source=source,
+        )
+    finally:
+        if callable(mark_finished):
+            mark_finished(run_id)
+
+
+def _finish_manual_routine_task(task: asyncio.Task[Any]) -> None:
+    """Release a supervised task and consume any unexpected exception."""
+    routine_run_tasks.discard(task)
+    if task.cancelled():
+        return
+    try:
+        task.exception()
+    except Exception:
+        logger.exception("Unexpected error while finalizing a manual routine task")
+
+
+def _finish_objective_task(task: asyncio.Task[Any]) -> None:
+    objective_tasks.discard(task)
+    if task.cancelled():
+        return
+    try:
+        error = task.exception()
+    except Exception:
+        logger.exception("Could not inspect background objective task")
+        return
+    if error is not None:
+        logger.error("Background objective failed", exc_info=(type(error), error, error.__traceback__))
 
 
 @app.get("/api/history")
@@ -354,26 +581,86 @@ async def get_agent_history(agent_name: str, limit: int = 100) -> dict[str, Any]
     return {"messages": runtime.database.list_messages(agent_name=agent_name, limit=limit)}
 
 
+def _resolve_objective_group(group_id: str) -> tuple[dict[str, Any], list[str]]:
+    """Validate the persisted group before starting a background objective.
+
+    Group execution is intentionally one runtime run coordinated by Quinta;
+    the member list is carried as private planning metadata so the manager can
+    scope its discussion without creating one duplicate run per member.
+    """
+    group = runtime.database.get_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado.")
+
+    members: list[str] = []
+    seen: set[str] = set()
+    for raw_name in group.get("members") or []:
+        name = str(raw_name).strip()
+        key = name.casefold()
+        if name and key not in seen:
+            members.append(name)
+            seen.add(key)
+    if not members:
+        raise HTTPException(status_code=422, detail="O grupo precisa ter ao menos um agente.")
+
+    missing = [name for name in members if runtime.get_agent(name) is None]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agentes do grupo não encontrados: {', '.join(missing)}.",
+        )
+    return group, members
+
+
 @app.post("/api/objectives")
 async def submit_objective(req: ObjectiveRequest) -> dict[str, Any]:
-    if req.agent_name and not runtime.get_agent(req.agent_name):
+    agent_name = req.agent_name
+    parameters = dict(req.parameters or {})
+    group: Optional[dict[str, Any]] = None
+    if req.group_id:
+        group, members = _resolve_objective_group(req.group_id)
+        # Quinta is the coordinator for a squad.  Members are planning scope,
+        # not independent API submissions.
+        agent_name = "Quinta"
+        parameters["_group_members"] = members
+        parameters["_group_id"] = req.group_id
+    elif agent_name and not runtime.get_agent(agent_name):
         raise HTTPException(status_code=404, detail='Agente não encontrado.')
     # Start execution as background task in the running loop
-    asyncio.create_task(runtime.run_objective(req.objective, req.parameters, req.agent_name))
+    task = asyncio.create_task(runtime.run_objective(req.objective, parameters, agent_name), name="objective-run")
+    objective_tasks.add(task)
+    task.add_done_callback(_finish_objective_task)
     return {
         "message": "Objective submitted and processing started.",
         "objective": req.objective,
+        "agent_name": agent_name or "Quinta",
+        "group_id": group["id"] if group else None,
     }
 
 
 @app.post("/api/kill-switch")
 async def trigger_kill_switch() -> dict[str, Any]:
+    scheduler.pause()
     result = await runtime.stop_all(reason="Stop All activated via API")
+    for task in (*routine_run_tasks, *objective_tasks):
+        task.cancel()
+    return result
+
+
+@app.post("/api/resume")
+async def resume_runtime() -> dict[str, Any]:
+    """Explicitly resume agents and scheduled routines after a kill switch."""
+    result = await runtime.resume_all()
+    scheduler.resume()
+    await global_event_bus.emit("runtime.resumed", result, source="runtime")
     return result
 
 
 @app.websocket("/ws/events")
 async def websocket_events_endpoint(websocket: WebSocket):
+    if not _websocket_origin_allowed(websocket):
+        await websocket.close(code=1008, reason="Origin não autorizado.")
+        return
     await websocket.accept()
     active_websockets.add(websocket)
     try:

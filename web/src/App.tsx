@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Agent, ArtifactSummary, ProviderInfo, RoutineSummary, Task, ToolInfo, WaddleEvent, SystemStatus, GroupSummary } from './types';
-import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, connectWebSocket } from './services/api';
+import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, resumeRuntime, connectWebSocket } from './services/api';
 import { AgentSidebar } from './components/AgentSidebar';
 import { ConversationView, ChatItem } from './components/ConversationView';
 import { DeveloperDrawer } from './components/DeveloperDrawer';
@@ -12,6 +12,7 @@ import { NewGroupDialog } from './components/NewGroupDialog';
 import { RoutineDrawer } from './components/RoutineDrawer';
 import { PluginsModal } from './components/PluginsModal';
 import { UserConfigModal, UserProfile, DEFAULT_USER_PROFILE } from './components/UserConfigModal';
+import { ProviderSettingsModal } from './components/ProviderSettingsModal';
 import { ConversationOverview } from './components/ConversationOverview';
 import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
 import { OpenUIPlayground } from './waddle-ui/playground/OpenUIPlayground.tsx';
@@ -37,6 +38,54 @@ function describeToolCall(toolName: string, params: Record<string, any> = {}): s
   if (toolName === 'list_directory' && params.path) return `Listando \`${params.path}\``;
   if (toolName === 'run_command' && params.command) return `Executando \`${params.command}\``;
   return `Executando \`${toolName}\``;
+}
+
+/**
+ * Converts an event received in the WebSocket backlog into the same visual
+ * items used by the live stream.  The event backlog is sent after every
+ * reconnect, so these items are deliberately marked as already arrived.
+ */
+function chatItemsFromHistoryEvent(event: WaddleEvent): ChatItem[] {
+  const timestamp = new Date(event.timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  if (event.type === 'agent.message') {
+    const msg = event.data?.message || {};
+    const sender = (msg.from || event.source || '').toLowerCase() || 'system';
+    const agentKey = (msg.data?.conversation_agent || msg.from || event.source || '').toLowerCase() || 'system';
+    return [{
+      id: msg.id || event.id,
+      type: 'message',
+      sender,
+      agentKey,
+      senderName: msg.from || event.source || 'Sistema',
+      content: msg.content || '',
+      timestamp,
+      justArrived: false,
+    }];
+  }
+
+  if (event.type === 'task.created' || event.type === 'task.running') {
+    const task = event.data?.task;
+    if (task?.assigned_agent && task.assigned_agent !== 'Quinta') {
+      const conversationAgent = String(task.input_data?._conversation_agent || 'quinta').toLowerCase();
+      return [{
+        id: `${event.type === 'task.created' ? 'delegate' : 'act'}-${task.id || event.id}`,
+        type: 'context_activity',
+        sender: event.type === 'task.created' ? 'quinta' : task.assigned_agent.toLowerCase(),
+        agentKey: conversationAgent,
+        senderName: event.type === 'task.created' ? 'Quinta' : task.assigned_agent,
+        activityStatus: event.type === 'task.created' ? `→ ${task.assigned_agent}` : 'Em andamento',
+        activityState: event.type === 'task.created' ? 'done' : 'running',
+        content: task.title || '',
+        timestamp,
+      }];
+    }
+  }
+
+  return [];
 }
 
 const TOOL_ICONS: Record<string, string> = {
@@ -149,6 +198,7 @@ export const App: React.FC = () => {
     return DEFAULT_USER_PROFILE;
   });
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isProviderSettingsOpen, setIsProviderSettingsOpen] = useState(false);
 
   const handleSaveUserProfile = (newProf: UserProfile) => {
     setUserProfile(newProf);
@@ -204,6 +254,26 @@ export const App: React.FC = () => {
   const writeContentCacheRef = useRef<Record<string, string>>({});
   const historyHydratedRef = useRef(false);
 
+  const hydrateEventHistory = useCallback((history: WaddleEvent[]) => {
+    const ordered = [...history].sort((a, b) => {
+      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+    });
+
+    setEvents((prev) => {
+      const known = new Set(prev.map((event) => event.id));
+      const fresh = ordered.filter((event) => event.id && !known.has(event.id));
+      return [...fresh.reverse(), ...prev].slice(0, 100);
+    });
+
+    const restoredItems = ordered.flatMap(chatItemsFromHistoryEvent);
+    if (restoredItems.length === 0) return;
+    setChatItems((prev) => {
+      const known = new Set(prev.map((item) => item.id));
+      const fresh = restoredItems.filter((item) => item.id && !known.has(item.id));
+      return [...prev, ...fresh];
+    });
+  }, []);
+
   const refreshData = useCallback(async () => {
     try {
       setApiError('');
@@ -246,7 +316,12 @@ export const App: React.FC = () => {
           timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           justArrived: false,
         }));
-        setChatItems(restored);
+        // The WebSocket can deliver its backlog before this request returns.
+        // Merge instead of replacing so a reconnect never loses those items.
+        setChatItems((prev) => {
+          const known = new Set(prev.map((item) => item.id));
+          return [...prev, ...restored.filter((item) => item.id && !known.has(item.id))];
+        });
         historyHydratedRef.current = true;
       }
     } catch (err) {
@@ -330,13 +405,14 @@ export const App: React.FC = () => {
         // to switch to the worker's tab to see she handed something off.
         const task = newEvent.data.task;
         if (task && task.assigned_agent && task.assigned_agent !== 'Quinta') {
+          const conversationAgent = String(task.input_data?._conversation_agent || 'quinta').toLowerCase();
           setChatItems((prev) => [
             ...prev,
             {
               id: `delegate-${task.id}`,
               type: 'context_activity',
               sender: 'quinta',
-              agentKey: 'quinta',
+              agentKey: conversationAgent,
               senderName: 'Quinta',
               activityStatus: `→ ${task.assigned_agent}`,
               activityState: 'done',
@@ -348,13 +424,14 @@ export const App: React.FC = () => {
       } else if (newEvent.type === 'task.running') {
         const task = newEvent.data.task;
         if (task && task.assigned_agent && task.assigned_agent !== 'Quinta') {
+          const conversationAgent = String(task.input_data?._conversation_agent || 'quinta').toLowerCase();
           setChatItems((prev) => [
             ...prev,
             {
               id: `act-${task.id}`,
               type: 'context_activity',
               sender: task.assigned_agent.toLowerCase() as ChatItem['sender'],
-              agentKey: task.assigned_agent.toLowerCase(),
+              agentKey: conversationAgent,
               senderName: task.assigned_agent,
               activityStatus: 'Em andamento',
               content: task.title,
@@ -421,14 +498,14 @@ export const App: React.FC = () => {
       }
 
       refreshData();
-    });
+    }, hydrateEventHistory);
 
     const timer = setInterval(refreshData, 5000);
     return () => {
       cleanupWs();
       clearInterval(timer);
     };
-  }, [refreshData]);
+  }, [hydrateEventHistory, refreshData]);
 
   const handleExportBackup = async () => {
     try {
@@ -470,7 +547,12 @@ export const App: React.FC = () => {
     if ((!hasText && !hasFiles) || isSending) return;
 
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const targetAgentName = activeGroup ? activeGroup.members[0] || 'Quinta' : selectedAgent?.name || 'Quinta';
+    // A squad is one coordinated run. Quinta owns the conversation and the
+    // selected group's members are passed as routing scope to the API.
+    const targetAgentName = activeGroup ? 'Quinta' : selectedAgent?.name || 'Quinta';
+    // The built-in team-squad is a virtual UI group; omitting group_id keeps
+    // its existing default Quinta → Atlas/Nero/Iris flow until it is persisted.
+    const targetGroupId = activeGroup && activeGroup.id !== 'team-squad' ? activeGroup.id : undefined;
     const conversationKey = selectedGroupId === 'team-squad'
       ? 'team-squad'
       : activeGroup
@@ -518,7 +600,7 @@ export const App: React.FC = () => {
 
     setIsSending(true);
     try {
-      await submitObjective(objectiveText, undefined, targetAgentName);
+      await submitObjective(objectiveText, undefined, targetAgentName, targetGroupId);
       await refreshData();
     } catch (err) {
       setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: conversationKey, content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);
@@ -539,6 +621,16 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleResume = async () => {
+    try {
+      await resumeRuntime();
+      setSystemStatus('active');
+      await refreshData();
+    } catch {
+      setApiError('Não foi possível retomar o runtime. Confira se a API está disponível.');
+    }
+  };
+
   const filteredChatItems = selectedGroupId === 'team-squad'
     ? chatItems.filter(item =>
         item.agentKey === 'team-squad' ||
@@ -550,11 +642,8 @@ export const App: React.FC = () => {
       )
     : activeGroup
     ? chatItems.filter(item =>
-        activeGroup.members.some(m => m.toLowerCase() === item.agentKey) ||
-        activeGroup.members.some(m => m.toLowerCase() === item.sender) ||
-        item.agentKey === activeGroup.name.toLowerCase() ||
-        item.agentKey === activeGroup.id ||
-        item.agentKey === 'squad'
+        item.agentKey === activeGroup.id.toLowerCase() ||
+        item.agentKey === activeGroup.name.toLowerCase()
       )
     : chatItems.filter(item => {
         const selectedKey = (selectedAgent?.name || 'Quinta').toLowerCase();
@@ -595,6 +684,7 @@ export const App: React.FC = () => {
         onKillSwitch={handleKillSwitch}
         isKillSwitchActive={isKillSwitchActive}
         systemStatus={systemStatus}
+        onResume={handleResume}
         agentPreviews={agentPreviews}
         isDarkTheme={isDark}
         onToggleTheme={toggleTheme}
@@ -604,6 +694,7 @@ export const App: React.FC = () => {
         }}
         userProfile={userProfile}
         onOpenUserConfig={() => setIsUserModalOpen(true)}
+        onOpenProviderSettings={() => setIsProviderSettingsOpen(true)}
       />
 
 
@@ -698,6 +789,11 @@ export const App: React.FC = () => {
           onSave={handleSaveUserProfile}
         />
       )}
+
+      <ProviderSettingsModal
+        isOpen={isProviderSettingsOpen}
+        onClose={() => setIsProviderSettingsOpen(false)}
+      />
 
       {isNewGroupOpen && (
         <NewGroupDialog

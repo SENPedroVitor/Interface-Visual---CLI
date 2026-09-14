@@ -1,7 +1,13 @@
-import { Agent, AgentMessage, HistorySnapshot, ProviderInfo, RoutineDetail, RoutineSummary, SystemStatus, ToolInfo, WaddleEvent } from '../types';
+import { Agent, AgentMessage, HistorySnapshot, ProviderCredential, ProviderInfo, RoutineDetail, RoutineSummary, SystemStatus, ToolInfo, WaddleEvent } from '../types';
 
-const API_BASE = 'http://127.0.0.1:8000';
-const WS_BASE = 'ws://127.0.0.1:8000';
+// Prefer same-origin requests so the Vite proxy and the FastAPI static build
+// share one contract. Explicit URLs remain available for remote deployments.
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const WS_BASE = (import.meta.env.VITE_WS_URL || (
+  typeof window !== 'undefined'
+    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
+    : 'ws://127.0.0.1:8000'
+)).replace(/\/$/, '');
 
 export async function fetchStatus(): Promise<SystemStatus> {
   const res = await fetch(`${API_BASE}/api/status`);
@@ -9,11 +15,16 @@ export async function fetchStatus(): Promise<SystemStatus> {
   return res.json();
 }
 
-export async function submitObjective(objective: string, parameters?: Record<string, any>, agentName?: string): Promise<any> {
+export async function submitObjective(
+  objective: string,
+  parameters?: Record<string, any>,
+  agentName?: string,
+  groupId?: string,
+): Promise<any> {
   const res = await fetch(`${API_BASE}/api/objectives`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ objective, parameters, agent_name: agentName }),
+    body: JSON.stringify({ objective, parameters, agent_name: agentName, group_id: groupId }),
   });
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
@@ -130,6 +141,12 @@ export async function triggerKillSwitch(): Promise<any> {
   return res.json();
 }
 
+export async function resumeRuntime(): Promise<{ status: string; resumed_agents: number }> {
+  const res = await fetch(`${API_BASE}/api/resume`, { method: 'POST' });
+  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchTools(): Promise<ToolInfo[]> {
   const res = await fetch(`${API_BASE}/api/tools`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -140,6 +157,53 @@ export async function fetchProviders(): Promise<ProviderInfo[]> {
   const res = await fetch(`${API_BASE}/api/providers`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
+}
+
+export async function fetchProviderCredentials(): Promise<ProviderCredential[]> {
+  const res = await fetch(`${API_BASE}/api/credentials`);
+  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+  const records = await res.json();
+  return (Array.isArray(records) ? records : []).map((item) => ({
+    ...item,
+    id: item.id || item.provider_id,
+    provider: item.provider || item.provider_id,
+    name: item.name || item.provider_id,
+  }));
+}
+
+export async function saveProviderCredential(input: {
+  provider: string;
+  name: string;
+  api_key: string;
+  model?: string;
+  base_url?: string;
+}): Promise<ProviderCredential> {
+  const providerId = input.provider.trim().toLowerCase();
+  const res = await fetch(`${API_BASE}/api/credentials/${encodeURIComponent(providerId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: input.api_key, model: input.model, base_url: input.base_url }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(typeof body.detail === 'string' ? body.detail : `HTTP error! status: ${res.status}`);
+  }
+  const item = await res.json();
+  return { ...item, id: item.id || item.provider_id, provider: item.provider || item.provider_id, name: input.name || item.provider_id };
+}
+
+export async function deleteProviderCredential(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/credentials/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+}
+
+export async function testProviderCredential(id: string): Promise<{ ok: boolean; detail?: string }> {
+  const res = await fetch(`${API_BASE}/api/credentials/${encodeURIComponent(id)}/test`, { method: 'POST' });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.detail === 'string' ? body.detail : `HTTP error! status: ${res.status}`);
+  }
+  return body;
 }
 
 export function connectWebSocket(

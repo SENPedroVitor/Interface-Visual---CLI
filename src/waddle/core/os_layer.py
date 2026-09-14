@@ -22,17 +22,30 @@ def get_platform_name() -> str:
 
 
 def get_waddle_data_dir() -> Path:
-    """Return persistent app data directory for Waddle based on OS standards."""
-    platform = get_platform_name()
-    if platform == "windows":
-        app_data = os.getenv("LOCALAPPDATA")
-        base = Path(app_data) if app_data else Path.home() / "AppData" / "Local"
+    """Return Waddle's persistent data directory and create its local layout.
+
+    ``WADDLE_DATA_DIR`` is intentionally an explicit opt-in override so a
+    Windows installation can keep the SQLite database and conversation data on
+    another drive without changing source code.  The directory contains no
+    API keys in plaintext; credentials continue to use the protected store.
+    """
+    configured = os.getenv("WADDLE_DATA_DIR")
+    if configured and configured.strip():
+        target = Path(configured.strip()).expanduser()
     else:
-        xdg_data = os.getenv("XDG_DATA_HOME")
-        base = Path(xdg_data) if xdg_data else Path.home() / ".local" / "share"
-    
-    target = base / "waddle"
+        target = None
+    platform = get_platform_name()
+    if target is None:
+        if platform == "windows":
+            app_data = os.getenv("LOCALAPPDATA")
+            base = Path(app_data) if app_data else Path.home() / "AppData" / "Local"
+        else:
+            xdg_data = os.getenv("XDG_DATA_HOME")
+            base = Path(xdg_data) if xdg_data else Path.home() / ".local" / "share"
+        target = base / "waddle"
     target.mkdir(parents=True, exist_ok=True)
+    for folder in ("database", "contexts", "conversations", "artifacts", "exports", "logs", "cache"):
+        (target / folder).mkdir(parents=True, exist_ok=True)
     return target
 
 
