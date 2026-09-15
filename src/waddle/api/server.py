@@ -910,7 +910,14 @@ def start():
     import sys
     from pathlib import Path
     src_path = str(Path(__file__).resolve().parents[2])
-    uvicorn.run("waddle.api.server:app", host="127.0.0.1", port=8000, reload=False, app_dir=src_path)
+    # Keep the local default private, while allowing container/process managers
+    # to bind the API explicitly (for example WADDLE_API_HOST=0.0.0.0).
+    host = os.getenv("WADDLE_API_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    try:
+        port = int(os.getenv("WADDLE_API_PORT", "8000"))
+    except ValueError:
+        port = 8000
+    uvicorn.run("waddle.api.server:app", host=host, port=port, reload=False, app_dir=src_path)
 
 
 if __name__ == "__main__":

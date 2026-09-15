@@ -3,7 +3,8 @@ import { Agent, AgentMessage, HistorySnapshot, ProviderCredential, ProviderInfo,
 // Prefer same-origin requests so the Vite proxy and the FastAPI static build
 // share one contract. Explicit URLs remain available for remote deployments.
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const WS_BASE = (import.meta.env.VITE_WS_URL || (
+const configuredWsBase = (import.meta.env.VITE_WS_URL || '').replace(/\/+$/, '').replace(/\/ws$/, '');
+const WS_BASE = (configuredWsBase || (
   typeof window !== 'undefined'
     ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
     : 'ws://127.0.0.1:8000'
