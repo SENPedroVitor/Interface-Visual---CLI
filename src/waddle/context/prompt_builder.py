@@ -180,6 +180,9 @@ class PromptBuilder:
             f"Responsabilidade: {agent.description}\n"
             f"Motor atual: {agent.provider_id}"
         )
+        workspace_path = getattr(agent, "workspace_path", "")
+        if workspace_path:
+            identity += f"\nProjeto de trabalho: {workspace_path}"
         parts.append(identity)
 
         # Skills list
@@ -216,6 +219,7 @@ class PromptBuilder:
                 "- Iris: Revisão de código, qualidade, testes e critérios de aceitação\n"
                 "- Ma: Investimentos, mercado financeiro B3, cotações e carteira\n"
                 "- Livro: Esportes (Futebol, NBA, NFL, MLB), classificações e jogos\n"
+                "- Mosbey: Projeto Faux Catálogo em D:\\Faux-catalago e inclusão de filmes\n"
                 "- Pixel: Design de interface e componentes visuais\n"
                 "- Data: Análise de dados, métricas e quantitativo\n"
                 "- Ops: Rotinas e operações automatizadas\n\n"
@@ -354,4 +358,3 @@ class PromptBuilder:
 
     # Alias for convenience
     build_prompt = build
-

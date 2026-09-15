@@ -41,7 +41,8 @@ class Database:
                         name TEXT PRIMARY KEY COLLATE NOCASE,
                         role TEXT NOT NULL,
                         description TEXT NOT NULL,
-                        provider_id TEXT NOT NULL DEFAULT 'ollama'
+                        provider_id TEXT NOT NULL DEFAULT 'ollama',
+                        workspace_path TEXT NOT NULL DEFAULT ''
                     );
 
                     CREATE TABLE IF NOT EXISTS tasks (
@@ -133,16 +134,18 @@ class Database:
                     conn.execute("ALTER TABLE agent_profiles ADD COLUMN avatar_config_json TEXT NOT NULL DEFAULT '{}'")
                 if "model_config_json" not in columns:
                     conn.execute("ALTER TABLE agent_profiles ADD COLUMN model_config_json TEXT NOT NULL DEFAULT '{}'")
+                if "workspace_path" not in columns:
+                    conn.execute("ALTER TABLE agent_profiles ADD COLUMN workspace_path TEXT NOT NULL DEFAULT ''")
         finally:
             conn.close()
 
-    def save_agent(self, name: str, role: str, description: str, provider_id: str = "ollama") -> None:
+    def save_agent(self, name: str, role: str, description: str, provider_id: str = "ollama", workspace_path: str = "") -> None:
         conn = self._get_connection()
         try:
             with conn:
                 conn.execute(
-                    'INSERT INTO agent_profiles (name, role, description, provider_id) VALUES (?, ?, ?, ?)',
-                    (name, role, description, provider_id),
+                    'INSERT INTO agent_profiles (name, role, description, provider_id, workspace_path) VALUES (?, ?, ?, ?, ?)',
+                    (name, role, description, provider_id, workspace_path),
                 )
         finally:
             conn.close()
@@ -201,13 +204,14 @@ class Database:
                 memory = json.dumps(data.get("memory", []))
                 avatar = json.dumps(data.get("avatar_config", {}))
                 model = json.dumps(data.get("model_config", {}))
+                workspace_path = str(data.get("workspace_path", "") or "")
                 with conn:
                     conn.execute(
                         """
-                        INSERT INTO agent_profiles (name, role, description, provider_id, soul, skills_json, memory_json, avatar_config_json, model_config_json)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO agent_profiles (name, role, description, provider_id, soul, skills_json, memory_json, avatar_config_json, model_config_json, workspace_path)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (name, role, desc, provider, soul, skills, memory, avatar, model),
+                        (name, role, desc, provider, soul, skills, memory, avatar, model, workspace_path),
                     )
             else:
                 role = data.get("role", existing.get("role", "Developer"))
@@ -218,14 +222,15 @@ class Database:
                 memory = json.dumps(data.get("memory", existing.get("memory", [])))
                 avatar = json.dumps(data.get("avatar_config", existing.get("avatar_config", {})))
                 model = json.dumps(data.get("model_config", existing.get("model_config", {})))
+                workspace_path = str(data.get("workspace_path", existing.get("workspace_path", "")) or "")
                 with conn:
                     conn.execute(
                         """
                         UPDATE agent_profiles
-                        SET role = ?, description = ?, provider_id = ?, soul = ?, skills_json = ?, memory_json = ?, avatar_config_json = ?, model_config_json = ?
+                        SET role = ?, description = ?, provider_id = ?, soul = ?, skills_json = ?, memory_json = ?, avatar_config_json = ?, model_config_json = ?, workspace_path = ?
                         WHERE name = ? COLLATE NOCASE
                         """,
-                        (role, desc, provider, soul, skills, memory, avatar, model, name),
+                        (role, desc, provider, soul, skills, memory, avatar, model, workspace_path, name),
                     )
             return self.get_agent_profile(name) or {}
         finally:

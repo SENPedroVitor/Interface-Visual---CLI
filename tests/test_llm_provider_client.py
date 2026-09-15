@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock, patch
 
 from waddle.agents.worker import WorkerAgent
 from waddle.llm.provider_client import LLMProviderClient
@@ -6,6 +7,24 @@ from waddle.security.credentials import CredentialStore
 
 
 class TestLLMProviderClient(unittest.TestCase):
+    @patch("waddle.llm.provider_client.shutil.which", return_value="C:/Tools/codex.exe")
+    @patch("waddle.llm.provider_client.subprocess.run")
+    def test_codex_cli_transport_uses_local_authenticated_command(self, run, _which):
+        run.return_value = Mock(returncode=0, stdout="Resposta via Codex CLI\n", stderr="")
+        agent = WorkerAgent("Nero", "Developer", provider_id="codex")
+        client = LLMProviderClient(env={"WADDLE_CODEX_TRANSPORT": "cli", "PATH": "C:/Tools"})
+
+        result = client.generate(agent, "Implemente.")
+
+        self.assertEqual(result.content, "Resposta via Codex CLI")
+        self.assertFalse(result.fallback)
+        self.assertEqual(run.call_args.kwargs["input"], "Implemente.")
+        self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
+        self.assertEqual(
+            run.call_args.args[0],
+            ["C:/Tools/codex.exe", "exec", "--ephemeral", "-s", "read-only", "-"],
+        )
+
     def test_client_reads_key_from_protected_store_at_call_time(self):
         calls = []
 

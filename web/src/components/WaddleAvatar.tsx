@@ -15,7 +15,7 @@ export interface AvatarCosmetics {
 }
 
 export type EyeStyle = 'default' | 'nico' | 'slashes';
-export type BodyShape = 'pill' | 'circle' | 'squircle' | 'crown';
+export type BodyShape = 'pill' | 'circle' | 'squircle' | 'crown' | 'cloud';
 
 export const STATE_LABELS: Record<AgentState, string> = {
   idle: 'Disponível', working: 'Trabalhando', thinking: 'Pensando',
@@ -237,7 +237,13 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
             <circle className="waddle-blocked-dot" cx="50" cy="70.5" r="4.3" fill={blockedSignalColor} />
           </g>
           <g className="waddle-body" data-shape={activeBodyShape}>
-            {activeBodyShape === 'crown' ? (
+            {activeBodyShape === 'cloud' ? (
+              <path
+                className="waddle-body-shape waddle-body-cloud"
+                d="M 24 68 C 16 68 11 63 11 56 C 11 49 16 44 23 43 C 25 34 33 28 42 29 C 46 23 53 20 60 24 C 67 24 73 29 75 36 C 83 36 89 41 89 48 C 95 49 97 54 95 59 C 93 65 88 68 81 68 Z"
+                fill={faceColor}
+              />
+            ) : activeBodyShape === 'crown' ? (
               <path
                 className="waddle-body-shape waddle-body-crown"
                 d="M 14 51 L 14 36 Q 14 32, 19 29 L 23 23 Q 26 19, 29 23 L 35 29 Q 38 31, 41 28 L 47 19 Q 50 15, 53 19 L 59 28 Q 62 31, 65 29 L 71 23 Q 74 19, 77 23 L 81 29 Q 86 32, 86 36 L 86 51 A 21 21 0 0 1 65 72 L 35 72 A 21 21 0 0 1 14 51 Z"

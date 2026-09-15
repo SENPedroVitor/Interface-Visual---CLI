@@ -1,7 +1,9 @@
 import asyncio
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from waddle.runtime.agent_runtime import AgentRuntime
 from waddle.core.event_bus import EventBus
@@ -37,6 +39,20 @@ class TestAgentRuntime(unittest.TestCase):
         provider_by_name = {agent["name"]: agent["provider_id"] for agent in agents}
         self.assertEqual(provider_by_name["Nero"], "codex")
         self.assertEqual(provider_by_name["Iris"], "claude")
+
+    def test_configured_provider_override_routes_every_agent_to_codex(self):
+        with patch.dict(os.environ, {"WADDLE_AGENT_PROVIDER": "codex"}, clear=False):
+            db_file = str(Path(self.tmp_dir.name) / "codex_only.db")
+            runtime = AgentRuntime(
+                event_bus=EventBus(),
+                tool_registry=ToolRegistry(event_bus=EventBus()),
+                db_path=db_file,
+            )
+            providers = {agent["provider_id"] for agent in runtime.list_agents()}
+            self.assertEqual(providers, {"codex"})
+
+            created = runtime.create_agent("Luna", "Research", provider_id="claude")
+            self.assertEqual(created["provider_id"], "codex")
 
     def test_objective_entry_points_are_serialized(self):
         active = 0

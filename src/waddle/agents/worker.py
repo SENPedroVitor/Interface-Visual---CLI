@@ -1,4 +1,5 @@
 import json
+import asyncio
 import re
 from typing import Any, Callable, Optional
 from .base import Agent, AgentStatus
@@ -115,6 +116,10 @@ class WorkerAgent(Agent):
                 messages.append("\n".join(lines))
             elif tname == "stock_portfolio_record_trade":
                 messages.append(res.get("message", "Operação financeira realizada com sucesso!"))
+            elif tname == "catalog_add_movie":
+                title = res.get("title", "filme")
+                created = res.get("created") or res.get("path") or "item criado"
+                messages.append(f"**[Faux Catálogo]** Filme **{title}** adicionado com sucesso. Registro: `{created}`")
             elif tname == "sports_get_standings":
                 league = res.get("league", "Classificação")
                 sport = res.get("sport", "Esporte")
@@ -324,7 +329,7 @@ class WorkerAgent(Agent):
                     llm_text = None
             else:
                 try:
-                    res = self.llm_client.generate(self, prompt, assembled=True)
+                    res = await asyncio.to_thread(self.llm_client.generate, self, prompt, assembled=True)
                     if res and not res.fallback and res.content:
                         llm_text = res.content
                 except Exception:

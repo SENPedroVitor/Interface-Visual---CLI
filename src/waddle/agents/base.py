@@ -64,6 +64,7 @@ class Agent(ABC):
         memory: Optional[list[dict[str, Any]]] = None,
         avatar_config: Optional[dict[str, Any]] = None,
         model_config: Optional[dict[str, Any]] = None,
+        workspace_path: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         self.id = f"agent-{name.lower()}"
@@ -80,6 +81,7 @@ class Agent(ABC):
         self.memory: list[dict[str, Any]] = memory if memory is not None else []
         self.avatar_config: dict[str, Any] = avatar_config if avatar_config is not None else {}
         self.model_config: dict[str, Any] = model_config if model_config is not None else {}
+        self.workspace_path = str(workspace_path or "").strip()
 
     async def set_status(self, new_status: AgentStatus) -> None:
         old_status = self.status
@@ -138,4 +140,5 @@ class Agent(ABC):
             "memory": self.memory,
             "avatar_config": self.avatar_config,
             "model_config": self.model_config,
+            "workspace_path": self.workspace_path or None,
         }

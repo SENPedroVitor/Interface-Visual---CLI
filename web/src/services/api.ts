@@ -206,6 +206,58 @@ export async function testProviderCredential(id: string): Promise<{ ok: boolean;
   return body;
 }
 
+export interface TerminalSession {
+  session_id: string;
+  provider: 'codex' | 'claude';
+  cwd: string;
+  running: boolean;
+  websocket: string;
+}
+
+export async function createTerminalSession(
+  provider: 'codex' | 'claude',
+  cwd?: string,
+): Promise<TerminalSession> {
+  const res = await fetch(`${API_BASE}/api/terminal/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, cwd }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : `HTTP error! status: ${res.status}`);
+  return body;
+}
+
+export async function stopTerminalSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/terminal/sessions/${encodeURIComponent(sessionId)}/stop`, { method: 'POST' });
+  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+}
+
+export function connectTerminalSession(
+  sessionId: string,
+  onMessage: (message: any) => void,
+  onConnectionChange?: (connected: boolean) => void,
+): () => void {
+  const ws = new WebSocket(`${WS_BASE}/ws/terminal/${encodeURIComponent(sessionId)}`);
+  ws.onopen = () => onConnectionChange?.(true);
+  ws.onclose = () => onConnectionChange?.(false);
+  ws.onerror = () => onConnectionChange?.(false);
+  ws.onmessage = (event) => {
+    try { onMessage(JSON.parse(event.data)); } catch { /* ignore malformed stream chunks */ }
+  };
+  return () => ws.close();
+}
+
+export function sendTerminalInput(sessionId: string, text: string): void {
+  // The interactive socket is intentionally opened by the terminal panel; this
+  // helper is kept for callers that own a WebSocket and is not used for secrets.
+  void fetch(`${API_BASE}/api/terminal/sessions/${encodeURIComponent(sessionId)}/input`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+}
+
 export function connectWebSocket(
   onEvent: (event: WaddleEvent) => void,
   onHistorySync?: (events: WaddleEvent[]) => void,

@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -22,6 +23,7 @@ from ..core.event_bus import Event, global_event_bus
 from ..providers import ProviderRegistry
 from ..tools.registry import global_tool_registry
 from ..security.credentials import CredentialStoreError, get_default_credential_store
+from ..terminal import CliSessionManager, SessionEvent
 
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
@@ -34,6 +36,19 @@ routine_run_tasks: set[asyncio.Task[Any]] = set()
 objective_tasks: set[asyncio.Task[Any]] = set()
 logger = logging.getLogger(__name__)
 credential_store = get_default_credential_store()
+_project_root = Path(__file__).resolve().parents[3]
+_full_computer_access = os.getenv("WADDLE_COMPUTER_ACCESS", "").strip().lower() in {
+    "full", "unrestricted", "danger-full-access"
+}
+_default_terminal_workspace = _project_root.anchor if _full_computer_access else str(_project_root)
+_configured_terminal_workspace = os.getenv("WADDLE_TERMINAL_WORKSPACE", "").strip()
+_terminal_workspace = Path(
+    _configured_terminal_workspace or _default_terminal_workspace
+).expanduser().resolve()
+terminal_sessions = CliSessionManager(
+    authorized_workspace=_terminal_workspace,
+    sandbox_mode="danger-full-access" if _full_computer_access else "read-only",
+)
 
 
 @asynccontextmanager
@@ -62,6 +77,12 @@ async def lifespan(app: FastAPI):
     routine_run_tasks.clear()
     objective_tasks.clear()
     await scheduler.stop()
+    for item in terminal_sessions.list_sessions():
+        if item.running:
+            try:
+                terminal_sessions.stop_session(item.session_id, reason="runtime shutdown")
+            except (KeyError, RuntimeError):
+                pass
     active_websockets.clear()
 
 
@@ -171,6 +192,7 @@ class AgentRequest(BaseModel):
     skills: Optional[list[str]] = None
     memory: Optional[list[dict[str, Any]]] = None
     avatar_config: Optional[dict[str, Any]] = None
+    workspace_path: Optional[str] = Field(default=None, max_length=500)
     # `model_config` is a reserved attribute name on pydantic's BaseModel
     # (it holds the model's own ConfigDict) — the field is renamed at the
     # Python level but keeps its `model_config` wire name via alias, so the
@@ -187,6 +209,7 @@ class AgentUpdateRequest(BaseModel):
     skills: Optional[list[str]] = None
     memory: Optional[list[dict[str, Any]]] = None
     avatar_config: Optional[dict[str, Any]] = None
+    workspace_path: Optional[str] = Field(default=None, max_length=500)
     model_settings: Optional[dict[str, Any]] = Field(default=None, alias="model_config")
 
 
@@ -222,6 +245,17 @@ class RoutineUpdateRequest(BaseModel):
     status: Optional[str] = None
 
 
+class TerminalSessionRequest(BaseModel):
+    provider: str = Field(min_length=1, max_length=16)
+    agent_name: Optional[str] = Field(default=None, max_length=32)
+    cwd: Optional[str] = Field(default=None, max_length=500)
+    timeout_seconds: Optional[float] = Field(default=None, gt=0, le=3600)
+
+
+class TerminalInputRequest(BaseModel):
+    text: str = Field(max_length=32_000)
+
+
 @app.post('/api/agents', status_code=201)
 async def create_agent(req: AgentRequest) -> dict[str, Any]:
     try:
@@ -235,6 +269,7 @@ async def create_agent(req: AgentRequest) -> dict[str, Any]:
             memory=req.memory,
             avatar_config=req.avatar_config,
             model_config=req.model_settings,
+            workspace_path=req.workspace_path,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -250,7 +285,7 @@ async def update_agent(agent_name: str, req: AgentUpdateRequest) -> dict[str, An
         # the "model_config" membership check below expect.
         data = req.model_dump(exclude_unset=True, by_alias=True)
         # Check if basic update or full update
-        if any(k in data for k in ("soul", "skills", "memory", "avatar_config", "model_config")):
+        if any(k in data for k in ("soul", "skills", "memory", "avatar_config", "model_config", "workspace_path")):
             agent = runtime.update_agent_details(agent_name, data)
         else:
             role = data.get("role") or (runtime.get_agent(agent_name).role if runtime.get_agent(agent_name) else "Executor")
@@ -345,6 +380,8 @@ async def import_backup(req: BackupImportRequest) -> dict[str, Any]:
 async def get_status() -> dict[str, Any]:
     return {
         "status": "stopped" if runtime._is_stopped else "active",
+        "computer_access": "full" if _full_computer_access else "workspace",
+        "terminal_workspace": str(_terminal_workspace),
         "active_run_id": runtime._active_run_id,
         "agents": runtime.list_agents(),
         "tasks": runtime.task_manager.list_tasks(),
@@ -365,6 +402,94 @@ async def get_tasks(status: Optional[str] = None) -> list[dict[str, Any]]:
 @app.get("/api/tools")
 async def get_tools() -> list[dict[str, Any]]:
     return runtime.tool_registry.list_tools()
+
+
+def _redact_terminal_text(text: str) -> str:
+    """Prevent common API-token shapes from reaching the browser stream."""
+    value = str(text or "")
+    value = re.sub(r"\b(sk-[A-Za-z0-9_-]{12,})\b", "[REDACTED_KEY]", value)
+    value = re.sub(r"\b(ant-[A-Za-z0-9_-]{12,})\b", "[REDACTED_KEY]", value)
+    value = re.sub(r"(Bearer\s+)[A-Za-z0-9._-]+", r"\1[REDACTED]", value, flags=re.IGNORECASE)
+    return value
+
+
+def _terminal_event_payload(event: SessionEvent) -> dict[str, Any]:
+    return {
+        "type": "terminal",
+        "session_id": event.session_id,
+        "provider": event.provider,
+        "kind": event.kind,
+        "text": _redact_terminal_text(event.text),
+        "exit_code": event.exit_code,
+        "timestamp": event.timestamp,
+    }
+
+
+@app.get("/api/terminal/sessions")
+async def list_terminal_sessions() -> list[dict[str, Any]]:
+    return [
+        {
+            "session_id": item.session_id,
+            "provider": item.provider,
+            "cwd": item.cwd,
+            "running": item.running,
+            "started_at": item.started_at,
+            "output_bytes": item.output_bytes,
+        }
+        for item in terminal_sessions.list_sessions()
+    ]
+
+
+@app.post("/api/terminal/sessions", status_code=201)
+async def create_terminal_session(req: TerminalSessionRequest) -> dict[str, Any]:
+    provider = req.provider.strip().lower()
+    if req.agent_name:
+        agent = runtime.get_agent(req.agent_name)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agente não encontrado.")
+        configured_provider = (agent.provider_id or "").strip().lower()
+        if configured_provider in {"codex", "claude"} and configured_provider != provider:
+            raise HTTPException(status_code=422, detail="O provedor não corresponde ao agente selecionado.")
+        if req.cwd is None and agent.workspace_path:
+            req.cwd = agent.workspace_path
+    try:
+        session_id = terminal_sessions.start_session(
+            provider,
+            cwd=req.cwd,
+            timeout_seconds=req.timeout_seconds,
+        )
+        session = next(item for item in terminal_sessions.list_sessions() if item.session_id == session_id)
+    except (ValueError, PermissionError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "session_id": session.session_id,
+        "provider": session.provider,
+        "cwd": session.cwd,
+        "running": session.running,
+        "websocket": f"/ws/terminal/{session.session_id}",
+    }
+
+
+@app.post("/api/terminal/sessions/{session_id}/input")
+async def send_terminal_input(session_id: str, req: TerminalInputRequest) -> dict[str, Any]:
+    try:
+        terminal_sessions.send_input(session_id, req.text)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.") from exc
+    except (RuntimeError, TypeError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True, "session_id": session_id}
+
+
+@app.post("/api/terminal/sessions/{session_id}/stop")
+async def stop_terminal_session(session_id: str) -> dict[str, Any]:
+    try:
+        terminal_sessions.stop_session(session_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.") from exc
+    return {"ok": True, "session_id": session_id}
 
 
 @app.get("/api/providers")
@@ -694,6 +819,82 @@ async def websocket_events_endpoint(websocket: WebSocket):
         active_websockets.discard(websocket)
     except Exception:
         active_websockets.discard(websocket)
+
+
+@app.websocket("/ws/terminal/{session_id}")
+async def websocket_terminal_endpoint(websocket: WebSocket, session_id: str):
+    """Stream one local Codex/Claude session and accept bounded stdin."""
+    if not _websocket_origin_allowed(websocket):
+        await websocket.close(code=1008, reason="Origin não autorizado.")
+        return
+    try:
+        session = next(item for item in terminal_sessions.list_sessions() if item.session_id == session_id)
+    except StopIteration:
+        await websocket.close(code=1008, reason="Sessão não encontrada.")
+        return
+
+    await websocket.accept()
+    loop = asyncio.get_running_loop()
+    events: asyncio.Queue[SessionEvent] = asyncio.Queue(maxsize=200)
+
+    def on_event(event: SessionEvent) -> None:
+        if event.session_id != session_id:
+            return
+        payload = event
+        try:
+            loop.call_soon_threadsafe(events.put_nowait, payload)
+        except (RuntimeError, asyncio.QueueFull):
+            pass
+
+    terminal_sessions.add_callback(on_event)
+
+    async def stream_events() -> None:
+        while True:
+            event = await events.get()
+            await websocket.send_json(_terminal_event_payload(event))
+            if event.kind == "exited":
+                return
+
+    sender = asyncio.create_task(stream_events(), name=f"terminal-stream:{session_id}")
+    try:
+        await websocket.send_json({
+            "type": "terminal_session",
+            "session_id": session.session_id,
+            "provider": session.provider,
+            "cwd": session.cwd,
+            "running": session.running,
+        })
+        while True:
+            message = await websocket.receive_json()
+            if not isinstance(message, dict):
+                continue
+            message_type = str(message.get("type") or "").strip().lower()
+            if message_type == "ping":
+                await websocket.send_json({"type": "pong"})
+            elif message_type == "input":
+                text = message.get("text", "")
+                if not isinstance(text, str) or len(text) > 32_000:
+                    await websocket.send_json({"type": "error", "text": "Entrada inválida ou grande demais."})
+                    continue
+                try:
+                    terminal_sessions.send_input(session_id, text)
+                except (KeyError, RuntimeError, TypeError) as exc:
+                    await websocket.send_json({"type": "error", "text": _redact_terminal_text(str(exc))})
+            elif message_type == "stop":
+                try:
+                    terminal_sessions.stop_session(session_id)
+                except KeyError:
+                    break
+            else:
+                await websocket.send_json({"type": "error", "text": "Mensagem de terminal desconhecida."})
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception("Terminal websocket failed for %s", session_id)
+    finally:
+        terminal_sessions.remove_callback(on_event)
+        sender.cancel()
+        await asyncio.gather(sender, return_exceptions=True)
 
 
 from pathlib import Path

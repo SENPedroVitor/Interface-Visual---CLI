@@ -16,6 +16,7 @@ import json
 import time
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .registry import Permission, RiskLevel, Tool, ToolRegistry
@@ -23,6 +24,19 @@ from .registry import Permission, RiskLevel, Tool, ToolRegistry
 # In-memory cache: key -> {"timestamp": float, "data": Any}
 _SPORTS_CACHE: Dict[str, Dict[str, Any]] = {}
 CACHE_TTL_SECONDS = 600  # 10 minutes
+
+
+def _current_season(league_key: str, sport: str = "") -> str:
+    """Return a sensible current season for public league APIs."""
+    year = datetime.now().year
+    key = league_key.lower()
+    if key in {"premier league", "la liga", "champions league"}:
+        start = year if datetime.now().month >= 7 else year - 1
+        return f"{start}-{start + 1}"
+    if key == "nba":
+        start = year - 1 if datetime.now().month < 7 else year
+        return f"{start}-{str(start + 1)[-2:]}"
+    return str(year)
 
 # League ID mapping for TheSportsDB
 LEAGUE_MAP: Dict[str, Dict[str, Any]] = {
@@ -264,7 +278,7 @@ def sports_get_standings(league_or_sport: str = "brasileirao", season: str = "")
 
     # If league is matched and has online ID
     if matched_league:
-        s_param = season or matched_league.get("season", "")
+        s_param = season or _current_season(norm_key, matched_league.get("sport", ""))
         url = f"https://www.thesportsdb.com/api/v1/json/3/lookuptable.php?l={matched_league['id']}"
         if s_param:
             url += f"&s={urllib.parse.quote(s_param)}"
@@ -325,7 +339,7 @@ def sports_get_standings(league_or_sport: str = "brasileirao", season: str = "")
         "source": "Almanaque Waddle Sports (Base Enciclopedica)",
         "league": league_name,
         "sport": sport_name,
-        "season": "2024",
+        "season": season or _current_season(fallback_key),
         "table": table_data,
     }
     _SPORTS_CACHE[cache_key] = {"timestamp": now, "data": data}

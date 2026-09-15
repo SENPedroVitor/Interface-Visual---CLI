@@ -5,6 +5,7 @@ Coordinates agents, task lifecycle, tool executions, storage persistence, and em
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -18,6 +19,7 @@ from ..tools.filesystem import register_filesystem_tools
 from ..tools.shell import register_shell_tools
 from ..tools.stocks import register_stock_tools
 from ..tools.sports import register_sports_tools
+from ..tools.catalog import register_catalog_tools
 from ..tools.skills_tools import register_skill_tools
 from ..skills.registry import SkillRegistry
 from ..agents.base import Agent, AgentStatus
@@ -57,6 +59,7 @@ class AgentRuntime:
         register_shell_tools(self.tool_registry)
         register_stock_tools(self.tool_registry)
         register_sports_tools(self.tool_registry)
+        register_catalog_tools(self.tool_registry)
         register_skill_tools(self.tool_registry, self.skill_registry)
 
         # Wire database persistence to event bus
@@ -67,12 +70,25 @@ class AgentRuntime:
 
         # Register default agents (Manager + Worker)
         self._setup_default_agents()
+        configured_provider = self._configured_provider()
+        if configured_provider:
+            for agent in {id(agent): agent for agent in self.agents.values()}.values():
+                agent.provider_id = configured_provider
         for profile in self.database.list_agent_profiles():
+            profile = dict(profile)
+            profile["provider_id"] = self._effective_provider(profile.get("provider_id", "ollama"))
             existing = self.get_agent(profile.get("name", ""))
             if existing:
                 existing.role = profile.get("role", existing.role)
                 existing.description = profile.get("description", existing.description)
                 existing.provider_id = profile.get("provider_id", existing.provider_id)
+                if configured_provider:
+                    self.database.update_agent(
+                        existing.name,
+                        existing.role,
+                        existing.description,
+                        configured_provider,
+                    )
                 if profile.get("soul"):
                     existing.soul = profile["soul"]
                 if profile.get("skills"):
@@ -105,6 +121,7 @@ class AgentRuntime:
         memory: Optional[list[dict[str, Any]]] = None,
         avatar_config: Optional[dict[str, Any]] = None,
         model_config: Optional[dict[str, Any]] = None,
+        workspace_path: Optional[str] = None,
     ) -> dict[str, Any]:
         name = name.strip()
         if not name or len(name) > 32 or not all(c.isalnum() or c in ' -_' for c in name):
@@ -113,7 +130,7 @@ class AgentRuntime:
             raise ValueError('Já existe um agente com esse nome ou o nome é reservado.')
         if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor', 'Sports'}:
             raise ValueError('Escolha uma função válida.')
-        provider_id = self._validate_provider_id(provider_id)
+        provider_id = self._effective_provider(provider_id)
         agent = WorkerAgent(
             name=name,
             role=role,
@@ -124,13 +141,14 @@ class AgentRuntime:
             memory=memory or [],
             avatar_config=avatar_config or {},
             model_config=model_config or {},
+            workspace_path=workspace_path,
             event_bus=self.event_bus,
             tool_registry=self.tool_registry,
             database=self.database,
             skill_registry=self.skill_registry,
         )
-        self.database.save_agent(agent.name, agent.role, agent.description, agent.provider_id)
-        if any([soul, skills, memory, avatar_config, model_config]):
+        self.database.save_agent(agent.name, agent.role, agent.description, agent.provider_id, agent.workspace_path)
+        if any([soul, skills, memory, avatar_config, model_config, workspace_path]):
             self.database.update_agent_full(agent.name, {
                 "role": agent.role,
                 "description": agent.description,
@@ -140,6 +158,7 @@ class AgentRuntime:
                 "memory": agent.memory,
                 "avatar_config": agent.avatar_config,
                 "model_config": agent.model_config,
+                "workspace_path": agent.workspace_path,
             })
         self.register_agent(agent)
         return self.get_agent_details(agent.name)
@@ -152,7 +171,7 @@ class AgentRuntime:
             raise ValueError('Esse agente do sistema não pode ser editado por aqui.')
         if role not in {'Research', 'Developer', 'Reviewer', 'Executor', 'Investor', 'Sports'}:
             raise ValueError('Escolha uma função válida.')
-        provider_id = self._validate_provider_id(provider_id)
+        provider_id = self._effective_provider(provider_id)
         agent.role = role
         agent.description = description.strip()
         agent.provider_id = provider_id
@@ -166,6 +185,17 @@ class AgentRuntime:
             raise ValueError('Identificador de motor inválido.')
         return value
 
+    @classmethod
+    def _configured_provider(cls) -> Optional[str]:
+        configured = os.getenv("WADDLE_AGENT_PROVIDER", "").strip()
+        if not configured:
+            return None
+        return cls._validate_provider_id(configured)
+
+    @classmethod
+    def _effective_provider(cls, requested_provider: str) -> str:
+        return cls._configured_provider() or cls._validate_provider_id(requested_provider)
+
     def get_agent_details(self, name: str) -> dict[str, Any]:
         agent = self.get_agent(name)
         if not agent:
@@ -178,6 +208,7 @@ class AgentRuntime:
             "memory": agent.memory or p.get("memory", []) or get_default_memories(name),
             "avatar_config": agent.avatar_config or p.get("avatar_config", {}),
             "model_config": agent.model_config or p.get("model_config", {}),
+            "workspace_path": agent.workspace_path or p.get("workspace_path", "") or None,
         }
 
     def update_agent_details(self, name: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -189,7 +220,9 @@ class AgentRuntime:
         if "description" in data:
             agent.description = data["description"].strip()
         if "provider_id" in data and data["provider_id"]:
-            agent.provider_id = self._validate_provider_id(data["provider_id"])
+            agent.provider_id = self._effective_provider(data["provider_id"])
+        else:
+            agent.provider_id = self._effective_provider(agent.provider_id)
         if "soul" in data:
             agent.soul = data["soul"]
         if "skills" in data:
@@ -200,6 +233,8 @@ class AgentRuntime:
             agent.avatar_config = data["avatar_config"]
         if "model_config" in data:
             agent.model_config = data["model_config"]
+        if "workspace_path" in data:
+            agent.workspace_path = str(data["workspace_path"] or "").strip()
 
         self.database.update_agent_full(agent.name, {
             "role": agent.role,
@@ -210,6 +245,7 @@ class AgentRuntime:
             "memory": agent.memory,
             "avatar_config": agent.avatar_config,
             "model_config": agent.model_config,
+            "workspace_path": agent.workspace_path,
         })
         return self.get_agent_details(name)
 
@@ -238,6 +274,8 @@ class AgentRuntime:
     def import_backup(self, data: dict[str, Any]) -> dict[str, Any]:
         result = self.database.import_backup(data)
         for profile in self.database.list_agent_profiles():
+            profile = dict(profile)
+            profile["provider_id"] = self._effective_provider(profile.get("provider_id", "ollama"))
             existing = self.get_agent(profile["name"])
             if existing:
                 existing.role = profile.get("role", existing.role)
@@ -248,6 +286,7 @@ class AgentRuntime:
                 existing.memory = profile.get("memory", existing.memory)
                 existing.avatar_config = profile.get("avatar_config", existing.avatar_config)
                 existing.model_config = profile.get("model_config", existing.model_config)
+                existing.workspace_path = profile.get("workspace_path", existing.workspace_path)
             else:
                 self.register_agent(
                     WorkerAgent(
@@ -387,6 +426,24 @@ class AgentRuntime:
             skills=["football", "nba", "nfl", "mlb", "statistics", "sports_encyclopedia"],
             memory=get_default_memories("Livro"),
         )
+        mosbey = WorkerAgent(
+            name="Mosbey",
+            role="Executor",
+            description="Responsável direto pelo projeto Faux Catálogo em D:\\Faux-catalago e pela inclusão de filmes no catálogo.",
+            provider_id="ollama",
+            event_bus=self.event_bus,
+            tool_registry=self.tool_registry,
+            database=self.database,
+            skill_registry=self.skill_registry,
+            soul=get_default_soul("Mosbey"),
+            skills=["faux_catalog", "movie_metadata", "catalog_management", "filesystem"],
+            memory=get_default_memories("Mosbey"),
+            workspace_path="D:\\Faux-catalago",
+            avatar_config={
+                "color": "#b8d9ff",
+                "cosmetics": {"bodyShape": "cloud"},
+            },
+        )
         pixel = WorkerAgent(
             name="Pixel",
             role="Designer",
@@ -465,6 +522,7 @@ class AgentRuntime:
         self.register_agent(iris)
         self.register_agent(ma)
         self.register_agent(livro)
+        self.register_agent(mosbey)
         self.register_agent(pixel)
         self.register_agent(motion)
         self.register_agent(data)
@@ -475,6 +533,7 @@ class AgentRuntime:
             "Iris": iris,
             "Ma": ma,
             "Livro": livro,
+            "Mosbey": mosbey,
             "Pixel": pixel,
             "Motion": motion,
             "Data": data,

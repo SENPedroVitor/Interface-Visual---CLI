@@ -22,6 +22,7 @@ export const AGENT_VISUALS: Record<string, AgentVisual> = {
   Iris:    { color: '#10b981', marking: 'chinstrap', clickAnim: 'tilt',  quote: 'Ah, ótimo. O que poderia dar errado?', imageUrl: '/avatars/eco.png', cosmetics: { body: 'shield_mark' } },
   Ma:      { color: '#f59e0b', marking: 'whistle',   clickAnim: 'hop',   quote: 'De olho na B3, dividendos e IBOVESPA. Ma aprova este investimento!', imageUrl: '/avatars/totem.png', cosmetics: { body: 'data_grid', hand: 'side_panel' } },
   Livro:   { color: '#6366f1', marking: 'whistle',   clickAnim: 'fast',  quote: 'Consultando a enciclopédia esportiva. Futebol, NBA, NFL e MLB na ponta da língua!', imageUrl: '/avatars/livro.png', cosmetics: { head: 'signal_band', body: 'status_bar' } },
+  Mosbey:  { color: '#b8d9ff', marking: 'none',      clickAnim: 'hop',   quote: 'Catálogo aberto. Qual filme entra agora?', cosmetics: { bodyShape: 'cloud' } },
   Pixel:   { color: '#ff7262', marking: 'none',      clickAnim: 'tilt',  quote: 'Ajustando o visual sem enfeitar demais.', imageUrl: '/avatars/brilho.png', cosmetics: { face: 'design_nodes', body: 'status_bar' } },
   Motion:  { color: '#a259ff', marking: 'none',      clickAnim: 'fast',  quote: 'Deixa comigo, eu coloco isso pra se mover.', imageUrl: '/avatars/chefe.png', cosmetics: { head: 'timeline_rig', body: 'orbit_mark' } },
   Data:    { color: '#14b8a6', marking: 'chevron',   clickAnim: 'hop',   quote: 'Transformei bagunça em leitura.', imageUrl: '/avatars/sabio.png', cosmetics: { face: 'visor', body: 'data_grid' } },

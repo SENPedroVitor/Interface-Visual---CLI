@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Agent, ProviderInfo, Task, ToolInfo, WaddleEvent } from '../types';
 import { IconClose } from './Icons';
 import {
@@ -12,6 +12,7 @@ import {
   type GraphFit,
 } from './agent-graph';
 import { OpenUIPlayground } from '../waddle-ui/playground/OpenUIPlayground.tsx';
+import { createTerminalSession, connectTerminalSession, sendTerminalInput, stopTerminalSession } from '../services/api';
 
 interface DeveloperDrawerProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ interface DeveloperDrawerProps {
   onKillSwitch?: () => void;
 }
 
-type Tab = 'tasks' | 'architecture' | 'openui' | 'tools' | 'providers' | 'events';
+type Tab = 'tasks' | 'architecture' | 'openui' | 'tools' | 'providers' | 'terminal' | 'events';
 type ArchitecturePreset = 'active_tasks' | 'waddle_core' | 'parallel' | 'loop';
 
 /** Maps Waddle Task[] to topological AgentGraphPayload */
@@ -197,6 +198,47 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
   const [showLegend, setShowLegend] = useState<boolean>(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [terminalProvider, setTerminalProvider] = useState<'codex' | 'claude'>('codex');
+  const [terminalSessionId, setTerminalSessionId] = useState<string | null>(null);
+  const [terminalConnected, setTerminalConnected] = useState(false);
+  const [terminalInput, setTerminalInput] = useState('');
+  const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
+  const [terminalError, setTerminalError] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    if (terminalSessionId) void stopTerminalSession(terminalSessionId).catch(() => undefined);
+  }, [terminalSessionId]);
+
+  const startTerminal = async () => {
+    setTerminalError(null);
+    setTerminalOutput([]);
+    try {
+      const session = await createTerminalSession(terminalProvider);
+      setTerminalSessionId(session.session_id);
+      connectTerminalSession(session.session_id, (message) => {
+        if (message.kind === 'stdout' || message.kind === 'stderr' || message.kind === 'error' || message.kind === 'timeout') {
+          setTerminalOutput((current) => [...current, message.text].slice(-300));
+        }
+        if (message.kind === 'exited') setTerminalConnected(false);
+      }, setTerminalConnected);
+    } catch (error) {
+      setTerminalError(error instanceof Error ? error.message : 'Não foi possível abrir o terminal.');
+    }
+  };
+
+  const stopTerminal = async () => {
+    if (!terminalSessionId) return;
+    await stopTerminalSession(terminalSessionId).catch(() => undefined);
+    setTerminalConnected(false);
+    setTerminalSessionId(null);
+  };
+
+  const submitTerminalInput = async () => {
+    if (!terminalSessionId || !terminalInput.trim()) return;
+    const value = terminalInput;
+    setTerminalInput('');
+    await sendTerminalInput(terminalSessionId, `${value}\n`);
+  };
 
   // Compute active architecture data
   const currentGraphData = useMemo<AgentGraphPayload>(() => {
@@ -282,7 +324,7 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
 
         {/* Tab nav */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          {(['tasks', 'architecture', 'openui', 'tools', 'providers', 'events'] as Tab[]).map((t) => (
+          {(['tasks', 'architecture', 'openui', 'tools', 'providers', 'terminal', 'events'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -310,6 +352,8 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
                 ? 'Ferramentas'
                 : t === 'providers'
                 ? 'Motores'
+                : t === 'terminal'
+                ? 'Terminal'
                 : 'Eventos'}
             </button>
           ))}
@@ -622,6 +666,37 @@ export const DeveloperDrawer: React.FC<DeveloperDrawerProps> = ({
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {tab === 'terminal' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+              <div>
+                <div className="dev-section-title">Terminal local seguro</div>
+                <div className="dev-event-data">Sessões isoladas no workspace do Waddle. A autenticação continua no Codex/Claude local.</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select value={terminalProvider} onChange={(event) => setTerminalProvider(event.target.value as 'codex' | 'claude')} disabled={Boolean(terminalSessionId)}>
+                  <option value="codex">Codex CLI</option>
+                  <option value="claude">Claude Code</option>
+                </select>
+                {!terminalSessionId ? (
+                  <button className="btn-arch-preset active" onClick={() => void startTerminal()}>Abrir terminal</button>
+                ) : (
+                  <button className="btn-arch-preset" onClick={() => void stopTerminal()}>Encerrar</button>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: terminalConnected ? 'var(--success, #16a34a)' : 'var(--text-muted)' }}>
+                {terminalSessionId ? (terminalConnected ? 'Conectado' : 'Iniciando…') : 'Nenhuma sessão aberta'}
+              </div>
+              <pre style={{ flex: 1, minHeight: 180, margin: 0, padding: 12, overflow: 'auto', background: 'var(--bg-secondary)', borderRadius: 8, whiteSpace: 'pre-wrap', fontSize: 12 }}>
+                {terminalOutput.join('') || 'A saída do terminal aparecerá aqui.'}
+              </pre>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={terminalInput} onChange={(event) => setTerminalInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void submitTerminalInput(); }} disabled={!terminalSessionId} placeholder="Entrada para o CLI…" style={{ flex: 1 }} />
+                <button className="btn-arch-preset" onClick={() => void submitTerminalInput()} disabled={!terminalSessionId || !terminalInput.trim()}>Enviar</button>
+              </div>
+              {terminalError && <div className="dev-event-data" style={{ color: 'var(--danger, #dc2626)' }}>{terminalError}</div>}
             </div>
           )}
 

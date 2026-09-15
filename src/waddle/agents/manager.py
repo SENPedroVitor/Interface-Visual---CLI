@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import asyncio
 from typing import Any, Callable, Optional
 from .base import Agent, AgentStatus
 from ..tasks.task import Task
@@ -41,6 +42,16 @@ def _extract_ticker_from_text(text: str, default: str = "PETR4") -> str:
     return default
 
 
+def _extract_movie_title(text: str) -> str:
+    match = re.search(r"\bfilme\s+(?:chamado\s+|de\s+)?(.+?)(?:\s+(?:no|ao)\s+cat[aá]logo\b|\s+no\s+waddle\b|$)", text, re.IGNORECASE)
+    if match:
+        title = match.group(1).strip(" .,!?:;\"'")
+        title = re.sub(r"^(?:o|um)\s+", "", title, flags=re.IGNORECASE)
+        if title:
+            return title
+    return text.strip()
+
+
 class ManagerAgent(Agent):
     def __init__(
         self,
@@ -67,6 +78,7 @@ class ManagerAgent(Agent):
         self.collaborators: dict[str, Agent] = {}
         self.llm_generate: Optional[Callable[[Agent, str], Optional[str]]] = None
         self.llm_client = LLMProviderClient()
+        self._last_provider_result = None
         self._database = database
         self.skill_registry = kwargs.get("skill_registry")
         self._prompt_builder: Optional[PromptBuilder] = None
@@ -118,7 +130,30 @@ class ManagerAgent(Agent):
             result = self.llm_client.generate(speaker, prompt, assembled=True)
         except TypeError:
             result = self.llm_client.generate(speaker, prompt)
+        self._last_provider_result = result
         return result.content
+
+    async def _ollama_answer_async(
+        self,
+        speaker: Agent,
+        objective: str,
+        *,
+        mode: str = "answer",
+        team_opinions: Optional[list[dict[str, str]]] = None,
+    ) -> Optional[str]:
+        """Run the synchronous provider client without blocking the web loop."""
+        try:
+            return await asyncio.to_thread(
+                self._ollama_answer,
+                speaker,
+                objective,
+                mode=mode,
+                team_opinions=team_opinions,
+            )
+        except TypeError:
+            # Keep compatibility with tests/integrations that inject the old
+            # two-argument callback shape.
+            return await asyncio.to_thread(self._ollama_answer, speaker, objective)
 
     @staticmethod
     def _default_model_for(provider_id: str) -> str:
@@ -202,10 +237,13 @@ class ManagerAgent(Agent):
                 "brasileirão", "brasileirao", "rodada", "campeonato", "champions",
                 "libertadores", "nba", "basquete", "nfl", "super bowl", "mlb", "beisebol",
                 "flamengo", "palmeiras", "corinthians", "são paulo", "sao paulo", "vasco",
-                "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"
+                "lakers", "celtics", "bulls", "chicago bulls", "chiefs", "49ers", "chicago bears", "bears", "yankees", "dodgers", "liverpool", "atlético", "atletico"
             ]
         )
-        if is_sports:
+        is_catalog = any(w in objective.lower() for w in ["catálogo", "catalogo", "filme", "filmes", "faux"])
+        if is_catalog:
+            allowed = {"Atlas", "Nero", "Iris", "Mosbey"}
+        elif is_sports:
             allowed = {"Atlas", "Nero", "Iris", "Livro"}
         elif is_financial:
             allowed = {"Atlas", "Nero", "Iris", "Ma"}
@@ -237,10 +275,7 @@ class ManagerAgent(Agent):
             await agent.set_status(AgentStatus.THINKING)
             answer = None
             if not self._requires_no_api_keys(objective):
-                try:
-                    answer = self._ollama_answer(agent, objective, mode="discussion")
-                except TypeError:
-                    answer = self._ollama_answer(agent, objective)
+                answer = await self._ollama_answer_async(agent, objective, mode="discussion")
             if not answer:
                 answer = self._fallback_agent_opinion(agent, objective)
             await agent.send_message(
@@ -260,10 +295,9 @@ class ManagerAgent(Agent):
                 "Identifique riscos técnicos, lacunas e melhorias necessárias."
             )
             await iris.set_status(AgentStatus.THINKING)
-            try:
-                critique = self._ollama_answer(iris, critique_prompt, mode="discussion", team_opinions=opinions)
-            except TypeError:
-                critique = self._ollama_answer(iris, critique_prompt)
+            critique = await self._ollama_answer_async(
+                iris, critique_prompt, mode="discussion", team_opinions=opinions
+            )
             if not critique:
                 critique = "Revisão da Iris: Proposta viável, recomendando cobertura de testes e validação de erros."
             await iris.send_message(
@@ -281,10 +315,9 @@ class ManagerAgent(Agent):
                     f"Refine sua proposta técnica para '{objective}' considerando os apontamentos da Iris: {critique}"
                 )
                 await nero.set_status(AgentStatus.THINKING)
-                try:
-                    refinement = self._ollama_answer(nero, refine_prompt, mode="discussion", team_opinions=opinions)
-                except TypeError:
-                    refinement = self._ollama_answer(nero, refine_prompt)
+                refinement = await self._ollama_answer_async(
+                    nero, refine_prompt, mode="discussion", team_opinions=opinions
+                )
                 if not refinement:
                     refinement = "Ajuste do Nero: Proposta técnica ajustada para incorporar validação e resiliência."
                 await nero.send_message(
@@ -349,7 +382,7 @@ class ManagerAgent(Agent):
                 llm_response = None
         else:
             try:
-                res = self.llm_client.generate(speaker, prompt, assembled=True)
+                res = await asyncio.to_thread(self.llm_client.generate, speaker, prompt, assembled=True)
                 if res and not res.fallback and res.content:
                     llm_response = res.content
             except Exception:
@@ -425,12 +458,10 @@ class ManagerAgent(Agent):
                 group_members=group_members,
                 conversation_agent=conversation_key,
             )
-        try:
-            llm_answer = self._ollama_answer(
-                speaker, objective, mode="answer", team_opinions=opinions or None,
-            )
-        except TypeError:
-            llm_answer = self._ollama_answer(speaker, objective)
+        llm_answer = await self._ollama_answer_async(
+            speaker, objective, mode="answer", team_opinions=opinions or None,
+        )
+        provider_result = self._last_provider_result
         if self._requires_no_api_keys(objective) and self.llm_generate is None:
             llm_answer = self._fallback_team_summary(objective, opinions)
         elif not llm_answer:
@@ -439,7 +470,16 @@ class ManagerAgent(Agent):
             to_agent="System",
             msg_type="answer",
             content=llm_answer or f'Recebi sua mensagem: "{objective}". O motor {speaker.provider_id} está conectado, mas ainda não executei uma sessão de trabalho completa por ele.',
-            data={"conversation_agent": conversation_key, "provider_id": speaker.provider_id, "model": str(speaker.model_config.get("model") or self._default_model_for(speaker.provider_id)) if llm_answer else None, "opinions": opinions},
+            data={
+                "conversation_agent": conversation_key,
+                "provider_id": speaker.provider_id,
+                "model": (
+                    getattr(provider_result, "model", None)
+                    or str(speaker.model_config.get("model") or self._default_model_for(speaker.provider_id))
+                ) if llm_answer else None,
+                "fallback": bool(getattr(provider_result, "fallback", False)) if llm_answer else None,
+                "opinions": opinions,
+            },
         )
 
     async def plan_objective(self, objective: str, parameters: Optional[dict[str, Any]] = None, response_agent: Optional[Agent] = None) -> list[Task]:
@@ -481,6 +521,7 @@ class ManagerAgent(Agent):
         has_fin = fin_word_match or any(w in obj_lower for w in fin_keywords)
 
         is_livro_target = speaker.name == "Livro" or params.get("_assigned_agent") == "Livro"
+        is_mosbey_target = speaker.name == "Mosbey" or params.get("_assigned_agent") == "Mosbey"
         sports_keywords = [
             "esporte", "esportes", "futebol", "tabela", "classificação", "classificacao",
             "brasileirão", "brasileirao", "rodada", "campeonato", "champions", "premier league",
@@ -492,7 +533,16 @@ class ManagerAgent(Agent):
         ]
         has_sports = any(w in obj_lower for w in sports_keywords)
 
-        if is_ma_target or has_fin:
+        if is_mosbey_target:
+            title = _extract_movie_title(objective)
+            task = await self.task_manager.create_task(
+                title=f"Adicionar filme ao Faux Catálogo: {title[:48]}",
+                description=objective,
+                assigned_agent="Mosbey",
+                input_data={"tool_calls": [{"tool": "catalog_add_movie", "params": {"title": title}}]},
+            )
+            tasks_created.append(task)
+        elif is_ma_target or has_fin:
             assigned = "Ma"
             # 1. Trade
             if any(op in obj_lower for op in ["comprar", "compra", "vender", "venda"]):
@@ -539,7 +589,7 @@ class ManagerAgent(Agent):
                     title="Panorama de mercado (B3 / Câmbio / S&P)",
                     description=objective,
                     assigned_agent=assigned,
-                    input_data={"tool_calls": [{"tool": "stock_get_market_benchmarks", "params": {}}]},
+                    input_data={"tool_calls": [{"tool": "stock_market_overview", "params": {}}]},
                 )
                 tasks_created.append(task)
             # 5. Default Quote
@@ -557,7 +607,7 @@ class ManagerAgent(Agent):
             # 1. Matches
             if any(w in obj_lower for w in ["jogo", "jogos", "confronto", "confrontos", "partida", "partidas", "resultado", "resultados"]):
                 team = "Flamengo"
-                for t in ["flamengo", "palmeiras", "corinthians", "sao paulo", "são paulo", "vasco", "botafogo", "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"]:
+                for t in ["atlético mineiro", "atletico mineiro", "liverpool", "chicago bears", "bears", "chicago bulls", "bulls", "flamengo", "palmeiras", "corinthians", "sao paulo", "são paulo", "vasco", "botafogo", "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"]:
                     if t in obj_lower:
                         team = t
                         break
@@ -565,7 +615,7 @@ class ManagerAgent(Agent):
                     title=f"Partidas e resultados ({team.title()})",
                     description=objective,
                     assigned_agent=assigned,
-                    input_data={"tool_calls": [{"tool": "sports_get_matches", "params": {"team_name": team}}]},
+                    input_data={"tool_calls": [{"tool": "sports_get_matches", "params": {"team_or_league": team}}]},
                 )
                 tasks_created.append(task)
             # 2. Standings / table
@@ -609,7 +659,7 @@ class ManagerAgent(Agent):
             # 4. Team Info / Generic Sports Search
             else:
                 target_team = "Flamengo"
-                for t in ["flamengo", "palmeiras", "corinthians", "sao paulo", "são paulo", "botafogo", "vasco", "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"]:
+                for t in ["atlético mineiro", "atletico mineiro", "liverpool", "chicago bears", "bears", "chicago bulls", "bulls", "flamengo", "palmeiras", "corinthians", "sao paulo", "são paulo", "botafogo", "vasco", "lakers", "celtics", "chiefs", "49ers", "yankees", "dodgers"]:
                     if t in obj_lower:
                         target_team = t
                         break

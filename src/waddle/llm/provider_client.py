@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import shlex
+import shutil
+import subprocess
 from typing import Any, Callable, Mapping, Optional
 
 import httpx
@@ -44,11 +47,16 @@ class LLMProviderClient:
     def __init__(
         self,
         *,
-        timeout: float = 12.0,
+        timeout: Optional[float] = None,
         post_json: Optional[PostJson] = None,
         env: Optional[Mapping[str, str]] = None,
         credential_store: Optional[CredentialStore] = None,
     ) -> None:
+        if timeout is None:
+            try:
+                timeout = max(1.0, float(os.getenv("WADDLE_RESPONSE_TIMEOUT_MS", "12000")) / 1000)
+            except ValueError:
+                timeout = 12.0
         self.timeout = timeout
         self._post_json = post_json or self._default_post_json
         self._env = env
@@ -74,6 +82,8 @@ class LLMProviderClient:
         if provider_id in {"claude", "anthropic"}:
             return self._generate_claude(agent, prompt)
         if provider_id in {"codex", "openai"}:
+            if provider_id == "codex" and (self._env_value("WADDLE_CODEX_TRANSPORT") or "").lower() == "cli":
+                return self._generate_codex_cli(agent, prompt)
             return self._generate_openai(agent, prompt)
         # Custom providers use the OpenAI-compatible response shape when a
         # base URL is supplied in the agent model settings.
@@ -175,6 +185,45 @@ class LLMProviderClient:
                 return ProviderResult(provider_id, model, None, fallback=True, error=f"OpenAI/Codex indisponível: {exc}")
         content = self._extract_openai_text(response)
         return ProviderResult(provider_id, model, content or None, fallback=not bool(content))
+
+    def _generate_codex_cli(self, agent: Agent, prompt: str) -> ProviderResult:
+        """Run the locally authenticated Codex CLI without sending the prompt to HTTP."""
+        model = self._model(agent, "codex-cli")
+        configured = self._env_value("CODEX_CMD")
+        if configured:
+            command = shlex.split(configured, posix=False)
+        else:
+            executable = shutil.which("codex", path=self._env_value("PATH") or os.environ.get("PATH"))
+            if not executable:
+                return ProviderResult("codex", model, None, fallback=True, error="Codex CLI não encontrado.")
+            command = [executable, "exec", "--ephemeral", "-s", "read-only", "-"]
+        if not command:
+            return ProviderResult("codex", model, None, fallback=True, error="Comando do Codex CLI vazio.")
+        cwd = str(getattr(agent, "workspace_path", "") or os.getcwd())
+        try:
+            completed = subprocess.run(
+                command,
+                input=prompt,
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+                timeout=self.timeout,
+                cwd=cwd,
+                shell=False,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return ProviderResult(
+                "codex",
+                model,
+                None,
+                fallback=True,
+                error=f"Codex CLI indisponível: {type(exc).__name__}.",
+            )
+        content = str(completed.stdout or "").strip()
+        if completed.returncode != 0 or not content:
+            return ProviderResult("codex", model, None, fallback=True, error="Codex CLI não retornou uma resposta.")
+        return ProviderResult("codex", model, content, fallback=False)
 
     def _model(self, agent: Agent, default: str) -> str:
         configured = agent.model_config.get("model") if isinstance(agent.model_config, dict) else None
