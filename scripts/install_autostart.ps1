@@ -39,5 +39,10 @@ Register-ScheduledTask `
     -Description 'Inicia o Waddle Agent OS ao entrar no Windows.' `
     -Force | Out-Null
 
+# Re-registering with -Force preserves a task that was manually disabled on
+# some Windows versions. Explicitly enable it so the next interactive logon
+# can trigger the launcher.
+Enable-ScheduledTask -TaskName $TaskName | Out-Null
+
 Write-Host "Autostart instalado: '$TaskName' para $userId"
 Write-Host 'Para remover: .\scripts\uninstall_autostart.ps1'
