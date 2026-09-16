@@ -300,24 +300,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
     [agentName, currentAgent?.role]
   );
 
-  const [greetingIndex, setGreetingIndex] = useState(() =>
-    Math.floor(Math.random() * (agentGreetings.length || 1))
-  );
-
-  useEffect(() => {
-    setGreetingIndex(Math.floor(Math.random() * (agentGreetings.length || 1)));
-  }, [agentName, agentGreetings.length]);
-
   const currentGreeting = isGroup
     ? 'Canal coletivo da Equipe. Toda a discussão inter-bots e cooperação acontecem aqui.'
-    : agentGreetings[greetingIndex % agentGreetings.length] ||
+    : agentGreetings[0] ||
       currentAgent?.description ||
       'Pronto para trabalhar.';
-
-  const handleNextGreeting = () => {
-    if (isGroup) return;
-    setGreetingIndex((prev) => (prev + 1) % agentGreetings.length);
-  };
 
   // Reactive Composer: sweeps gaze left-to-right as you type,
   // and directs gaze down towards the composer when typing or focused.
@@ -460,14 +447,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 12px' }}>
               <div className="empty-role-badge">{roleLabel(currentAgent?.role || 'Agente')}</div>
             </div>
-            <p
-              className="empty-desc"
-              onClick={handleNextGreeting}
-              title="Clique para trocar a frase"
-              style={{ cursor: 'pointer' }}
-            >
+            <p className="empty-desc">
               <TypingAnimation
-                key={`${agentName}-${greetingIndex}`}
+                key={agentName}
                 typeSpeed={18}
                 delay={120}
                 showCursor={true}
@@ -691,9 +673,13 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
               /* Chat message bubble */
               const isUser     = item.sender === 'user';
               const colorClass = SENDER_COLOR_CLASS[item.sender] || 'system';
-              const senderVis  = agentVisual(item.senderName || '');
               const summaryNames = groupSummaryPoints.get(item.id);
               const senderEffective = item.senderName || agentName || '';
+              // Direct replies must use the exact same resolved visual as the
+              // header/composer. Other senders keep their own catalog visual.
+              const senderVis = senderEffective.toLowerCase() === agentName.toLowerCase()
+                ? agentVis
+                : agentVisual(senderEffective);
 
               return (
                 <React.Fragment key={item.id}>
@@ -712,9 +698,13 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                     <div className={`msg-sender-name ${colorClass}`}>
                       <WaddleAvatar
                         color={senderVis.color}
-                        state="idle"
+                        // A live response gets a brief settled/happy look;
+                        // persisted history returns to calm idle without
+                        // creating any extra message or timer-driven event.
+                        state={item.justArrived ? 'done' : 'idle'}
                         size={16}
                         marking={senderVis.marking}
+                        cosmetics={senderVis.cosmetics}
                         imageUrl={senderVis.imageUrl}
                         plain
                       />

@@ -438,6 +438,37 @@ class ManagerAgent(Agent):
 
         return tasks
 
+    def _has_prior_answer(self, agent_name: str, conversation_key: str) -> bool:
+        """Return whether this agent already answered in this conversation."""
+        if self._database is None:
+            return False
+        try:
+            messages = self._database.list_messages(agent_name=agent_name, limit=200)
+        except Exception:
+            return False
+        key = str(conversation_key).casefold()
+        return any(
+            str(item.get("type", "")).casefold() == "answer"
+            and str((item.get("data") or {}).get("conversation_agent", "")).casefold() == key
+            for item in messages
+        )
+
+    @staticmethod
+    def _first_contact_message(agent_name: str) -> str:
+        if agent_name == "Ma":
+            return (
+                "Antes de falar em investimentos, quero entender seu ponto de partida. "
+                "Qual é sua renda líquida mensal, quanto sobra depois das despesas, "
+                "você já tem reserva de emergência, qual objetivo e prazo, e como "
+                "se sente com oscilações (conservador, moderado ou arrojado)?"
+            )
+        return (
+            "Catálogo conectado sob demanda ao projeto D:\\Faux-catalago. "
+            "Ideias iniciais: busca e filtros mais rápidos, capas e metadados "
+            "consistentes, e uma fila de filmes para revisão. Posso verificar o "
+            "servidor ou executar qualquer melhoria somente quando você pedir."
+        )
+
     async def _respond_as_chat(
         self,
         speaker: Agent,
@@ -445,9 +476,16 @@ class ManagerAgent(Agent):
         *,
         group_members: Optional[list[str]] = None,
         conversation_agent: Optional[str] = None,
+        source: str = "user_message",
     ) -> None:
         opinions = []
         conversation_key = conversation_agent or speaker.name.lower()
+        first_contact = (
+            source == "user_message"
+            and group_members is None
+            and speaker.name in {"Ma", "Mosbey"}
+            and not self._has_prior_answer(speaker.name, conversation_key)
+        )
         # Plain chat stays with Quinta unless the caller explicitly supplied
         # a group scope for collaboration.
         should_discuss = speaker is self and (
@@ -473,6 +511,9 @@ class ManagerAgent(Agent):
             llm_answer = self._fallback_team_summary(objective, opinions)
         elif not llm_answer:
             llm_answer = self._fallback_team_summary(objective, opinions) or None
+        if first_contact:
+            onboarding = self._first_contact_message(speaker.name)
+            llm_answer = f"{onboarding}\n\n{llm_answer}" if llm_answer else onboarding
         await speaker.send_message(
             to_agent="System",
             msg_type="answer",
@@ -514,6 +555,7 @@ class ManagerAgent(Agent):
                 objective,
                 group_members=group_members,
                 conversation_agent=conversation_key,
+                source=str(params.get("_source") or "user_message"),
             )
             await speaker.set_status(AgentStatus.IDLE)
             return []
@@ -551,8 +593,17 @@ class ManagerAgent(Agent):
             tasks_created.append(task)
         elif is_ma_target or has_fin:
             assigned = "Ma"
-            # 1. Trade
-            if any(op in obj_lower for op in ["comprar", "compra", "vender", "venda"]):
+            # 1. Spreadsheet (explicit request only)
+            if any(word in obj_lower for word in ["planilha", "excel", "csv", "investimentos em tabela"]):
+                task = await self.task_manager.create_task(
+                    title="Criar planilha de investimentos",
+                    description=objective,
+                    assigned_agent=assigned,
+                    input_data={"tool_calls": [{"tool": "stock_create_investment_sheet", "params": {}}]},
+                )
+                tasks_created.append(task)
+            # 2. Trade
+            elif any(op in obj_lower for op in ["comprar", "compra", "vender", "venda"]):
                 m_shares = re.search(r"(\d+)\s*(?:ações|acoes|cotas|unidades)?", obj_lower)
                 shares = float(m_shares.group(1)) if m_shares else 10.0
                 ticker = _extract_ticker_from_text(objective, default="PETR4")
@@ -758,6 +809,7 @@ class ManagerAgent(Agent):
                     objective,
                     group_members=group_members,
                     conversation_agent=conversation_key,
+                    source=str(params.get("_source") or "user_message"),
                 )
 
         if tasks_created and group_members is not None:

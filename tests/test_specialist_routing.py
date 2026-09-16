@@ -30,6 +30,17 @@ class TestSpecialistRouting(unittest.TestCase):
         self.assertEqual(tasks[0].assigned_agent, "Ma")
         self.assertEqual(tasks[0].input_data["tool_calls"][0]["tool"], "stock_market_overview")
 
+    def test_ma_spreadsheet_is_created_only_for_explicit_request(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime = AgentRuntime(db_path=str(Path(tmpdir) / "state.db"))
+            manager = runtime.get_agent("Quinta")
+            ma = runtime.get_agent("Ma")
+            tasks = asyncio.run(manager.plan_objective("crie uma planilha de investimentos", response_agent=ma))
+
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].assigned_agent, "Ma")
+        self.assertEqual(tasks[0].input_data["tool_calls"][0]["tool"], "stock_create_investment_sheet")
+
     def test_mosbey_creates_movie_task_for_faux_catalog(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             runtime = AgentRuntime(db_path=str(Path(tmpdir) / "state.db"))

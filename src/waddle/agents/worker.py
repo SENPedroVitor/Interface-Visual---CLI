@@ -116,6 +116,11 @@ class WorkerAgent(Agent):
                 messages.append("\n".join(lines))
             elif tname == "stock_portfolio_record_trade":
                 messages.append(res.get("message", "Operação financeira realizada com sucesso!"))
+            elif tname == "stock_create_investment_sheet":
+                messages.append(
+                    f"**[Planilha de investimentos]** Criada em `{res.get('path', 'arquivo local')}`. "
+                    "Preencha as colunas de entrada; as fórmulas calculam investido, valor atual, P/L e rentabilidade."
+                )
             elif tname == "catalog_add_movie":
                 title = res.get("title", "filme")
                 created = res.get("created") or res.get("path") or "item criado"

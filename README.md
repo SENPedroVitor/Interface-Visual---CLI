@@ -47,8 +47,14 @@ O objetivo é oferecer uma experiência parecida com um painel de trabalho multi
 | **Iris** | Reviewer | **Eco** (Folha & Chinstrap) | Claude Code | Revisão de qualidade, segurança, detecção de riscos e validação. |
 | **Ma** | Investor | **Totem** (Gravata de Dinheiro) | Ollama | Análise de mercado financeiro, cotações da B3, FIIs, indicadores e carteira. |
 | **Livro** | Sports | **Livro** (Headband & Apito) | Ollama | Especialista esportivo em Futebol, Basquete (NBA), NFL, MLB e estatísticas. |
+| **Mosbey** | Executor | **Nuvem** (Cloud) | Ollama | Responsável pelo Faux Catálogo em `D:\Faux-catalago`; só age quando solicitado. |
 
 Quando não há autenticação/API key disponível para Codex ou Claude Code, o Waddle mantém os agentes operando com fallbacks locais inteligentes via Ollama.
+
+Os contratos de comportamento, fontes públicas e limites de cada integração estão
+documentados em [docs/AGENTS_AND_DATA.md](docs/AGENTS_AND_DATA.md). Em
+particular, os mascotes não enviam mensagens espontâneas: a conversa começa
+quando o usuário envia uma mensagem.
 
 ---
 

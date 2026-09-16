@@ -721,7 +721,9 @@ async def _execute_manual_routine_run(routine: dict[str, Any], run: dict[str, An
         mark_active(run_id)
     try:
         runtime.database.update_routine_run(run_id, "running")
-        result = await runtime.run_objective(routine["prompt"], None, source)
+        result = await runtime.run_objective(
+            routine["prompt"], {"_source": "manual_routine"}, source
+        )
         result_status = result.get("status") if isinstance(result, dict) else None
         terminal_status = result_status if result_status in {"failed", "cancelled"} else "completed"
         updated = runtime.database.update_routine_run(run_id, terminal_status)
@@ -832,6 +834,9 @@ def _resolve_objective_group(group_id: str) -> tuple[dict[str, Any], list[str]]:
 async def submit_objective(req: ObjectiveRequest) -> dict[str, Any]:
     agent_name = req.agent_name
     parameters = dict(req.parameters or {})
+    # Preserve provenance so the runtime can keep routine runs separate from
+    # explicit user messages and never mistake background work for chat.
+    parameters["_source"] = "user_message"
     group: Optional[dict[str, Any]] = None
     if req.group_id:
         group, members = _resolve_objective_group(req.group_id)

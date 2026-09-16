@@ -131,7 +131,11 @@ class RoutineScheduler:
             if event_bus:
                 await event_bus.emit("routine.run_started", {"routine": routine, "run_id": run_id}, source=routine["agent_name"])
             try:
-                result = await self.runtime.run_objective(routine["prompt"], None, routine["agent_name"])
+                result = await self.runtime.run_objective(
+                    routine["prompt"],
+                    {"_source": "routine", "_routine_id": routine.get("id")},
+                    routine["agent_name"],
+                )
                 result_status = result.get("status") if isinstance(result, dict) else None
                 if result_status in {"failed", "cancelled"}:
                     database.update_routine_run(run_id, result_status)

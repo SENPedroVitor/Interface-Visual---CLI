@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import csv
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import urllib.parse
@@ -353,6 +354,41 @@ def record_trade(ticker: str, operation: str, shares: float, price: Optional[flo
     }
 
 
+def create_investment_sheet(filename: str = "investimentos_waddle.csv", rows: int = 20) -> dict[str, Any]:
+    """Create a local Excel-compatible investment worksheet with formulas.
+
+    The file is intentionally generated only when Ma receives an explicit
+    request.  It contains no fabricated holdings: the user fills the input
+    columns and Excel/LibreOffice calculates invested value, current value,
+    profit/loss and return automatically.
+    """
+    clean_name = Path(str(filename or "investimentos_waddle.csv")).name
+    if not clean_name.lower().endswith(".csv"):
+        clean_name += ".csv"
+    if len(clean_name) > 120:
+        raise ValueError("O nome da planilha deve ter até 120 caracteres.")
+    try:
+        row_count = max(1, min(int(rows), 200))
+    except (TypeError, ValueError):
+        row_count = 20
+    path = get_waddle_data_dir() / clean_name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    header = ["Ativo", "Quantidade", "Preço médio", "Investido", "Preço atual", "Valor atual", "P/L", "Rentabilidade"]
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.writer(handle, delimiter=";")
+        writer.writerow(["Waddle · Planilha de investimentos"])
+        writer.writerow(header)
+        for index in range(3, row_count + 3):
+            writer.writerow([
+                "", "", "", f"=B{index}*C{index}", "", f"=B{index}*E{index}",
+                f"=F{index}-D{index}", f"=IF(D{index}=0;0;G{index}/D{index})",
+            ])
+        total_row = row_count + 4
+        writer.writerow([])
+        writer.writerow(["Totais", "", "", f"=SUM(D3:D{row_count + 2})", "", f"=SUM(F3:F{row_count + 2})", f"=F{total_row}-D{total_row}", f"=IF(D{total_row}=0;0;G{total_row}/D{total_row})"])
+    return {"success": True, "path": str(path), "rows": row_count, "format": "csv-excel", "message": "Planilha criada com fórmulas automáticas; preencha Ativo, Quantidade, Preço médio e Preço atual."}
+
+
 def register_stock_tools(registry: ToolRegistry) -> None:
     """Registra as ferramentas de bolsa de valores e investimentos no ToolRegistry do Waddle."""
     registry.register(
@@ -425,6 +461,23 @@ def register_stock_tools(registry: ToolRegistry) -> None:
                     "price": {"type": "number", "description": "Preço unitário em R$ (opcional, busca a cotação atual se omitido)"},
                 },
                 "required": ["ticker", "operation", "shares"],
+            },
+            risk_level=RiskLevel.LOW,
+            permission=Permission.ALLOW,
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="stock_create_investment_sheet",
+            description="Cria uma planilha CSV compatível com Excel/LibreOffice, com fórmulas automáticas de investimento. Só executar quando o usuário pedir.",
+            handler=create_investment_sheet,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "filename": {"type": "string", "description": "Nome do arquivo CSV (opcional)"},
+                    "rows": {"type": "integer", "description": "Quantidade de linhas de ativos (1 a 200)"},
+                },
             },
             risk_level=RiskLevel.LOW,
             permission=Permission.ALLOW,

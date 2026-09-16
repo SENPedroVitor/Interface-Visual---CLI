@@ -44,10 +44,10 @@ class TestModelBudgets(unittest.TestCase):
 
 
 class TestDefaultSouls(unittest.TestCase):
-    def test_all_10_built_in_agents_have_souls(self):
+    def test_all_built_in_agents_have_souls(self):
         expected_agents = [
             "Quinta", "Atlas", "Nero", "Iris", "Ma",
-            "Livro", "Pixel", "Motion", "Data", "Ops"
+            "Livro", "Mosbey", "Pixel", "Motion", "Data", "Ops"
         ]
         for name in expected_agents:
             soul = get_default_soul(name)
@@ -56,6 +56,16 @@ class TestDefaultSouls(unittest.TestCase):
             self.assertTrue(len(memories) > 0, f"Memories for {name} missing")
             for m in memories:
                 self.assertIn("fact", m)
+
+    def test_primary_agents_have_explicit_no_proactivity_contracts(self):
+        self.assertIn("nunca inicia conversa", get_default_soul("Quinta").lower())
+        self.assertIn("primeiro contato", get_default_soul("Ma").lower())
+        self.assertIn("só pesquisa quando o usuário solicitar", get_default_soul("Livro").lower())
+        self.assertIn("faux catálogo está acessível", get_default_soul("Mosbey").lower())
+
+        for name in ("Quinta", "Ma", "Livro", "Mosbey"):
+            facts = " ".join(item["fact"] for item in get_default_memories(name)).lower()
+            self.assertIn("usuário", facts)
 
     def test_unknown_agent_returns_empty(self):
         self.assertEqual(get_default_soul("NonExistentAgent"), "")

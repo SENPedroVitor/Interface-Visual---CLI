@@ -12,6 +12,7 @@ from waddle.tools.stocks import (
     get_market_overview,
     get_portfolio_view,
     record_trade,
+    create_investment_sheet,
     register_stock_tools,
 )
 from waddle.tools.registry import ToolRegistry
@@ -80,6 +81,18 @@ class TestStockTools(unittest.TestCase):
         self.assertIn("stock_market_overview", tool_names)
         self.assertIn("stock_portfolio_view", tool_names)
         self.assertIn("stock_portfolio_record_trade", tool_names)
+        self.assertIn("stock_create_investment_sheet", tool_names)
+
+    def test_create_investment_sheet_has_formula_columns(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("waddle.tools.stocks.get_waddle_data_dir", return_value=Path(tmpdir)):
+                result = create_investment_sheet("ma.csv", rows=2)
+            path = Path(result["path"])
+            self.assertTrue(path.exists())
+            content = path.read_text(encoding="utf-8-sig")
+            self.assertIn("Investido", content)
+            self.assertIn("=B3*C3", content)
+            self.assertIn("=IF(D6=0;0;G6/D6)", content)
 
     def test_runtime_registers_ma_agent(self):
         with tempfile.TemporaryDirectory() as tmpdir:

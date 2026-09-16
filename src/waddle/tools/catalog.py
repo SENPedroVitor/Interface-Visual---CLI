@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 from typing import Any, Optional
 from urllib.parse import urlparse
 import urllib.request
@@ -18,6 +19,11 @@ def _catalog_base_url() -> str:
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
         raise ValueError("FAUX_CATALOGO_URL deve ser uma URL HTTP(S) válida, sem credenciais.")
+    # Faux Catálogo serves its local development site over HTTPS. Preserve a
+    # legacy http setting for compatibility, but upgrade only this loopback
+    # endpoint so Mosbey can reach the configured server without a redirect.
+    if parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost"} and parsed.port == 4173:
+        value = value.replace("http://", "https://", 1)
     return value
 
 
@@ -49,7 +55,12 @@ def catalog_add_movie(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
+        context = (
+            ssl._create_unverified_context()
+            if endpoint.startswith(("https://127.0.0.1", "https://localhost"))
+            else None
+        )
+        with urllib.request.urlopen(request, timeout=15, context=context) as response:
             raw = response.read().decode("utf-8", errors="replace")
             data = json.loads(raw) if raw else {}
             status_code = getattr(response, "status", 200)
