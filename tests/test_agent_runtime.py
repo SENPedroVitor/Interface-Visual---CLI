@@ -117,7 +117,7 @@ class TestAgentRuntime(unittest.TestCase):
         asyncio.run(self.runtime.run_objective('olá', agent_name='Luna'))
         self.assertEqual(replies, ['Luna'])
 
-    def test_quinta_runs_local_team_discussion_for_plain_messages(self):
+    def test_quinta_answers_light_question_without_team_discussion(self):
         manager = self.runtime.get_agent('Quinta')
         manager.llm_generate = lambda agent, prompt: f"{agent.name} opinou sobre o pedido."
 
@@ -125,10 +125,20 @@ class TestAgentRuntime(unittest.TestCase):
 
         messages = self.runtime.database.list_messages(limit=10)
         discussions = [msg for msg in messages if msg['type'] == 'discussion']
-        self.assertEqual({msg['from'] for msg in discussions}, {'Atlas', 'Nero', 'Iris'})
-        self.assertTrue(all(msg['to'] == 'Quinta' for msg in discussions))
-        self.assertTrue(all(msg['data']['conversation_agent'] == 'quinta' for msg in discussions))
+        self.assertFalse(discussions)
         self.assertTrue(any(msg['type'] == 'answer' and msg['from'] == 'Quinta' for msg in messages))
+
+    def test_quinta_answers_greetings_without_discussion_messages(self):
+        manager = self.runtime.get_agent('Quinta')
+        manager.llm_generate = lambda agent, prompt: f"Resposta de {agent.name}."
+
+        for greeting in ('alô', 'oi', 'olá'):
+            asyncio.run(self.runtime.run_objective(greeting, agent_name='Quinta'))
+
+        messages = self.runtime.database.list_messages(limit=20)
+        self.assertFalse([msg for msg in messages if msg['type'] == 'discussion'])
+        answers = [msg for msg in messages if msg['type'] == 'answer' and msg['from'] == 'Quinta']
+        self.assertEqual(len(answers), 3)
 
     def test_quinta_routes_discussion_through_each_agent_provider(self):
         manager = self.runtime.get_agent('Quinta')
@@ -145,7 +155,13 @@ class TestAgentRuntime(unittest.TestCase):
 
         manager.llm_client = FakeProviderClient()
 
-        asyncio.run(self.runtime.run_objective('como melhoramos o projeto?', agent_name='Quinta'))
+        asyncio.run(
+            self.runtime.run_objective(
+                'como melhoramos o projeto?',
+                parameters={'_group_members': ['Atlas', 'Nero', 'Iris']},
+                agent_name='Quinta',
+            )
+        )
 
         self.assertIn(('Atlas', 'ollama'), calls)
         self.assertIn(('Nero', 'codex'), calls)

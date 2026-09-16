@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Agent, ArtifactSummary, ProviderInfo, RoutineSummary, Task, ToolInfo, WaddleEvent, SystemStatus, GroupSummary } from './types';
-import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, resumeRuntime, connectWebSocket } from './services/api';
+import { fetchHistory, fetchProviders, fetchStatus, fetchTools, submitObjective, triggerKillSwitch, resumeRuntime, connectWebSocket, apiFetch } from './services/api';
+import { authEnabled, getSession, signIn, signUp, supabase } from './services/supabase';
+import type { Session } from '@supabase/supabase-js';
 import { AgentSidebar } from './components/AgentSidebar';
 import { ConversationView, ChatItem } from './components/ConversationView';
 import { DeveloperDrawer } from './components/DeveloperDrawer';
@@ -15,6 +17,7 @@ import { UserConfigModal, UserProfile, DEFAULT_USER_PROFILE } from './components
 import { ProviderSettingsModal } from './components/ProviderSettingsModal';
 import { ConversationOverview } from './components/ConversationOverview';
 import { OnboardingScreen, ONBOARDING_KEY } from './components/OnboardingScreen';
+import { AuthScreen } from './components/AuthScreen';
 import { OpenUIPlayground } from './waddle-ui/playground/OpenUIPlayground.tsx';
 import { formatBytes } from './hooks/use-dropzone';
 
@@ -60,6 +63,7 @@ function chatItemsFromHistoryEvent(event: WaddleEvent): ChatItem[] {
       type: 'message',
       sender,
       agentKey,
+      messageType: msg.type,
       senderName: msg.from || event.source || 'Sistema',
       content: msg.content || '',
       timestamp,
@@ -142,6 +146,37 @@ export const DEFAULT_TEAM_GROUP: GroupSummary = {
 };
 
 export const App: React.FC = () => {
+  const [authLoading, setAuthLoading] = useState(authEnabled);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authError, setAuthError] = useState('');
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  useEffect(() => {
+    if (!authEnabled) return;
+    let active = true;
+    void getSession().then((current) => { if (active) setSession(current); }).catch((error) => {
+      if (active) setAuthError(error instanceof Error ? error.message : 'Não foi possível verificar a sessão.');
+    }).finally(() => { if (active) setAuthLoading(false); });
+    const listener = supabase?.auth.onAuthStateChange((_event, current) => setSession(current));
+    return () => { active = false; listener?.data.subscription.unsubscribe(); };
+  }, []);
+
+  const handleAuth = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (authSubmitting) return;
+    setAuthError('');
+    setAuthSubmitting(true);
+    try {
+      if (authMode === 'sign-in') await signIn(authEmail, authPassword);
+      else {
+        const created = await signUp(authEmail, authPassword);
+        if (!created) setAuthError('Confira seu e-mail para confirmar o cadastro.');
+      }
+    } catch (error) { setAuthError(error instanceof Error ? error.message : 'Não foi possível autenticar.'); }
+    finally { setAuthSubmitting(false); }
+  };
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean>(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has('reset') || params.has('onboarding')) {
@@ -290,7 +325,7 @@ export const App: React.FC = () => {
 
       // Fetch Groups
       try {
-        const gRes = await fetch('/api/groups');
+        const gRes = await apiFetch('/api/groups');
         if (gRes.ok) {
           const gData = await gRes.json();
           setGroups(gData || []);
@@ -311,6 +346,7 @@ export const App: React.FC = () => {
           type: 'message',
           sender: msg.from.toLowerCase(),
           agentKey: (msg.data?.conversation_agent || msg.from).toLowerCase(),
+          messageType: msg.type,
           senderName: msg.from,
           content: msg.content,
           timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -331,10 +367,15 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (authEnabled && !session) return;
     refreshData();
 
     const cleanupWs = connectWebSocket((newEvent: WaddleEvent) => {
       setEvents((prev) => [newEvent, ...prev.slice(0, 99)]);
+
+      if (newEvent.type === 'run.completed' || newEvent.type === 'run.failed' || newEvent.type === 'run.cancelled') {
+        setIsSending(false);
+      }
 
       const ts = new Date(newEvent.timestamp).toLocaleTimeString([], {
         hour: '2-digit',
@@ -350,6 +391,7 @@ export const App: React.FC = () => {
           type: 'message',
           sender: senderLower || 'system',
           agentKey: conversationAgent || senderLower || 'system',
+          messageType: msg.type,
           senderName: msg.from,
           content: msg.content,
           timestamp: ts,
@@ -505,11 +547,11 @@ export const App: React.FC = () => {
       cleanupWs();
       clearInterval(timer);
     };
-  }, [hydrateEventHistory, refreshData]);
+  }, [hydrateEventHistory, refreshData, session]);
 
   const handleExportBackup = async () => {
     try {
-      const res = await fetch('/api/backup/export');
+      const res = await apiFetch('/api/backup/export');
       if (!res.ok) throw new Error('Falha ao exportar backup');
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -528,7 +570,7 @@ export const App: React.FC = () => {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const res = await fetch('/api/backup/import', {
+      const res = await apiFetch('/api/backup/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: parsed }),
@@ -550,8 +592,10 @@ export const App: React.FC = () => {
     // A squad is one coordinated run. Quinta owns the conversation and the
     // selected group's members are passed as routing scope to the API.
     const targetAgentName = activeGroup ? 'Quinta' : selectedAgent?.name || 'Quinta';
-    // The built-in team-squad is a virtual UI group; omitting group_id keeps
-    // its existing default Quinta → Atlas/Nero/Iris flow until it is persisted.
+    // The built-in team-squad is virtual (not persisted), so carry its member
+    // scope in parameters instead of sending a non-existent group_id. This
+    // keeps lightweight chat in the squad collaborative while direct Quinta
+    // chat remains private.
     const targetGroupId = activeGroup && activeGroup.id !== 'team-squad' ? activeGroup.id : undefined;
     const conversationKey = selectedGroupId === 'team-squad'
       ? 'team-squad'
@@ -600,12 +644,14 @@ export const App: React.FC = () => {
 
     setIsSending(true);
     try {
-      await submitObjective(objectiveText, undefined, targetAgentName, targetGroupId);
+      const routingParameters = activeGroup && targetGroupId === undefined
+        ? { _group_members: activeGroup.members, _conversation_agent: conversationKey }
+        : undefined;
+      await submitObjective(objectiveText, routingParameters, targetAgentName, targetGroupId);
       await refreshData();
     } catch (err) {
-      setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: conversationKey, content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);
-    } finally {
       setIsSending(false);
+      setChatItems(prev => [...prev, { id: `error-${Date.now()}`, type: 'message', sender: 'system', senderName: 'Sistema', agentKey: conversationKey, content: 'Não foi possível enviar a mensagem. Confira se o servidor está disponível e tente novamente.', timestamp: ts }]);
     }
   };
 
@@ -650,8 +696,29 @@ export const App: React.FC = () => {
         if (item.agentKey !== selectedKey) return false;
         // In direct 1-on-1 chat with a bot (like Quinta), only show user, system, and that bot's replies
         // Never show internal discussion bubbles from other bots (Atlas, Nero, Iris)
-        return item.sender === 'user' || item.sender === 'system' || item.sender === selectedKey;
+        return item.messageType !== 'discussion' &&
+          (item.sender === 'user' || item.sender === 'system' || item.sender === selectedKey);
       });
+
+  if (authEnabled && authLoading) {
+    return <div className="app-shell" style={{ display: 'grid', placeItems: 'center' }}>Verificando sessão...</div>;
+  }
+
+  if (authEnabled && !session) {
+    return (
+      <AuthScreen
+        mode={authMode}
+        email={authEmail}
+        password={authPassword}
+        error={authError}
+        busy={authSubmitting}
+        onSubmit={handleAuth}
+        onEmailChange={setAuthEmail}
+        onPasswordChange={setAuthPassword}
+        onToggleMode={() => setAuthMode((mode) => mode === 'sign-in' ? 'sign-up' : 'sign-in')}
+      />
+    );
+  }
 
   if (needsOnboarding) {
     return (

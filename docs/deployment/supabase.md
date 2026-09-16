@@ -17,10 +17,11 @@ bridge local opcional ──┘
   Codex CLI, Claude Code, Ollama, terminal e arquivos do PC
 ```
 
-> **Importante:** esta primeira fatia é um scaffold de infraestrutura. A API
-> atual ainda não valida JWT do Supabase em todas as rotas; não publique o
-> container diretamente na internet. Use rede privada ou um proxy autenticado
-> até a fatia de autenticação/RLS do backend estar concluída.
+> **Importante:** o backend agora valida JWT do Supabase quando
+> `WADDLE_AUTH_MODE=supabase`. Antes de publicar, configure também
+> `WADDLE_ALLOWED_EMAILS` para impedir que qualquer conta nova acesse o
+> runtime compartilhado. O isolamento por workspace e a persistência cloud
+> ainda são etapas posteriores.
 
 O frontend e a API podem ficar online com o PC desligado. O bridge local só
 funciona enquanto o PC estiver ligado e conectado. Ele deve ser tratado como
@@ -46,7 +47,12 @@ commite `.env`, chaves reais ou tokens de serviço.
 
 ### API e worker
 
-- `SUPABASE_URL` e `SUPABASE_ANON_KEY` identificam o projeto Supabase.
+- `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` identificam o projeto Supabase;
+  `SUPABASE_ANON_KEY` continua aceito como nome legado.
+- `WADDLE_AUTH_MODE=supabase` ativa a validação de JWT; o padrão `local` mantém
+  o desktop sem login.
+- `WADDLE_ALLOWED_EMAILS` lista os e-mails autorizados, separados por vírgula;
+  em modo cloud, a ausência da lista bloqueia o acesso por segurança.
 - `SUPABASE_SERVICE_ROLE_KEY` é opcional e deve existir somente no backend;
   ela ignora políticas RLS e nunca pode chegar ao navegador.
 - `DATABASE_URL` deve apontar para o Postgres do Supabase quando a camada de
@@ -73,7 +79,8 @@ commite `.env`, chaves reais ou tokens de serviço.
    cookies ou autenticação.
 2. Termine TLS no provedor e encaminhe WebSocket com `wss://`.
 3. Valide o token Supabase Auth no backend antes de aceitar mensagens,
-   tarefas, arquivos ou comandos.
+   tarefas, arquivos ou comandos. Os WebSockets recebem o token no primeiro
+   frame JSON e aplicam o mesmo allowlist de e-mails.
 4. Ative RLS nas tabelas e escreva políticas por usuário/projeto. A chave
    service role deve ser usada apenas em operações server-side indispensáveis.
 5. Mantenha logs sem prompts completos, tokens ou valores de headers de

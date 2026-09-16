@@ -1,4 +1,5 @@
 import { Agent, AgentMessage, HistorySnapshot, ProviderCredential, ProviderInfo, RoutineDetail, RoutineSummary, SystemStatus, ToolInfo, WaddleEvent } from '../types';
+import { authEnabled, getSession } from './supabase';
 
 // Prefer same-origin requests so the Vite proxy and the FastAPI static build
 // share one contract. Explicit URLs remain available for remote deployments.
@@ -10,8 +11,19 @@ const WS_BASE = (configuredWsBase || (
     : 'ws://127.0.0.1:8000'
 )).replace(/\/$/, '');
 
+export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (authEnabled) {
+    const session = await getSession();
+    if (!session?.access_token) throw new Error('É necessário entrar para continuar.');
+    headers.set('Authorization', `Bearer ${session.access_token}`);
+  }
+  const target = typeof input === 'string' && input.startsWith('/') ? `${API_BASE}${input}` : input;
+  return fetch(target, { ...init, headers });
+}
+
 export async function fetchStatus(): Promise<SystemStatus> {
-  const res = await fetch(`${API_BASE}/api/status`);
+  const res = await apiFetch(`${API_BASE}/api/status`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
@@ -22,7 +34,7 @@ export async function submitObjective(
   agentName?: string,
   groupId?: string,
 ): Promise<any> {
-  const res = await fetch(`${API_BASE}/api/objectives`, {
+  const res = await apiFetch(`${API_BASE}/api/objectives`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ objective, parameters, agent_name: agentName, group_id: groupId }),
@@ -38,7 +50,7 @@ export async function createAgent(profile: {
   avatar_config?: any;
   provider_id?: string;
 }): Promise<Agent> {
-  const res = await fetch(`${API_BASE}/api/agents`, {
+  const res = await apiFetch(`${API_BASE}/api/agents`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile),
   });
   if (!res.ok) {
@@ -49,7 +61,7 @@ export async function createAgent(profile: {
 }
 
 export async function updateAgent(name: string, profile: { role: string; description: string; provider_id?: string }): Promise<Agent> {
-  const res = await fetch(`${API_BASE}/api/agents/${encodeURIComponent(name)}`, {
+  const res = await apiFetch(`${API_BASE}/api/agents/${encodeURIComponent(name)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, ...profile }),
@@ -62,20 +74,20 @@ export async function updateAgent(name: string, profile: { role: string; descrip
 }
 
 export async function fetchHistory(limit = 80): Promise<HistorySnapshot> {
-  const res = await fetch(`${API_BASE}/api/history?limit=${limit}`);
+  const res = await apiFetch(`${API_BASE}/api/history?limit=${limit}`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
 
 export async function fetchAgentHistory(agentName: string, limit = 80): Promise<{ messages: AgentMessage[] }> {
-  const res = await fetch(`${API_BASE}/api/agents/${encodeURIComponent(agentName)}/history?limit=${limit}`);
+  const res = await apiFetch(`${API_BASE}/api/agents/${encodeURIComponent(agentName)}/history?limit=${limit}`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
 
 export async function fetchRoutines(agentName?: string): Promise<RoutineSummary[]> {
   const suffix = agentName ? `?agent_name=${encodeURIComponent(agentName)}` : '';
-  const res = await fetch(`${API_BASE}/api/routines${suffix}`);
+  const res = await apiFetch(`${API_BASE}/api/routines${suffix}`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
@@ -86,7 +98,7 @@ export async function createRoutine(routine: {
   prompt: string;
   schedule: string;
 }): Promise<RoutineSummary> {
-  const res = await fetch(`${API_BASE}/api/routines`, {
+  const res = await apiFetch(`${API_BASE}/api/routines`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(routine),
@@ -99,7 +111,7 @@ export async function createRoutine(routine: {
 }
 
 export async function fetchRoutine(routineId: string): Promise<RoutineDetail> {
-  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`);
+  const res = await apiFetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
@@ -108,7 +120,7 @@ export async function updateRoutine(
   routineId: string,
   patch: Partial<{ name: string; prompt: string; schedule: string; status: string }>
 ): Promise<RoutineSummary> {
-  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`, {
+  const res = await apiFetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
@@ -121,12 +133,12 @@ export async function updateRoutine(
 }
 
 export async function deleteRoutine(routineId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 }
 
 export async function runRoutineNow(routineId: string): Promise<{ id: string; status: string; triggered_at: string }> {
-  const res = await fetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}/run`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/api/routines/${encodeURIComponent(routineId)}/run`, { method: 'POST' });
   if (!res.ok) {
     const body = await res.json();
     throw new Error(typeof body.detail === 'string' ? body.detail : 'Não foi possível executar a rotina agora.');
@@ -135,7 +147,7 @@ export async function runRoutineNow(routineId: string): Promise<{ id: string; st
 }
 
 export async function triggerKillSwitch(): Promise<any> {
-  const res = await fetch(`${API_BASE}/api/kill-switch`, {
+  const res = await apiFetch(`${API_BASE}/api/kill-switch`, {
     method: 'POST',
   });
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -143,25 +155,25 @@ export async function triggerKillSwitch(): Promise<any> {
 }
 
 export async function resumeRuntime(): Promise<{ status: string; resumed_agents: number }> {
-  const res = await fetch(`${API_BASE}/api/resume`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/api/resume`, { method: 'POST' });
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
 
 export async function fetchTools(): Promise<ToolInfo[]> {
-  const res = await fetch(`${API_BASE}/api/tools`);
+  const res = await apiFetch(`${API_BASE}/api/tools`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
 
 export async function fetchProviders(): Promise<ProviderInfo[]> {
-  const res = await fetch(`${API_BASE}/api/providers`);
+  const res = await apiFetch(`${API_BASE}/api/providers`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   return res.json();
 }
 
 export async function fetchProviderCredentials(): Promise<ProviderCredential[]> {
-  const res = await fetch(`${API_BASE}/api/credentials`);
+  const res = await apiFetch(`${API_BASE}/api/credentials`);
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
   const records = await res.json();
   return (Array.isArray(records) ? records : []).map((item) => ({
@@ -180,7 +192,7 @@ export async function saveProviderCredential(input: {
   base_url?: string;
 }): Promise<ProviderCredential> {
   const providerId = input.provider.trim().toLowerCase();
-  const res = await fetch(`${API_BASE}/api/credentials/${encodeURIComponent(providerId)}`, {
+  const res = await apiFetch(`${API_BASE}/api/credentials/${encodeURIComponent(providerId)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ api_key: input.api_key, model: input.model, base_url: input.base_url }),
@@ -194,12 +206,12 @@ export async function saveProviderCredential(input: {
 }
 
 export async function deleteProviderCredential(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/credentials/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/api/credentials/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 }
 
 export async function testProviderCredential(id: string): Promise<{ ok: boolean; detail?: string }> {
-  const res = await fetch(`${API_BASE}/api/credentials/${encodeURIComponent(id)}/test`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/api/credentials/${encodeURIComponent(id)}/test`, { method: 'POST' });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(typeof body.detail === 'string' ? body.detail : `HTTP error! status: ${res.status}`);
@@ -219,7 +231,7 @@ export async function createTerminalSession(
   provider: 'codex' | 'claude',
   cwd?: string,
 ): Promise<TerminalSession> {
-  const res = await fetch(`${API_BASE}/api/terminal/sessions`, {
+  const res = await apiFetch(`${API_BASE}/api/terminal/sessions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ provider, cwd }),
@@ -230,7 +242,7 @@ export async function createTerminalSession(
 }
 
 export async function stopTerminalSession(sessionId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/terminal/sessions/${encodeURIComponent(sessionId)}/stop`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/api/terminal/sessions/${encodeURIComponent(sessionId)}/stop`, { method: 'POST' });
   if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 }
 
@@ -239,20 +251,29 @@ export function connectTerminalSession(
   onMessage: (message: any) => void,
   onConnectionChange?: (connected: boolean) => void,
 ): () => void {
-  const ws = new WebSocket(`${WS_BASE}/ws/terminal/${encodeURIComponent(sessionId)}`);
-  ws.onopen = () => onConnectionChange?.(true);
-  ws.onclose = () => onConnectionChange?.(false);
-  ws.onerror = () => onConnectionChange?.(false);
-  ws.onmessage = (event) => {
-    try { onMessage(JSON.parse(event.data)); } catch { /* ignore malformed stream chunks */ }
-  };
-  return () => ws.close();
+  let ws: WebSocket | null = null;
+  let closed = false;
+  void getSession().then((session) => {
+    if (closed || (authEnabled && !session?.access_token)) return;
+    const token = session?.access_token;
+    ws = new WebSocket(`${WS_BASE}/ws/terminal/${encodeURIComponent(sessionId)}`);
+    ws.onopen = () => {
+      if (token) ws?.send(JSON.stringify({ type: 'auth', access_token: token }));
+      onConnectionChange?.(true);
+    };
+    ws.onclose = () => onConnectionChange?.(false);
+    ws.onerror = () => onConnectionChange?.(false);
+    ws.onmessage = (event) => {
+      try { onMessage(JSON.parse(event.data)); } catch { /* ignore malformed stream chunks */ }
+    };
+  }).catch(() => onConnectionChange?.(false));
+  return () => { closed = true; ws?.close(); };
 }
 
 export function sendTerminalInput(sessionId: string, text: string): void {
   // The interactive socket is intentionally opened by the terminal panel; this
   // helper is kept for callers that own a WebSocket and is not used for secrets.
-  void fetch(`${API_BASE}/api/terminal/sessions/${encodeURIComponent(sessionId)}/input`, {
+  void apiFetch(`${API_BASE}/api/terminal/sessions/${encodeURIComponent(sessionId)}/input`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
@@ -268,11 +289,15 @@ export function connectWebSocket(
   let isClosedIntentionally = false;
   let retryTimer: any = null;
 
-  function connect() {
+  async function connect() {
     try {
+      const session = await getSession();
+      if (isClosedIntentionally || (authEnabled && !session?.access_token)) return;
+      const token = session?.access_token;
       ws = new WebSocket(`${WS_BASE}/ws/events`);
 
       ws.onopen = () => {
+        if (token) ws?.send(JSON.stringify({ type: 'auth', access_token: token }));
         onConnectionChange?.(true);
       };
 

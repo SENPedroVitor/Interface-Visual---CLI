@@ -113,22 +113,10 @@
 .waddle-avatar-wrapper[data-state="working"] .waddle-ground-shadow { animation: waddleShadowPulse 1.02s ease-in-out infinite; }
 .waddle-avatar-wrapper[data-state="waiting"] .waddle-body { animation: waddleWait 4.4s ease-in-out infinite; }
 .waddle-avatar-wrapper[data-state="done"] .waddle-body {
-  animation: waddleDoneSettle 1.05s cubic-bezier(0.16, 1, 0.3, 1) 1, waddleDoneRest 6.2s ease-in-out 1.05s infinite;
+  animation: waddleDoneSettle .82s cubic-bezier(0.16, 1, 0.3, 1) 1, waddleDoneRest 6.2s ease-in-out .82s infinite;
 }
 
 /* Piscar / Wink no estado done: uma conclusão curta, depois volta ao respiro calmo */
-.waddle-avatar-wrapper[data-state="done"] .waddle-eye-right,
-.waddle-avatar-wrapper[data-state="done"] .waddle-eye-slashes-right,
-.waddle-avatar-wrapper[data-state="done"] .waddle-eye-nico-right {
-  animation: waddleDoneWinkRight 1.15s ease-out 1, waddleEyeBlink 5.2s ease-in-out 1.15s infinite !important;
-}
-
-.waddle-avatar-wrapper[data-state="done"] .waddle-eye-left,
-.waddle-avatar-wrapper[data-state="done"] .waddle-eye-slashes-left,
-.waddle-avatar-wrapper[data-state="done"] .waddle-eye-nico-left {
-  animation: waddleDoneDualBlink 1.15s ease-out 1, waddleEyeBlink 5.2s ease-in-out 1.15s infinite !important;
-}
-
 @keyframes waddleDoneSettle {
   0%, 100% {
     transform: translateY(0) rotate(0deg);
@@ -244,8 +232,8 @@
 }
 
 @keyframes waddleDoneHappyEyes {
-  0% { transform: translateY(0) scaleY(.8); opacity: .74; }
-  38% { transform: translateY(-.7px) scaleY(1.04); opacity: 1; }
+  0% { transform: translateY(1px) scale(.86); opacity: .74; }
+  38% { transform: translateY(-.7px) scale(1.04); opacity: 1; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 

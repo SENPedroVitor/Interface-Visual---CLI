@@ -3,6 +3,7 @@ import { Agent } from '../types';
 import { WaddleAvatar } from './WaddleAvatar';
 import { agentVisual } from '../utils/agentVisuals';
 import { VectorIcon, IconClose } from './Icons';
+import { apiFetch } from '../services/api';
 import './NewGroupDialog.css';
 
 export interface NewGroupDialogProps {
@@ -49,7 +50,7 @@ export const NewGroupDialog: React.FC<NewGroupDialogProps> = ({
 
     setSaving(true);
     try {
-      const res = await fetch('/api/groups', {
+      const res = await apiFetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

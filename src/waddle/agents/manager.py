@@ -334,9 +334,10 @@ class ManagerAgent(Agent):
     @staticmethod
     def _is_plain_message(objective: str) -> bool:
         obj = objective.strip().lower()
+        greeting = re.sub(r"[.!?,;:]+$", "", obj).strip()
         if not obj:
             return True
-        if obj in {"olá", "ola", "oi", "hey", "hello", "hi", "bom dia", "boa tarde", "boa noite", "tudo bem"}:
+        if greeting in {"olá", "ola", "alô", "alo", "oi", "hey", "hello", "hi", "bom dia", "boa tarde", "boa noite", "tudo bem"}:
             return True
         if obj.endswith("?") and any(
             obj.startswith(q) for q in [
@@ -346,7 +347,8 @@ class ManagerAgent(Agent):
             ]
         ):
             has_fin = bool(re.search(r"\b(ação|ações|acoes|acao|carteira|cotação|cotacao)\b", obj))
-            if has_fin or any(s in obj for s in ["brasileirao", "nba", "nfl", "mlb", "futebol", "playoffs", "super bowl"]):
+            has_substantive_constraint = any(s in obj for s in ["sem api", "sem chave", "sem keys", "without api", "no api key"])
+            if has_fin or has_substantive_constraint or any(s in obj for s in ["brasileirao", "nba", "nfl", "mlb", "futebol", "playoffs", "super bowl"]):
                 return False
             return True
         return False
@@ -446,7 +448,12 @@ class ManagerAgent(Agent):
     ) -> None:
         opinions = []
         conversation_key = conversation_agent or speaker.name.lower()
-        if speaker is self:
+        # Plain chat stays with Quinta unless the caller explicitly supplied
+        # a group scope for collaboration.
+        should_discuss = speaker is self and (
+            group_members is not None or not self._is_plain_message(objective)
+        )
+        if should_discuss:
             await speaker.send_message(
                 to_agent="System",
                 msg_type="status_update",

@@ -24,6 +24,7 @@ from ..providers import ProviderRegistry
 from ..tools.registry import global_tool_registry
 from ..security.credentials import CredentialStoreError, get_default_credential_store
 from ..terminal import CliSessionManager, SessionEvent
+from .auth import AuthUnavailableError, auth_enabled, bearer_token, get_user, user_is_allowed
 
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
@@ -97,6 +98,19 @@ _default_cors_origins = [
 _configured_cors = [origin.strip() for origin in (os.getenv("WADDLE_CORS_ORIGINS") or "").split(",") if origin.strip()]
 
 
+def _auth_error_headers(request: Request) -> dict[str, str]:
+    """Keep browser clients able to read auth failures from the guard."""
+    origin = (request.headers.get("origin") or "").strip()
+    allowed = _configured_cors or _default_cors_origins
+    if origin and origin in allowed:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return {}
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Return validation details without reflecting credential-like inputs."""
@@ -130,12 +144,73 @@ async def reject_cross_origin_mutations(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def require_api_auth(request: Request, call_next):
+    """Require a Supabase bearer token for cloud API requests; local stays open."""
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    if auth_enabled() and request.url.path.startswith("/api/") and request.url.path != "/health":
+        try:
+            user = await get_user(request.headers.get("authorization"))
+        except AuthUnavailableError:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Serviço de autenticação indisponível."},
+                headers=_auth_error_headers(request),
+            )
+        if user is None:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Autenticação necessária."},
+                headers=_auth_error_headers(request),
+            )
+        if not user_is_allowed(user):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Usuário não autorizado para este Waddle."},
+                headers=_auth_error_headers(request),
+            )
+        request.state.user = user
+    return await call_next(request)
+
+
 def _websocket_origin_allowed(websocket: WebSocket) -> bool:
     """Require browser WebSockets to come from the configured local UI."""
     origin = (websocket.headers.get("origin") or "").strip()
     # Browser clients always send Origin.  Rejecting an absent origin closes the
     # historical loophole where an arbitrary local page could read event history.
     return bool(origin) and origin in (_configured_cors or _default_cors_origins)
+
+
+async def _authenticate_websocket(websocket: WebSocket) -> bool:
+    """Accept, then authenticate before any socket is registered or streamed."""
+    if not auth_enabled():
+        await websocket.accept()
+        return True
+    await websocket.accept()
+    authorization = websocket.headers.get("authorization")
+    if bearer_token(authorization) is None:
+        try:
+            message = await asyncio.wait_for(websocket.receive_json(), timeout=10.0)
+        except Exception:
+            await websocket.close(code=1008, reason="Autenticação necessária.")
+            return False
+        if not isinstance(message, dict) or str(message.get("type", "")).lower() != "auth":
+            await websocket.close(code=1008, reason="Autenticação necessária.")
+            return False
+        authorization = f"Bearer {message.get('access_token', '')}"
+    try:
+        user = await get_user(authorization)
+    except AuthUnavailableError:
+        await websocket.close(code=1013, reason="Serviço de autenticação indisponível.")
+        return False
+    if user is None:
+        await websocket.close(code=1008, reason="Token inválido.")
+        return False
+    if not user_is_allowed(user):
+        await websocket.close(code=1008, reason="Usuário não autorizado.")
+        return False
+    return True
 
 
 @app.get("/health")
@@ -802,7 +877,8 @@ async def websocket_events_endpoint(websocket: WebSocket):
     if not _websocket_origin_allowed(websocket):
         await websocket.close(code=1008, reason="Origin não autorizado.")
         return
-    await websocket.accept()
+    if not await _authenticate_websocket(websocket):
+        return
     active_websockets.add(websocket)
     try:
         # Send initial backlog of recent events
@@ -827,13 +903,14 @@ async def websocket_terminal_endpoint(websocket: WebSocket, session_id: str):
     if not _websocket_origin_allowed(websocket):
         await websocket.close(code=1008, reason="Origin não autorizado.")
         return
+    if not await _authenticate_websocket(websocket):
+        return
     try:
         session = next(item for item in terminal_sessions.list_sessions() if item.session_id == session_id)
     except StopIteration:
         await websocket.close(code=1008, reason="Sessão não encontrada.")
         return
 
-    await websocket.accept()
     loop = asyncio.get_running_loop()
     events: asyncio.Queue[SessionEvent] = asyncio.Queue(maxsize=200)
 

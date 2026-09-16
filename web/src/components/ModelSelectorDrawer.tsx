@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { VectorIcon } from './Icons';
-import { fetchProviderCredentials } from '../services/api';
+import { apiFetch, fetchProviderCredentials } from '../services/api';
 import './ModelSelectorDrawer.css';
 
 export interface ModelOption {
@@ -148,7 +148,7 @@ export const ModelSelectorDrawer: React.FC<ModelSelectorProps> = ({
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    fetch(`/api/providers/${currentProvider}/models`)
+    apiFetch(`/api/providers/${currentProvider}/models`)
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (!isMounted) return;

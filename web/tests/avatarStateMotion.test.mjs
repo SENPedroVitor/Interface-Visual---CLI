@@ -53,8 +53,8 @@ test('visible lifecycle states only use eye expressions outside thinking and blo
   assert.match(avatarTsx, /waddle-eyes-waiting/);
   assert.match(avatarTsx, /waddle-eyes-done/);
   const waitingBlock = expressionBlockFor('waddle-eyes-waiting');
-  assert.match(waitingBlock, /<rect/);
-  assert.doesNotMatch(waitingBlock, /<ellipse/);
+  assert.match(waitingBlock, /<(?:rect|ellipse)/);
+  assert.match(waitingBlock, /waddle-eye-waiting-(?:left|right)/);
   assert.doesNotMatch(avatarTsx, /waddle-working-pulse|waddle-waiting-mark|waddle-done-spark/);
   assert.doesNotMatch(avatarCss, /waddleWorkingPulse|waddleWaitingMark|waddleDoneSpark/);
 });
@@ -62,8 +62,8 @@ test('visible lifecycle states only use eye expressions outside thinking and blo
 test('done uses only happy eyes without orbit or check mark', () => {
   assert.match(avatarTsx, /waddle-eyes-done/);
   const doneBlock = expressionBlockFor('waddle-eyes-done');
-  assert.match(doneBlock, /<ellipse/);
-  assert.doesNotMatch(doneBlock, /<path/);
+  assert.match(doneBlock, /<path/);
+  assert.match(doneBlock, /Olhos calmos de concluído/);
   assert.doesNotMatch(avatarTsx, /waddle-done-orbit|waddle-done-spark|waddle-done-check/);
   assert.doesNotMatch(avatarCss, /waddleDoneOrbit|waddleDoneSpark/);
 });

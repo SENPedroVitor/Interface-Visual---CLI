@@ -4,6 +4,7 @@ import { Agent } from '../types';
 import { WaddleAvatar, AvatarCosmetics, MarkingType } from './WaddleAvatar';
 import { ModelSelectorDrawer } from './ModelSelectorDrawer';
 import { agentVisual } from '../utils/agentVisuals';
+import { apiFetch } from '../services/api';
 import {
   Palette,
   X,
@@ -127,7 +128,7 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
       }
 
       // Fetch deep details
-      fetch(`/api/agents/${agent.name}/details`)
+      apiFetch(`/api/agents/${agent.name}/details`)
         .then(res => (res.ok ? res.json() : null))
         .then(details => {
           if (details) {
@@ -293,13 +294,13 @@ export const AgentStudioModal: React.FC<AgentStudioModalProps> = ({
 
       let res;
       if (isEditing) {
-        res = await fetch(`/api/agents/${agent!.name}/details`, {
+        res = await apiFetch(`/api/agents/${agent!.name}/details`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
       } else {
-        res = await fetch('/api/agents', {
+        res = await apiFetch('/api/agents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

@@ -335,65 +335,65 @@ export const WaddleAvatar: React.FC<WaddleAvatarProps> = ({
                     </g>
                   ) : state === 'done' ? (
                     <g className="waddle-eyes-done" aria-label="Olhos calmos de concluído">
-                      <ellipse
+                      <path
                         className="waddle-eye-shape waddle-eye-done-left"
-                        cx="37"
-                        cy="52"
-                        rx="4.2"
-                        ry="5"
-                        fill={eyeColor}
+                        d="M 32.5 52.5 Q 37 57.5 41.5 52.5"
+                        fill="none"
+                        stroke={eyeColor}
+                        strokeWidth="3.6"
+                        strokeLinecap="round"
                       />
-                      <ellipse
+                      <path
                         className="waddle-eye-shape waddle-eye-done-right"
-                        cx="63"
-                        cy="52"
-                        rx="4.2"
-                        ry="5"
-                        fill={eyeColor}
+                        d="M 58.5 52.5 Q 63 57.5 67.5 52.5"
+                        fill="none"
+                        stroke={eyeColor}
+                        strokeWidth="3.6"
+                        strokeLinecap="round"
                       />
                     </g>
                   ) : state === 'working' ? (
                     <g className="waddle-eyes-working" aria-label="Olhos focados">
                       <rect
                         className="waddle-eye-shape waddle-eye-working-left"
-                        x="34"
-                        y="45"
-                        width="7"
-                        height="14"
-                        rx="3.5"
+                        x="32.5"
+                        y="48"
+                        width="10"
+                        height="5.5"
+                        rx="2.75"
                         fill={eyeColor}
+                        transform="rotate(-7 37.5 50.75)"
                       />
                       <rect
                         className="waddle-eye-shape waddle-eye-working-right"
-                        x="59"
-                        y="45"
-                        width="7"
-                        height="14"
-                        rx="3.5"
+                        x="57.5"
+                        y="48"
+                        width="10"
+                        height="5.5"
+                        rx="2.75"
                         fill={eyeColor}
+                        transform="rotate(7 62.5 50.75)"
                       />
                     </g>
                   ) : state === 'waiting' ? (
                     <g className="waddle-eyes-waiting" aria-label="Olhos aguardando">
-                      <rect
+                      <ellipse
                         className="waddle-eye-shape waddle-eye-waiting-left"
-                        x="32.5"
-                        y="53"
-                        width="13.5"
-                        height="3.2"
-                        rx="1.6"
+                        cx="39"
+                        cy="53"
+                        rx="5.8"
+                        ry="3.1"
                         fill={eyeColor}
-                        transform="rotate(4 39.25 54.6)"
+                        transform="rotate(8 39 53)"
                       />
-                      <rect
+                      <ellipse
                         className="waddle-eye-shape waddle-eye-waiting-right"
-                        x="56.5"
-                        y="53"
-                        width="13.5"
-                        height="3.2"
-                        rx="1.6"
+                        cx="65"
+                        cy="53"
+                        rx="5.8"
+                        ry="3.1"
                         fill={eyeColor}
-                        transform="rotate(4 63.25 54.6)"
+                        transform="rotate(8 65 53)"
                       />
                     </g>
                   ) : isNicoEyes ? (

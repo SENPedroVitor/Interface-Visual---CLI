@@ -22,6 +22,20 @@ class TestLLMProviderClient(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
         self.assertEqual(
             run.call_args.args[0],
+            ["C:/Tools/codex.exe", "exec", "--ignore-user-config", "--ephemeral", "-s", "read-only", "-"],
+        )
+
+    @patch("waddle.llm.provider_client.shutil.which", return_value="C:/Tools/codex.exe")
+    @patch("waddle.llm.provider_client.subprocess.run")
+    def test_codex_cli_can_opt_back_into_user_config(self, run, _which):
+        run.return_value = Mock(returncode=0, stdout="Resposta com config\n", stderr="")
+        agent = WorkerAgent("Nero", "Developer", provider_id="codex")
+        client = LLMProviderClient(env={"WADDLE_CODEX_TRANSPORT": "cli", "WADDLE_CODEX_LOAD_USER_CONFIG": "true", "PATH": "C:/Tools"})
+
+        client.generate(agent, "Teste")
+
+        self.assertEqual(
+            run.call_args.args[0],
             ["C:/Tools/codex.exe", "exec", "--ephemeral", "-s", "read-only", "-"],
         )
 

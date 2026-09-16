@@ -196,7 +196,15 @@ class LLMProviderClient:
             executable = shutil.which("codex", path=self._env_value("PATH") or os.environ.get("PATH"))
             if not executable:
                 return ProviderResult("codex", model, None, fallback=True, error="Codex CLI não encontrado.")
-            command = [executable, "exec", "--ephemeral", "-s", "read-only", "-"]
+            command = [executable, "exec"]
+            # Waddle already assembles its own prompt, skills and tools. Skip
+            # the user's global MCP/plugin bootstrap on each one-shot request;
+            # it added several seconds and retried unavailable connectors.
+            # Authentication is intentionally preserved by Codex itself.
+            load_user_config = (self._env_value("WADDLE_CODEX_LOAD_USER_CONFIG") or "").lower()
+            if load_user_config not in {"1", "true", "yes", "on"}:
+                command.append("--ignore-user-config")
+            command.extend(["--ephemeral", "-s", "read-only", "-"])
         if not command:
             return ProviderResult("codex", model, None, fallback=True, error="Comando do Codex CLI vazio.")
         cwd = str(getattr(agent, "workspace_path", "") or os.getcwd())

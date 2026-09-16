@@ -26,6 +26,8 @@ export interface ChatItem {
   sender: string;
   /** Which bot's separate conversation this item belongs to (lowercase agent name) — App.tsx tags every item with this at creation. */
   agentKey: string;
+  /** Original backend message type, used to keep internal team discussion out of direct chats. */
+  messageType?: string;
   senderName?: string;
   content: string;
   timestamp: string;
@@ -286,6 +288,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
   const agentName   = currentAgent?.name || 'Quinta';
   const agentVis    = agentVisual(agentName, currentAgent?.role, currentAgent?.avatar_config || currentAgent);
+  // A squad is coordinated by Quinta. Keep the transient composer/typing
+  // affordances on her identity even when the group itself has a custom
+  // avatar config (which may intentionally use the squad's visual).
+  const composerVis = isGroup ? agentVisual('Quinta') : agentVis;
   const headerState: AgentState = isSending ? 'working' : agentStateFromStatus(currentAgent?.status);
   const agentStatusInfo = getAgentStatusBadge(currentAgent?.status || (isSending ? 'working' : 'idle'));
 
@@ -771,8 +777,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
                   size="md"
                   name={agentName}
                   avatar={
-                    agentVis.imageUrl
-                      ? { src: agentVis.imageUrl, alt: agentName }
+                    composerVis.imageUrl
+                      ? { src: composerVis.imageUrl, alt: isGroup ? 'Quinta' : agentName }
                       : undefined
                   }
                   locale="pt"
@@ -810,12 +816,12 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
 
           <div className={`composer-peek ${showComposerPeek ? 'is-typing' : ''}`} aria-hidden="true">
             <WaddleAvatar
-              color={agentVis.color}
+              color={composerVis.color}
               state="idle"
               size={40}
-              marking={agentVis.marking}
-              cosmetics={agentVis.cosmetics}
-              imageUrl={agentVis.imageUrl}
+              marking={composerVis.marking}
+              cosmetics={composerVis.cosmetics}
+              imageUrl={composerVis.imageUrl}
               gazeX={gazeX}
               gazeY={gazeY}
             />
