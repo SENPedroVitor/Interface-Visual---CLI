@@ -1,0 +1,2 @@
+Conteúdo solicitado: criar no workspace um arquivo de resultado, registrar nele o conteúdo solicitado e confirmar que o arquivo foi salvo corretamente.
+Observação: nenhum conteúdo adicional foi especificado.

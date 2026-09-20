@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: waddle
+Version: 0.1.0
+Summary: Native desktop shell for AI CLI agents (Codex, Qwen)
+Requires-Python: >=3.9
+Requires-Dist: typer[all]>=0.7
+Requires-Dist: httpx>=0.24
+Requires-Dist: python-dotenv>=1.0
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn>=0.29
+Requires-Dist: websockets>=12.0
+Requires-Dist: pydantic>=2.6
+Provides-Extra: laya
+Requires-Dist: laya<0.4,>=0.3.4; extra == "laya"

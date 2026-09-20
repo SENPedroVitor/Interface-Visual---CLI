@@ -13,6 +13,11 @@ dependencies = [
   "pydantic>=2.6"
 ]
 
+[project.optional-dependencies]
+laya = [
+  "laya>=0.3.4,<0.4"
+]
+
 [project.scripts]
 waddle = "cli_harness.native_app:main"
 waddle-server = "waddle.api.server:start"

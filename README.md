@@ -17,6 +17,18 @@
 
 O objetivo é oferecer uma experiência parecida com um painel de trabalho multiagente: a Quinta coordena a conversa, agentes especialistas contribuem com opiniões ou tarefas, e o usuário acompanha tudo pela interface.
 
+## Triagem local opcional com Laya
+
+O Waddle registra a ferramenta `laya_decision` para classificação/triagem tipada (`choice`, `score` ou `noul`). Ela recebe apenas um estado e perguntas JSON limitados, retorna `answers` e `routing`, e não executa automaticamente nenhuma ação escolhida. O pacote pesado e os pesos não são importados no startup.
+
+Para usar em uma instalação local, instale o extra:
+
+```powershell
+pip install -e ".[laya]"
+```
+
+Na primeira classificação, o Laya pode baixar os pesos do Hugging Face; depois usa o cache local. A classificação pode demorar mais na CPU. Sem o pacote instalado, a ferramenta permanece listada e informa como instalar o extra. As decisões retornadas são sugestões de triagem, não autorização para executar tarefas.
+
 ---
 
 ## Principais recursos

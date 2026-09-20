@@ -21,6 +21,7 @@ from ..tools.stocks import register_stock_tools
 from ..tools.sports import register_sports_tools
 from ..tools.catalog import register_catalog_tools
 from ..tools.skills_tools import register_skill_tools
+from ..tools.laya_decisions import register_laya_tools
 from ..skills.registry import SkillRegistry
 from ..agents.base import Agent, AgentStatus
 from ..agents.manager import ManagerAgent
@@ -57,6 +58,7 @@ class AgentRuntime:
         # Register standard default tools
         register_filesystem_tools(self.tool_registry)
         register_shell_tools(self.tool_registry)
+        register_laya_tools(self.tool_registry)
         register_stock_tools(self.tool_registry)
         register_sports_tools(self.tool_registry)
         register_catalog_tools(self.tool_registry)

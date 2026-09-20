@@ -1,0 +1,3 @@
+[console_scripts]
+waddle = cli_harness.native_app:main
+waddle-server = waddle.api.server:start

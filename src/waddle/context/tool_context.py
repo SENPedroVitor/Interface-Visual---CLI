@@ -42,13 +42,24 @@ def build_tool_context(
 
         name = tool.get("name", "")
         desc = tool.get("description", "")
+        if name == "laya_decision":
+            detailed_line = (
+                '- laya_decision: params={state:{...}, questions:{id:{type:"choice",'
+                'instructions:"...",criteria:{sim:"...",nao:"..."}}}}; só classifica.\n'
+            )
+            compact_line = '- laya_decision(state,questions): classifica.\n'
+            line = detailed_line if current_len + len(detailed_line) <= budget_chars else compact_line
+            if current_len + len(line) <= budget_chars:
+                lines.append(line)
+                current_len += len(line)
+            continue
         # Truncate long descriptions
         if len(desc) > 60:
             desc = desc[:57] + "..."
 
         line = f"- {name}: {desc}\n"
         if current_len + len(line) > budget_chars:
-            break
+            continue
         lines.append(line)
         current_len += len(line)
 
