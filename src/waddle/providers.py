@@ -254,30 +254,31 @@ class ProviderRegistry:
             return False
         return result.returncode == 0 and "NAME" in result.stdout
 
-    def list_provider_models(self, provider_id: str) -> list[dict[str, Any]]:
+    def list_provider_models(self, provider_id: str, *, probe_local: bool = True) -> list[dict[str, Any]]:
         pid = provider_id.lower()
         if pid == "ollama":
             models = []
-            try:
-                import urllib.request
-                import json
-                req = urllib.request.Request("http://127.0.0.1:11434/api/tags", headers={"User-Agent": "Waddle"})
-                with urllib.request.urlopen(req, timeout=2.0) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    for m in data.get("models", []):
-                        m_name = m.get("name", "")
-                        details = m.get("details", {})
-                        param_size = details.get("parameter_size", "")
-                        models.append({
-                            "id": m_name,
-                            "name": m_name,
-                            "tag": param_size or "Local",
-                            "description": f"Modelo local ({details.get('family', 'ollama')})",
-                            "is_default": len(models) == 0,
-                            "size_bytes": m.get("size", 0),
-                        })
-            except Exception:
-                pass
+            if probe_local:
+                try:
+                    import urllib.request
+                    import json
+                    req = urllib.request.Request("http://127.0.0.1:11434/api/tags", headers={"User-Agent": "Waddle"})
+                    with urllib.request.urlopen(req, timeout=2.0) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        for m in data.get("models", []):
+                            m_name = m.get("name", "")
+                            details = m.get("details", {})
+                            param_size = details.get("parameter_size", "")
+                            models.append({
+                                "id": m_name,
+                                "name": m_name,
+                                "tag": param_size or "Local",
+                                "description": f"Modelo local ({details.get('family', 'ollama')})",
+                                "is_default": len(models) == 0,
+                                "size_bytes": m.get("size", 0),
+                            })
+                except Exception:
+                    pass
             if not models:
                 models = [
                     {"id": "qwen2.5:0.5b", "name": "Qwen 2.5 (0.5B)", "tag": "Fast", "description": "Ultraleve para CPU local", "is_default": True},
