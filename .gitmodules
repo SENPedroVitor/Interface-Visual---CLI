@@ -1,0 +1,3 @@
+[submodule "third_party/faux-neural"]
+	path = third_party/faux-neural
+	url = https://github.com/SENPedroVitor/Faux-Neural.git
