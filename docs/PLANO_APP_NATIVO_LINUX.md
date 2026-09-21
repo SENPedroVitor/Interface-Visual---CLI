@@ -1,6 +1,6 @@
 # Plano de execução: Waddle nativo para Linux
 
-Status: planejado. A implementação ainda não começou.
+Status: em execução. O inventário de paridade inicial foi criado em `docs/paridade-interface.md`, e a primeira fatia funcional do núcleo Linux nativo em `src/waddle_desktop/` foi verificada com testes focados. A QML nova carrega offscreen com PySide6 e chama o runtime Python diretamente, mas a paridade completa, credenciais Linux protegidas, provedores configuráveis e empacotamento `.deb` seguem pendentes.
 
 ## Objetivo e critérios de produto
 
@@ -28,11 +28,15 @@ Para reduzir divergências futuras, manter tokens de cor, tipografia, espaçamen
 
 ### 0. Inventário e referência visual
 
+Status: concluído para a primeira fatia; deve continuar sendo atualizado por fluxo. A matriz inicial registra evidências dos componentes React lidos e explicita pendências de QML, teste e aprovação visual.
+
 Mapear componentes e fluxos de `web/src` para QML, capturar telas de referência e preencher a matriz de paridade. Identificar lógica hoje presa a componentes React ou endpoints e separar o que deve virar serviço compartilhado.
 
 **Pronto quando:** cada fluxo da interface web tem referência, estado esperado e prioridade; existe uma lista explícita do que falta na QML atual.
 
 ### 1. Núcleo Linux funcional
+
+Status: primeira fatia verificada. Existe uma entrada Qt/QML nativa separada (`waddle-desktop`) que lista/seleciona agentes, carrega histórico SQLite, envia uma mensagem ao `AgentRuntime` fora da thread da interface, mostra resposta/status e cancela a execução ativa. Os testes focados cobrem serviço, persistência, cancelamento e carregamento QML offscreen com `WADDLE_DATA_DIR` temporário. Ainda faltam credenciais Linux protegidas, configuração completa de provedores, migração XDG validada e persistência de todos os estados da experiência.
 
 Extrair serviços compartilhados para conversas, agentes e configurações. Implementar armazenamento persistente de segredos integrado ao serviço de credenciais do desktop Linux, com erro claro quando indisponível. Ajustar descoberta de Ollama/Codex/Claude para caminhos Linux e `PATH`; retirar caminhos Windows fixos dos padrões usados no Linux. Definir diretórios de dados, cache e configuração conforme XDG e migração dos dados locais existentes.
 
