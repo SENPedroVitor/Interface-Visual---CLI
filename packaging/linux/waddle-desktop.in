@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="/usr/lib/waddle"
+
+cd "$APP_DIR"
+export PYTHONPATH="$APP_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export QML_DISABLE_DISK_CACHE="${QML_DISABLE_DISK_CACHE:-1}"
+
+exec /usr/bin/python3 -m waddle_desktop.app "$@"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Waddle
+Comment=Native desktop shell for AI CLI agents
+Exec=waddle-desktop
+TryExec=waddle-desktop
+Icon=waddle
+Terminal=false
+Categories=Development;
+Keywords=AI;CLI;Codex;Claude;Ollama;Agent;Chat;
+StartupNotify=true
+StartupWMClass=waddle

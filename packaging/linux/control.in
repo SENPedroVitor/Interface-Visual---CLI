@@ -1,0 +1,14 @@
+Package: waddle
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Waddle Maintainers <waddle@example.invalid>
+Depends: python3 (>= 3.9), python3-typer, python3-httpx, python3-dotenv, python3-fastapi, python3-uvicorn, python3-websockets, python3-pydantic, python3-pyside6 | python3-pyside6.qtcore, python3-pyside6 | python3-pyside6.qtgui, python3-pyside6 | python3-pyside6.qtqml, python3-pyside6 | python3-pyside6.qtquick, libgl1, libegl1, libxkbcommon-x11-0
+Installed-Size: @INSTALLED_SIZE@
+Homepage: https://example.invalid/waddle
+Description: Native desktop shell for AI CLI agents
+ Waddle Agent OS is a local multi-agent desktop interface for coordinating
+ AI CLI agents and local providers. This package installs the native Qt/QML
+ desktop entrypoint, shared Python runtime code, procedural skills, and
+ application icon for Ubuntu and Debian systems.
