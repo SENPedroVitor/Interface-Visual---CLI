@@ -10,7 +10,8 @@ dependencies = [
   "fastapi>=0.110",
   "uvicorn>=0.29",
   "websockets>=12.0",
-  "pydantic>=2.6"
+  "pydantic>=2.6",
+  "PySide6>=6.6"
 ]
 
 [project.optional-dependencies]
@@ -20,6 +21,7 @@ laya = [
 
 [project.scripts]
 waddle = "cli_harness.native_app:main"
+waddle-desktop = "waddle_desktop.app:main"
 waddle-server = "waddle.api.server:start"
 
 [tool.pytest.ini_options]
