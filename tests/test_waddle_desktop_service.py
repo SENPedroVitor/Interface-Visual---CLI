@@ -3,7 +3,18 @@ from pathlib import Path
 
 import pytest
 
+from waddle.provider_settings import ProviderSettingsService
+from waddle.providers import ProviderRegistry
+from waddle.security.credentials import CredentialStore
 from waddle_desktop.service import DesktopRuntimeService
+
+
+def _provider_settings(tmp_path):
+    return ProviderSettingsService(
+        registry=ProviderRegistry(platform="linux", env={"PATH": ""}, home=tmp_path / "home"),
+        credential_store=CredentialStore(backend="memory"),
+        config_dir=tmp_path / "config",
+    )
 
 
 def test_desktop_service_routes_prompt_to_selected_agent_and_persists_history(tmp_path, monkeypatch):
@@ -70,4 +81,50 @@ def test_desktop_service_rejects_unknown_agent(tmp_path, monkeypatch):
         service.select_agent("NaoExiste")
     with pytest.raises(ValueError):
         service.submit_prompt("ola", agent_name="NaoExiste")
+    service.shutdown()
+
+
+def test_desktop_service_applies_and_restores_provider_settings(tmp_path, monkeypatch):
+    monkeypatch.setenv("WADDLE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("WADDLE_CONFIG_DIR", str(tmp_path / "config"))
+    provider_settings = _provider_settings(tmp_path)
+    service = DesktopRuntimeService(db_path=tmp_path / "state.db", provider_settings=provider_settings)
+
+    service.select_agent("Atlas")
+    state = service.select_provider_model("codex", "gpt-4o-mini")
+
+    assert state["selected_provider_id"] == "codex"
+    assert state["selected_model_id"] == "gpt-4o-mini"
+    atlas = service.runtime.get_agent("Atlas")
+    assert atlas.provider_id == "codex"
+    assert atlas.model_config["model"] == "gpt-4o-mini"
+    service.shutdown()
+
+    restored = DesktopRuntimeService(
+        db_path=tmp_path / "state.db",
+        provider_settings=ProviderSettingsService(
+            registry=ProviderRegistry(platform="linux", env={"PATH": ""}, home=tmp_path / "home"),
+            credential_store=provider_settings.credential_store,
+            config_dir=tmp_path / "config",
+        ),
+    )
+    restored_state = restored.get_provider_state()
+
+    assert restored_state["selected_provider_id"] == "codex"
+    assert restored_state["selected_model_id"] == "gpt-4o-mini"
+    restored.shutdown()
+
+
+def test_desktop_service_saves_provider_credential_without_plaintext_config(tmp_path, monkeypatch):
+    monkeypatch.setenv("WADDLE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("WADDLE_CONFIG_DIR", str(tmp_path / "config"))
+    provider_settings = _provider_settings(tmp_path)
+    service = DesktopRuntimeService(db_path=tmp_path / "state.db", provider_settings=provider_settings)
+
+    public = service.save_provider_credential("codex", "sk-native-secret", model_id="gpt-4o")
+
+    assert public["configured"] is True
+    assert "sk-native-secret" not in str(public)
+    assert provider_settings.credential_store.get_secret("codex") == "sk-native-secret"
+    assert "sk-native-secret" not in (tmp_path / "config" / "providers" / "settings.json").read_text(encoding="utf-8")
     service.shutdown()

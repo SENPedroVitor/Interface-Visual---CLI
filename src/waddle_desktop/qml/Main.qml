@@ -178,6 +178,118 @@ ApplicationWindow {
 
                     Rectangle {
                         Layout.fillWidth: true
+                        Layout.preferredHeight: 238
+                        Layout.leftMargin: 12
+                        Layout.rightMargin: 12
+                        Layout.bottomMargin: 10
+                        radius: 12
+                        color: bgHover
+                        border.color: border
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Text {
+                                    text: "Provedor"
+                                    color: textPrimary
+                                    font.pixelSize: 13
+                                    font.weight: Font.DemiBold
+                                    Layout.fillWidth: true
+                                }
+                                Button {
+                                    text: "\u27f3"
+                                    implicitWidth: 30
+                                    implicitHeight: 28
+                                    onClicked: controller.refreshProviders()
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: "Atualizar provedores"
+                                }
+                            }
+
+                            ComboBox {
+                                id: providerCombo
+                                Layout.fillWidth: true
+                                model: controller ? controller.providersModel : null
+                                textRole: "name"
+                                valueRole: "id"
+                                onActivated: {
+                                    if (controller) controller.selectProvider(currentValue)
+                                }
+                                Component.onCompleted: {
+                                    if (controller) currentIndex = Math.max(0, indexOfValue(controller.selectedProviderId))
+                                }
+                                Connections {
+                                    target: controller
+                                    function onSelectedProviderChanged() {
+                                        providerCombo.currentIndex = Math.max(0, providerCombo.indexOfValue(controller.selectedProviderId))
+                                    }
+                                }
+                            }
+
+                            ComboBox {
+                                id: modelCombo
+                                Layout.fillWidth: true
+                                model: controller ? controller.providerModelsModel : null
+                                textRole: "name"
+                                valueRole: "id"
+                                onActivated: {
+                                    if (controller) controller.selectProviderModel(controller.selectedProviderId, currentValue)
+                                }
+                                Component.onCompleted: {
+                                    if (controller) currentIndex = Math.max(0, indexOfValue(controller.selectedModelId))
+                                }
+                                Connections {
+                                    target: controller
+                                    function onSelectedModelChanged() {
+                                        modelCombo.currentIndex = Math.max(0, modelCombo.indexOfValue(controller.selectedModelId))
+                                    }
+                                }
+                            }
+
+                            TextField {
+                                id: apiKeyInput
+                                Layout.fillWidth: true
+                                placeholderText: controller && controller.selectedProviderId === "ollama" ? "Ollama local" : "API key"
+                                echoMode: TextInput.Password
+                                enabled: controller && controller.selectedProviderId !== "ollama"
+                                color: textPrimary
+                                placeholderTextColor: textMuted
+                                background: Rectangle {
+                                    radius: 8
+                                    color: bgInput
+                                    border.color: apiKeyInput.activeFocus ? Qt.rgba(0.57, 0.35, 1, 0.45) : border
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Text {
+                                    text: controller && controller.credentialStatusText.length > 0 ? controller.credentialStatusText : (controller ? controller.selectedModelId : "")
+                                    color: textSecondary
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                                Button {
+                                    text: "Salvar"
+                                    enabled: controller && controller.selectedProviderId !== "ollama" && apiKeyInput.text.trim().length > 0
+                                    onClicked: {
+                                        controller.saveProviderCredential(controller.selectedProviderId, apiKeyInput.text)
+                                        apiKeyInput.text = ""
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
                         Layout.preferredHeight: 54
                         color: "transparent"
                         border.color: border

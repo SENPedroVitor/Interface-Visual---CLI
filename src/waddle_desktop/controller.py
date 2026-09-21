@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from waddle.provider_settings import ProviderSettingsService
+
 try:
     from PySide6.QtCore import (
         QAbstractListModel,
@@ -132,27 +134,81 @@ class MessageListModel(_DictListModel):
     }
 
 
+class ProviderListModel(_DictListModel):
+    IdRole = Qt.ItemDataRole.UserRole + 1
+    NameRole = Qt.ItemDataRole.UserRole + 2
+    KindRole = Qt.ItemDataRole.UserRole + 3
+    AvailableRole = Qt.ItemDataRole.UserRole + 4
+    ConfiguredRole = Qt.ItemDataRole.UserRole + 5
+    SelectedRole = Qt.ItemDataRole.UserRole + 6
+    DetailRole = Qt.ItemDataRole.UserRole + 7
+    SelectedModelRole = Qt.ItemDataRole.UserRole + 8
+    MaskedKeyRole = Qt.ItemDataRole.UserRole + 9
+    role_map = {
+        IdRole: "id",
+        NameRole: "name",
+        KindRole: "kind",
+        AvailableRole: "available",
+        ConfiguredRole: "configured",
+        SelectedRole: "selected",
+        DetailRole: "detail",
+        SelectedModelRole: "selected_model_id",
+        MaskedKeyRole: "masked_key",
+    }
+
+
+class ProviderModelListModel(_DictListModel):
+    IdRole = Qt.ItemDataRole.UserRole + 1
+    NameRole = Qt.ItemDataRole.UserRole + 2
+    TagRole = Qt.ItemDataRole.UserRole + 3
+    DescriptionRole = Qt.ItemDataRole.UserRole + 4
+    SelectedRole = Qt.ItemDataRole.UserRole + 5
+    role_map = {
+        IdRole: "id",
+        NameRole: "name",
+        TagRole: "tag",
+        DescriptionRole: "description",
+        SelectedRole: "selected",
+    }
+
+
 class DesktopController(QObject):
     agentsModelChanged = Signal()
     messagesModelChanged = Signal()
+    providersModelChanged = Signal()
+    providerModelsModelChanged = Signal()
     selectedAgentChanged = Signal()
+    selectedProviderChanged = Signal()
+    selectedModelChanged = Signal()
     statusTextChanged = Signal()
     errorTextChanged = Signal()
+    credentialStatusTextChanged = Signal()
     isRunningChanged = Signal()
     canSendChanged = Signal()
     serviceEvent = Signal("QVariant")
     serviceStatus = Signal("QVariant")
 
-    def __init__(self, *, db_path: Optional[str | Path] = None) -> None:
+    def __init__(
+        self,
+        *,
+        db_path: Optional[str | Path] = None,
+        provider_settings: Optional[ProviderSettingsService] = None,
+    ) -> None:
         super().__init__()
         self._agents_model = AgentListModel()
         self._messages_model = MessageListModel()
+        self._providers_model = ProviderListModel()
+        self._provider_models_model = ProviderModelListModel()
         self._selected_agent = "Quinta"
+        self._selected_provider_id = ""
+        self._selected_model_id = ""
         self._status_text = "Pronto"
         self._error_text = ""
+        self._credential_status_text = ""
         self._is_running = False
         self.service = DesktopRuntimeService(
             db_path=db_path,
+            provider_settings=provider_settings,
             on_event=self.serviceEvent.emit,
             on_status=self.serviceStatus.emit,
         )
@@ -168,9 +224,25 @@ class DesktopController(QObject):
     def messagesModel(self) -> QObject:
         return self._messages_model
 
+    @Property(QObject, notify=providersModelChanged)
+    def providersModel(self) -> QObject:
+        return self._providers_model
+
+    @Property(QObject, notify=providerModelsModelChanged)
+    def providerModelsModel(self) -> QObject:
+        return self._provider_models_model
+
     @Property(str, notify=selectedAgentChanged)
     def selectedAgentName(self) -> str:
         return self._selected_agent
+
+    @Property(str, notify=selectedProviderChanged)
+    def selectedProviderId(self) -> str:
+        return self._selected_provider_id
+
+    @Property(str, notify=selectedModelChanged)
+    def selectedModelId(self) -> str:
+        return self._selected_model_id
 
     @Property(str, notify=statusTextChanged)
     def statusText(self) -> str:
@@ -179,6 +251,10 @@ class DesktopController(QObject):
     @Property(str, notify=errorTextChanged)
     def errorText(self) -> str:
         return self._error_text
+
+    @Property(str, notify=credentialStatusTextChanged)
+    def credentialStatusText(self) -> str:
+        return self._credential_status_text
 
     @Property(bool, notify=isRunningChanged)
     def isRunning(self) -> bool:
@@ -191,6 +267,7 @@ class DesktopController(QObject):
     @Slot()
     def refresh(self) -> None:
         self._agents_model.replace(self.service.list_agents())
+        self._load_provider_state()
         self._load_history()
 
     @Slot(str)
@@ -204,6 +281,53 @@ class DesktopController(QObject):
             self._selected_agent = name
             self.selectedAgentChanged.emit()
         self._load_history()
+
+    @Slot()
+    def refreshProviders(self) -> None:
+        self._load_provider_state()
+
+    @Slot(str)
+    def selectProvider(self, provider_id: str) -> None:
+        try:
+            state = self.service.select_provider_model(provider_id)
+        except Exception as exc:
+            self._set_error(str(exc))
+            return
+        self._apply_provider_state(state)
+        self._agents_model.replace(self.service.list_agents())
+        self._set_credential_status("")
+
+    @Slot(str, str)
+    def selectProviderModel(self, provider_id: str, model_id: str) -> None:
+        try:
+            state = self.service.select_provider_model(provider_id or self._selected_provider_id, model_id)
+        except Exception as exc:
+            self._set_error(str(exc))
+            return
+        self._apply_provider_state(state)
+        self._agents_model.replace(self.service.list_agents())
+        self._set_credential_status("")
+
+    @Slot(str, str)
+    def saveProviderCredential(self, provider_id: str, api_key: str) -> None:
+        provider = provider_id or self._selected_provider_id
+        secret = str(api_key or "").strip()
+        if not provider:
+            self._set_error("Escolha um provedor.")
+            return
+        try:
+            self.service.save_provider_credential(
+                provider,
+                secret,
+                model_id=self._selected_model_id or None,
+            )
+            self._apply_provider_state(self.service.get_provider_state())
+            self._agents_model.replace(self.service.list_agents())
+        except Exception as exc:
+            self._set_error(str(exc))
+            return
+        self._set_error("")
+        self._set_credential_status("Credencial salva no armazenamento protegido.")
 
     @Slot(str)
     def sendPrompt(self, text: str) -> None:
@@ -267,6 +391,20 @@ class DesktopController(QObject):
         self._messages_model.replace(self.service.list_history(self._selected_agent))
         self.messagesModelChanged.emit()
 
+    def _load_provider_state(self) -> None:
+        try:
+            self._apply_provider_state(self.service.get_provider_state())
+        except Exception as exc:
+            self._set_error(str(exc))
+
+    def _apply_provider_state(self, state: dict[str, Any]) -> None:
+        self._providers_model.replace(list(state.get("providers") or []))
+        self._provider_models_model.replace(list(state.get("models") or []))
+        self.providersModelChanged.emit()
+        self.providerModelsModelChanged.emit()
+        self._set_selected_provider(str(state.get("selected_provider_id") or ""))
+        self._set_selected_model(str(state.get("selected_model_id") or ""))
+
     def _message_belongs_to_selection(self, message: dict[str, Any]) -> bool:
         selected = self._selected_agent.lower()
         return selected in {
@@ -284,6 +422,21 @@ class DesktopController(QObject):
         if self._error_text != value:
             self._error_text = value
             self.errorTextChanged.emit()
+
+    def _set_credential_status(self, value: str) -> None:
+        if self._credential_status_text != value:
+            self._credential_status_text = value
+            self.credentialStatusTextChanged.emit()
+
+    def _set_selected_provider(self, value: str) -> None:
+        if self._selected_provider_id != value:
+            self._selected_provider_id = value
+            self.selectedProviderChanged.emit()
+
+    def _set_selected_model(self, value: str) -> None:
+        if self._selected_model_id != value:
+            self._selected_model_id = value
+            self.selectedModelChanged.emit()
 
     def _set_running(self, value: bool) -> None:
         if self._is_running != value:

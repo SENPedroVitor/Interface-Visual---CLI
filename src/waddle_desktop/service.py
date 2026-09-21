@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from waddle.core.event_bus import Event, EventBus
+from waddle.provider_settings import ProviderSettingsService
 from waddle.runtime.agent_runtime import AgentRuntime
 from waddle.tools.registry import ToolRegistry
 
@@ -102,6 +103,7 @@ class DesktopRuntimeService:
         *,
         db_path: Optional[str | Path] = None,
         skills_dir: Optional[str | Path] = None,
+        provider_settings: Optional[ProviderSettingsService] = None,
         on_event: Optional[EventCallback] = None,
         on_status: Optional[EventCallback] = None,
     ) -> None:
@@ -115,6 +117,7 @@ class DesktopRuntimeService:
         )
         self.on_event = on_event
         self.on_status = on_status
+        self.provider_settings = provider_settings or ProviderSettingsService()
         self._active_handle: Optional[DesktopRunHandle] = None
         self._lock = threading.RLock()
         self._selected_agent_name = "Quinta"
@@ -159,6 +162,36 @@ class DesktopRuntimeService:
             )
         return ordered
 
+    def get_provider_state(self) -> dict[str, Any]:
+        return self.provider_settings.get_state()
+
+    def select_provider_model(self, provider_id: str, model_id: Optional[str] = None) -> dict[str, Any]:
+        state = self.provider_settings.select(provider_id, model_id)
+        self._apply_provider_selection(
+            str(state.get("selected_provider_id") or provider_id),
+            str(state.get("selected_model_id") or model_id or ""),
+        )
+        return state
+
+    def save_provider_credential(
+        self,
+        provider_id: str,
+        api_key: str,
+        *,
+        model_id: Optional[str] = None,
+        name: str = "",
+        base_url: str = "",
+    ) -> dict[str, Any]:
+        public = self.provider_settings.save_credential(
+            provider_id,
+            api_key,
+            model_id=model_id,
+            name=name,
+            base_url=base_url,
+        )
+        self._apply_provider_selection(provider_id, str(public.get("model") or model_id or ""))
+        return public
+
     def list_history(self, agent_name: Optional[str] = None, limit: int = 80) -> list[dict[str, Any]]:
         rows = self.runtime.database.list_messages(agent_name=agent_name, limit=limit)
         return [self._message_from_db(row) for row in reversed(rows)]
@@ -202,6 +235,22 @@ class DesktopRuntimeService:
             handle.cancel()
             handle.wait(timeout)
         self.event_bus.unsubscribe("*", self._forward_event)
+
+    def _apply_provider_selection(self, provider_id: str, model_id: str) -> None:
+        agent = self.runtime.get_agent(self._selected_agent_name)
+        if not agent:
+            return
+        details = self.runtime.get_agent_details(agent.name)
+        model_config = dict(details.get("model_config") or {})
+        if model_id:
+            model_config["model"] = model_id
+        self.runtime.update_agent_details(
+            agent.name,
+            {
+                "provider_id": provider_id,
+                "model_config": model_config,
+            },
+        )
 
     def _finish_run(self, handle: DesktopRunHandle) -> None:
         with self._lock:

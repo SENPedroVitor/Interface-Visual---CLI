@@ -12,11 +12,15 @@ except ImportError:
 
 from waddle_desktop.app import get_qml_path
 from waddle_desktop.controller import DesktopController
+from waddle.provider_settings import ProviderSettingsService
+from waddle.providers import ProviderRegistry
+from waddle.security.credentials import CredentialStore
 
 
 @unittest.skipUnless(HAS_PYSIDE6, "PySide6 not installed")
 def test_waddle_desktop_qml_loads_offscreen(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("WADDLE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("WADDLE_CONFIG_DIR", str(tmp_path / "config"))
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     app = QGuiApplication.instance() or QGuiApplication([])
 
@@ -25,7 +29,13 @@ def test_waddle_desktop_qml_loads_offscreen(tmp_path, monkeypatch) -> None:
     def handler(_msg_type, _context, message: str) -> None:
         messages.append(message)
 
-    controller = DesktopController(db_path=tmp_path / "state.db")
+    provider_settings = ProviderSettingsService(
+        registry=ProviderRegistry(platform="linux", env={"PATH": ""}, home=tmp_path / "home"),
+        credential_store=CredentialStore(backend="memory"),
+        config_dir=tmp_path / "config",
+    )
+    controller = DesktopController(db_path=tmp_path / "state.db", provider_settings=provider_settings)
+    controller.selectProviderModel("codex", "gpt-4o-mini")
     previous_handler = qInstallMessageHandler(handler)
     try:
         engine = QQmlApplicationEngine()
@@ -36,4 +46,7 @@ def test_waddle_desktop_qml_loads_offscreen(tmp_path, monkeypatch) -> None:
         controller.shutdown()
 
     assert engine.rootObjects()
+    assert controller.selectedProviderId == "codex"
+    assert controller.selectedModelId == "gpt-4o-mini"
+    assert controller.providersModel.rowCount() >= 3
     assert not [message for message in messages if "Error" in message or "ReferenceError" in message]
