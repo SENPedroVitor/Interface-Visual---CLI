@@ -49,6 +49,33 @@ def get_waddle_data_dir() -> Path:
     return target
 
 
+def get_waddle_config_dir() -> Path:
+    """Return Waddle's per-user configuration directory and create it.
+
+    Linux follows the XDG base-directory contract:
+    ``$WADDLE_CONFIG_DIR`` > ``$XDG_CONFIG_HOME/waddle`` >
+    ``~/.config/waddle``.  Windows keeps using the user's app-data tree.
+    """
+    configured = os.getenv("WADDLE_CONFIG_DIR")
+    if configured and configured.strip():
+        target = Path(configured.strip()).expanduser()
+    else:
+        target = None
+    platform = get_platform_name()
+    if target is None:
+        if platform == "windows":
+            app_data = os.getenv("APPDATA") or os.getenv("LOCALAPPDATA")
+            base = Path(app_data) if app_data else Path.home() / "AppData" / "Roaming"
+        else:
+            xdg_config = os.getenv("XDG_CONFIG_HOME")
+            base = Path(xdg_config) if xdg_config else Path.home() / ".config"
+        target = base / "waddle"
+    target.mkdir(parents=True, exist_ok=True)
+    for folder in ("providers", "ui"):
+        (target / folder).mkdir(parents=True, exist_ok=True)
+    return target
+
+
 def get_workspace_dir() -> Path:
     """Return current working directory or custom workspace root."""
     custom = os.getenv("WADDLE_WORKSPACE")

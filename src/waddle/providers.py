@@ -6,8 +6,9 @@ from pathlib import Path
 import shutil
 import subprocess
 import os
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
+from .core.os_layer import get_platform_name
 
 DEFAULT_OLLAMA_PATH = Path.home() / "AppData" / "Local" / "Programs" / "OllamaPortable" / "ollama.exe"
 DEFAULT_CLAUDE_PATH = Path.home() / ".local" / "bin" / "claude.exe"
@@ -45,8 +46,18 @@ class ProviderStatus:
 class ProviderRegistry:
     """Detect local providers without mutating the machine."""
 
-    def __init__(self, ollama_path: Optional[Path | str] = None) -> None:
-        self.ollama_path = Path(ollama_path) if ollama_path else DEFAULT_OLLAMA_PATH
+    def __init__(
+        self,
+        ollama_path: Optional[Path | str] = None,
+        *,
+        platform: Optional[str] = None,
+        env: Optional[Mapping[str, str]] = None,
+        home: Optional[Path | str] = None,
+    ) -> None:
+        self.platform = platform or get_platform_name()
+        self.env = env if env is not None else os.environ
+        self.home = Path(home).expanduser() if home else Path.home()
+        self.ollama_path = Path(ollama_path).expanduser() if ollama_path else None
 
     def list_providers(self) -> list[dict[str, object]]:
         return [
@@ -56,9 +67,7 @@ class ProviderRegistry:
         ]
 
     def _detect_ollama(self) -> ProviderStatus:
-        resolved = str(self.ollama_path) if self.ollama_path.is_file() else self._which_or_known(
-            "ollama", self._ollama_candidates()
-        )
+        resolved = self._which_or_known("ollama", self._ollama_candidates())
 
         if not resolved:
             return ProviderStatus(
@@ -68,7 +77,7 @@ class ProviderRegistry:
                 installed=False,
                 available=False,
                 command="ollama --version",
-                detail="Ollama não foi encontrado no PATH nem nos caminhos padrão do Windows.",
+                detail=f"Ollama não foi encontrado no PATH nem nos caminhos padrão do {self._platform_label()}.",
             )
 
         version = self._run_version([resolved, "--version"])
@@ -104,7 +113,7 @@ class ProviderRegistry:
                 installed=False,
                 available=False,
                 command=command,
-                detail=f"{name} não foi encontrado no PATH nem nos caminhos padrão do Windows.",
+                detail=f"{name} não foi encontrado no PATH nem nos caminhos padrão do {self._platform_label()}.",
             )
         version = self._run_version([resolved, "--version"])
         return ProviderStatus(
@@ -120,35 +129,92 @@ class ProviderRegistry:
         )
 
     def _find_codex(self) -> Optional[Path]:
+        if self.platform == "windows":
+            codex_root = self._windows_local_app_data() / "OpenAI" / "Codex" / "bin"
+            candidates = [
+                codex_root / "codex.exe",
+                self._windows_local_app_data() / "Programs" / "OpenAI Codex" / "codex.exe",
+            ]
+            if codex_root.exists():
+                matches = list(codex_root.glob("*/codex.exe"))
+                matches.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+                candidates.extend(matches)
+            return self._first_file(candidates)
         candidates = [
-            DEFAULT_CODEX_ROOT / "codex.exe",
-            Path.home() / "AppData" / "Local" / "Programs" / "OpenAI Codex" / "codex.exe",
+            self.home / ".local" / "bin" / "codex",
+            self.home / ".npm-global" / "bin" / "codex",
+            self.home / ".local" / "share" / "npm" / "bin" / "codex",
+            Path("/usr/local/bin/codex"),
+            Path("/usr/bin/codex"),
         ]
-        if DEFAULT_CODEX_ROOT.exists():
-            matches = list(DEFAULT_CODEX_ROOT.glob("*/codex.exe"))
-            matches.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-            candidates.extend(matches)
+        xdg_data = self.env.get("XDG_DATA_HOME")
+        if xdg_data:
+            candidates.insert(0, Path(xdg_data).expanduser() / "npm" / "bin" / "codex")
         return self._first_file(candidates)
 
     def _find_claude(self) -> Optional[Path]:
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", ""))
-        app_data = Path(os.environ.get("APPDATA", ""))
-        return self._first_file(
-            [
-                DEFAULT_CLAUDE_PATH,
-                app_data / "npm" / "claude.cmd",
-                app_data / "npm" / "claude.exe",
-                local_app_data / "Programs" / "Claude" / "claude.exe",
-            ]
-        )
+        if self.platform == "windows":
+            local_app_data = self._windows_local_app_data()
+            app_data = self._windows_app_data()
+            return self._first_file(
+                [
+                    self.home / ".local" / "bin" / "claude.exe",
+                    app_data / "npm" / "claude.cmd",
+                    app_data / "npm" / "claude.exe",
+                    local_app_data / "Programs" / "Claude" / "claude.exe",
+                ]
+            )
+        candidates = [
+            self.home / ".local" / "bin" / "claude",
+            self.home / ".npm-global" / "bin" / "claude",
+            self.home / ".local" / "share" / "npm" / "bin" / "claude",
+            Path("/usr/local/bin/claude"),
+            Path("/usr/bin/claude"),
+        ]
+        xdg_data = self.env.get("XDG_DATA_HOME")
+        if xdg_data:
+            candidates.insert(0, Path(xdg_data).expanduser() / "npm" / "bin" / "claude")
+        return self._first_file(candidates)
 
     def _ollama_candidates(self) -> list[Path]:
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", ""))
-        return [
-            self.ollama_path,
-            local_app_data / "Programs" / "Ollama" / "ollama.exe",
-            local_app_data / "Programs" / "OllamaPortable" / "ollama.exe",
-        ]
+        candidates: list[Path] = []
+        if self.ollama_path:
+            candidates.append(self.ollama_path)
+        if self.platform == "windows":
+            local_app_data = self._windows_local_app_data()
+            candidates.extend(
+                [
+                    DEFAULT_OLLAMA_PATH,
+                    local_app_data / "Programs" / "Ollama" / "ollama.exe",
+                    local_app_data / "Programs" / "OllamaPortable" / "ollama.exe",
+                ]
+            )
+        else:
+            candidates.extend(
+                [
+                    self.home / ".local" / "bin" / "ollama",
+                    Path("/usr/local/bin/ollama"),
+                    Path("/usr/bin/ollama"),
+                    Path("/snap/bin/ollama"),
+                ]
+            )
+        return candidates
+
+    def _windows_local_app_data(self) -> Path:
+        configured = self.env.get("LOCALAPPDATA")
+        return Path(configured).expanduser() if configured else self.home / "AppData" / "Local"
+
+    def _windows_app_data(self) -> Path:
+        configured = self.env.get("APPDATA")
+        return Path(configured).expanduser() if configured else self.home / "AppData" / "Roaming"
+
+    def _platform_label(self) -> str:
+        return {"windows": "Windows", "linux": "Linux", "macos": "macOS"}.get(self.platform, self.platform)
+
+    def _path_env(self) -> Optional[str]:
+        if self.env is os.environ:
+            return None
+        return self.env.get("PATH", "")
 
     @staticmethod
     def _first_file(candidates: list[Path]) -> Optional[Path]:
@@ -161,7 +227,7 @@ class ProviderRegistry:
         return None
 
     def _which_or_known(self, executable: str, candidates: list[Optional[Path]]) -> Optional[str]:
-        resolved = shutil.which(executable)
+        resolved = shutil.which(executable, path=self._path_env())
         if resolved:
             return resolved
         known = self._first_file([candidate for candidate in candidates if candidate is not None])
