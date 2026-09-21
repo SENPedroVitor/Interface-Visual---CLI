@@ -1,12 +1,35 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
 import waddle.api.server as server
-from waddle.security.credentials import CredentialStore
+from waddle.security.credentials import CredentialStore, CredentialStoreError
+
+
+class FakeSecretTool:
+    def __init__(self):
+        self.secrets = {}
+
+    def __call__(self, command, *, input=None, text=True, capture_output=True, timeout=None, check=False):
+        provider = command[-1]
+        action = command[1]
+        if action == "store":
+            self.secrets[provider] = input
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if action == "lookup":
+            secret = self.secrets.get(provider)
+            return subprocess.CompletedProcess(command, 0 if secret else 1, stdout=secret or "", stderr="")
+        if action == "clear":
+            self.secrets.pop(provider, None)
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(command, 2, stdout="", stderr="unsupported")
 
 
 class TestCredentialStore(unittest.TestCase):
@@ -37,6 +60,45 @@ class TestCredentialStore(unittest.TestCase):
         self.assertTrue(store.delete("claude"))
         self.assertFalse(store.delete("claude"))
         self.assertIsNone(store.get_secret("claude"))
+
+    def test_secret_service_backend_stores_secret_outside_metadata(self):
+        fake_secret_tool = FakeSecretTool()
+        with self.subTest("write and reload"):
+            with tempfile.TemporaryDirectory() as tmp:
+                metadata_path = Path(tmp) / "credentials.json"
+                store = CredentialStore(
+                    path=metadata_path,
+                    backend="secret-service",
+                    secret_tool="/usr/bin/secret-tool",
+                    command_runner=fake_secret_tool,
+                )
+
+                public = store.set("openai", "sk-secret-linux", name="OpenAI", model="gpt-4o")
+
+                self.assertEqual(public["masked_key"], "sk-********inux")
+                self.assertEqual(store.get_secret("openai"), "sk-secret-linux")
+                metadata = metadata_path.read_text(encoding="utf-8")
+                self.assertNotIn("sk-secret-linux", metadata)
+                self.assertIn("gpt-4o", metadata)
+
+                reloaded = CredentialStore(
+                    path=metadata_path,
+                    backend="secret-service",
+                    secret_tool="/usr/bin/secret-tool",
+                    command_runner=fake_secret_tool,
+                )
+                self.assertEqual(reloaded.get_secret("openai"), "sk-secret-linux")
+                self.assertEqual(reloaded.list_public()[0]["name"], "OpenAI")
+
+                self.assertTrue(reloaded.delete("openai"))
+                self.assertIsNone(reloaded.get_secret("openai"))
+                self.assertNotIn("openai", fake_secret_tool.secrets)
+
+    def test_secret_service_backend_requires_secret_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("waddle.security.credentials.shutil.which", return_value=None):
+                with self.assertRaises(CredentialStoreError):
+                    CredentialStore(path=Path(tmp) / "credentials.json", backend="secret-service")
 
 
 class TestCredentialEndpoints(unittest.TestCase):

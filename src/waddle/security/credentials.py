@@ -1,10 +1,11 @@
 """Protected storage for provider API keys.
 
 On Windows, secrets are encrypted with the user-scoped DPAPI before being
-written to Waddle's data directory.  Tests may explicitly use the in-memory
-backend (``CredentialStore(backend="memory")``); no plaintext fallback file
-is ever created.  On unsupported platforms the default store is unavailable
-until an explicit backend is selected.
+written to Waddle's data directory. On Linux, the default store uses the
+freedesktop Secret Service through ``secret-tool`` when it is available.
+Tests may explicitly use the in-memory backend
+(``CredentialStore(backend="memory")``); no plaintext fallback file is ever
+created.
 """
 from __future__ import annotations
 
@@ -13,12 +14,14 @@ import ctypes
 import json
 import os
 import re
+import shutil
+import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Protocol
 
-from ..core.os_layer import get_waddle_data_dir
+from ..core.os_layer import get_platform_name, get_waddle_data_dir
 
 
 class CredentialStoreError(RuntimeError):
@@ -26,6 +29,7 @@ class CredentialStoreError(RuntimeError):
 
 
 _PROVIDER_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
+CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 class _DataBlob(ctypes.Structure):
@@ -67,19 +71,229 @@ def _dpapi_transform(payload: bytes, *, protect: bool) -> bytes:
         kernel32.LocalFree(destination_blob.pbData)
 
 
+class _CredentialBackend(Protocol):
+    name: str
+
+    def read(self) -> dict[str, dict[str, str]]:
+        ...
+
+    def write(self, records: dict[str, dict[str, str]]) -> None:
+        ...
+
+
+class _UnavailableBackend:
+    name = "unavailable"
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+
+    def read(self) -> dict[str, dict[str, str]]:
+        raise CredentialStoreError(self.reason)
+
+    def write(self, records: dict[str, dict[str, str]]) -> None:
+        raise CredentialStoreError(self.reason)
+
+
+class _MemoryBackend:
+    name = "memory"
+
+    def __init__(self) -> None:
+        self.records: dict[str, dict[str, str]] = {}
+
+    def read(self) -> dict[str, dict[str, str]]:
+        return {provider: dict(record) for provider, record in self.records.items()}
+
+    def write(self, records: dict[str, dict[str, str]]) -> None:
+        self.records = {provider: dict(record) for provider, record in records.items()}
+
+
+class _DpapiFileBackend:
+    name = "dpapi"
+
+    def __init__(self, path: Path) -> None:
+        if os.name != "nt":
+            raise CredentialStoreError("DPAPI está disponível apenas no Windows.")
+        self.path = path
+
+    def read(self) -> dict[str, dict[str, str]]:
+        if not self.path.exists():
+            return {}
+        try:
+            encrypted = base64.b64decode(self.path.read_bytes(), validate=True)
+            decoded = json.loads(_dpapi_transform(encrypted, protect=False).decode("utf-8"))
+            return decoded if isinstance(decoded, dict) else {}
+        except Exception as exc:
+            if isinstance(exc, CredentialStoreError):
+                raise
+            raise CredentialStoreError("Não foi possível abrir o armazenamento protegido.") from exc
+
+    def write(self, records: dict[str, dict[str, str]]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        plaintext = json.dumps(records, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        encrypted = base64.b64encode(_dpapi_transform(plaintext, protect=True))
+        fd, temporary = tempfile.mkstemp(prefix=".credentials-", suffix=".tmp", dir=str(self.path.parent))
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(encrypted)
+            os.replace(temporary, self.path)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+
+class _SecretServiceBackend:
+    name = "secret-service"
+    timeout_seconds = 5.0
+
+    def __init__(
+        self,
+        metadata_path: Path,
+        *,
+        executable: Optional[str] = None,
+        runner: Optional[CommandRunner] = None,
+    ) -> None:
+        self.metadata_path = metadata_path
+        self.executable = executable or shutil.which("secret-tool")
+        if not self.executable:
+            raise CredentialStoreError("Secret Service indisponível; instale libsecret/secret-tool para salvar credenciais.")
+        self.runner = runner or subprocess.run
+
+    def read(self) -> dict[str, dict[str, str]]:
+        metadata = self._read_metadata()
+        records: dict[str, dict[str, str]] = {}
+        for provider, record in metadata.items():
+            secret = self._lookup(provider)
+            merged = dict(record)
+            merged["key"] = secret or ""
+            records[provider] = merged
+        return records
+
+    def write(self, records: dict[str, dict[str, str]]) -> None:
+        existing = set(self._read_metadata())
+        current = set(records)
+        for provider in sorted(existing - current):
+            self._clear(provider)
+        for provider, record in records.items():
+            secret = record.get("key", "")
+            if secret:
+                self._store(provider, secret)
+            else:
+                self._clear(provider)
+        self._write_metadata(records)
+
+    def _read_metadata(self) -> dict[str, dict[str, str]]:
+        if not self.metadata_path.exists():
+            return {}
+        try:
+            decoded = json.loads(self.metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise CredentialStoreError("Não foi possível abrir os metadados de credenciais.") from exc
+        if not isinstance(decoded, dict):
+            return {}
+        records: dict[str, dict[str, str]] = {}
+        for provider, record in decoded.items():
+            if isinstance(provider, str) and isinstance(record, dict):
+                clean = {str(key): str(value) for key, value in record.items() if key != "key"}
+                records[provider] = clean
+        return records
+
+    def _write_metadata(self, records: dict[str, dict[str, str]]) -> None:
+        self.metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        public_records = {
+            provider: {key: value for key, value in record.items() if key != "key"}
+            for provider, record in records.items()
+        }
+        fd, temporary = tempfile.mkstemp(prefix=".credentials-", suffix=".json.tmp", dir=str(self.metadata_path.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(public_records, handle, ensure_ascii=False, separators=(",", ":"))
+            os.replace(temporary, self.metadata_path)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+    def _lookup(self, provider: str) -> str:
+        result = self._run(["lookup", "application", "waddle", "provider", provider])
+        return (result.stdout or "").strip() if result.returncode == 0 else ""
+
+    def _store(self, provider: str, secret: str) -> None:
+        result = self._run(
+            ["store", "--label", f"Waddle {provider} API key", "application", "waddle", "provider", provider],
+            input=secret,
+        )
+        if result.returncode != 0:
+            raise CredentialStoreError("Secret Service recusou salvar a credencial.")
+
+    def _clear(self, provider: str) -> None:
+        result = self._run(["clear", "application", "waddle", "provider", provider])
+        if result.returncode not in {0, 1}:
+            raise CredentialStoreError("Secret Service recusou remover a credencial.")
+
+    def _run(self, arguments: list[str], *, input: Optional[str] = None) -> subprocess.CompletedProcess[str]:
+        try:
+            return self.runner(
+                [self.executable, *arguments],
+                input=input,
+                text=True,
+                capture_output=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise CredentialStoreError("Secret Service indisponível para a operação de credenciais.") from exc
+
+
 class CredentialStore:
     """Store API keys without exposing or persisting them in plaintext."""
 
-    def __init__(self, path: Optional[Path | str] = None, *, backend: str = "auto") -> None:
-        if backend not in {"auto", "dpapi", "memory", "unavailable"}:
+    def __init__(
+        self,
+        path: Optional[Path | str] = None,
+        *,
+        backend: str = "auto",
+        command_runner: Optional[CommandRunner] = None,
+        secret_tool: Optional[str] = None,
+    ) -> None:
+        if backend not in {"auto", "dpapi", "memory", "secret-service", "secretservice", "unavailable"}:
             raise ValueError("Backend de credenciais inválido.")
-        self.backend = "dpapi" if backend == "auto" and os.name == "nt" else backend
-        if backend == "auto" and os.name != "nt":
-            self.backend = "unavailable"
-        if self.backend == "dpapi" and os.name != "nt":
-            raise CredentialStoreError("DPAPI está disponível apenas no Windows.")
+        normalized = "secret-service" if backend == "secretservice" else backend
         self.path = Path(path) if path else get_waddle_data_dir() / "credentials.dpapi"
-        self._memory: dict[str, dict[str, str]] = {}
+        self.backend = self._resolve_backend_name(normalized, secret_tool=secret_tool)
+        self._backend = self._build_backend(command_runner=command_runner, secret_tool=secret_tool)
+
+    @staticmethod
+    def _resolve_backend_name(backend: str, *, secret_tool: Optional[str]) -> str:
+        if backend != "auto":
+            return backend
+        platform = get_platform_name()
+        if platform == "windows":
+            return "dpapi"
+        if platform == "linux" and (secret_tool or shutil.which("secret-tool")):
+            return "secret-service"
+        return "unavailable"
+
+    def _build_backend(
+        self,
+        *,
+        command_runner: Optional[CommandRunner],
+        secret_tool: Optional[str],
+    ) -> _CredentialBackend:
+        if self.backend == "memory":
+            return _MemoryBackend()
+        if self.backend == "dpapi":
+            return _DpapiFileBackend(self.path)
+        if self.backend == "secret-service":
+            metadata_path = self.path
+            if metadata_path.name == "credentials.dpapi":
+                metadata_path = metadata_path.with_name("credentials.secretservice.json")
+            return _SecretServiceBackend(metadata_path, executable=secret_tool, runner=command_runner)
+        return _UnavailableBackend(
+            "Armazenamento protegido indisponível; use Windows DPAPI, Linux Secret Service ou backend de memória apenas em testes."
+        )
 
     @staticmethod
     def _validate_provider_id(provider_id: str) -> str:
@@ -105,45 +319,11 @@ class CredentialStore:
             return "****" + api_key[-2:]
         return f"{api_key[:3]}{'*' * min(8, max(4, len(api_key) - 7))}{api_key[-4:]}"
 
-    def _ensure_available(self) -> None:
-        if self.backend == "unavailable":
-            raise CredentialStoreError(
-                "Armazenamento protegido indisponível; use Windows DPAPI ou backend de memória apenas em testes."
-            )
-
     def _read(self) -> dict[str, dict[str, str]]:
-        self._ensure_available()
-        if self.backend == "memory":
-            return dict(self._memory)
-        if not self.path.exists():
-            return {}
-        try:
-            encrypted = base64.b64decode(self.path.read_bytes(), validate=True)
-            decoded = json.loads(_dpapi_transform(encrypted, protect=False).decode("utf-8"))
-            return decoded if isinstance(decoded, dict) else {}
-        except Exception as exc:
-            if isinstance(exc, CredentialStoreError):
-                raise
-            raise CredentialStoreError("Não foi possível abrir o armazenamento protegido.") from exc
+        return self._backend.read()
 
     def _write(self, records: dict[str, dict[str, str]]) -> None:
-        self._ensure_available()
-        if self.backend == "memory":
-            self._memory = dict(records)
-            return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        plaintext = json.dumps(records, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        encrypted = base64.b64encode(_dpapi_transform(plaintext, protect=True))
-        fd, temporary = tempfile.mkstemp(prefix=".credentials-", suffix=".tmp", dir=str(self.path.parent))
-        try:
-            with os.fdopen(fd, "wb") as handle:
-                handle.write(encrypted)
-            os.replace(temporary, self.path)
-        finally:
-            try:
-                os.unlink(temporary)
-            except FileNotFoundError:
-                pass
+        self._backend.write(records)
 
     def set(
         self,
