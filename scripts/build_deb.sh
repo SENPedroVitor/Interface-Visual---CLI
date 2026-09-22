@@ -60,9 +60,12 @@ mkdir -p \
   "$stage/usr/share/doc/$PACKAGE_NAME"
 
 install -m 0755 "$TEMPLATE_DIR/waddle-desktop.in" "$stage/usr/bin/waddle-desktop"
+install -m 0755 "$TEMPLATE_DIR/postinst.in" "$stage/DEBIAN/postinst"
+install -m 0755 "$TEMPLATE_DIR/postrm.in" "$stage/DEBIAN/postrm"
 install -m 0644 "$TEMPLATE_DIR/waddle.desktop" "$stage/usr/share/applications/waddle.desktop"
 install -m 0644 "$ROOT_DIR/assets/waddle.svg" "$stage/usr/share/icons/hicolor/scalable/apps/waddle.svg"
 install -m 0644 "$ROOT_DIR/README.md" "$stage/usr/share/doc/$PACKAGE_NAME/README.md"
+install -m 0644 "$ROOT_DIR/requirements.txt" "$stage/usr/lib/waddle/requirements.txt"
 
 cp -a "$ROOT_DIR/src/waddle" "$stage/usr/lib/waddle/src/"
 cp -a "$ROOT_DIR/src/waddle_desktop" "$stage/usr/lib/waddle/src/"
@@ -77,6 +80,7 @@ find "$stage" \
 find "$stage" -type d -exec chmod 0755 {} +
 find "$stage" -type f -exec chmod 0644 {} +
 chmod 0755 "$stage/usr/bin/waddle-desktop"
+chmod 0755 "$stage/DEBIAN/postinst" "$stage/DEBIAN/postrm"
 
 installed_size="$(
   du -sk "$stage/usr" | awk '{print $1}'

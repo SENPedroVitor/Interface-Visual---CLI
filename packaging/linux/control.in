@@ -4,7 +4,7 @@ Section: utils
 Priority: optional
 Architecture: all
 Maintainer: Waddle Maintainers <waddle@example.invalid>
-Depends: python3 (>= 3.9), python3-typer, python3-httpx, python3-dotenv, python3-fastapi, python3-uvicorn, python3-websockets, python3-pydantic, python3-pyside6 | python3-pyside6.qtcore, python3-pyside6 | python3-pyside6.qtgui, python3-pyside6 | python3-pyside6.qtqml, python3-pyside6 | python3-pyside6.qtquick, libgl1, libegl1, libxkbcommon-x11-0
+Depends: python3 (>= 3.9), python3-venv, ca-certificates, libgl1, libegl1, libxkbcommon-x11-0, libxcb-cursor0
 Installed-Size: @INSTALLED_SIZE@
 Homepage: https://example.invalid/waddle
 Description: Native desktop shell for AI CLI agents

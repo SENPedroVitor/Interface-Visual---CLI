@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="${WADDLE_APP_DIR:-${DPKG_ROOT:-}/usr/lib/waddle}"
+
+case "${1:-}" in
+  remove|purge)
+    rm -rf "$APP_DIR/venv"
+    ;;
+esac
+
+exit 0

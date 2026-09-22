@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="${WADDLE_APP_DIR:-${DPKG_ROOT:-}/usr/lib/waddle}"
+PYTHON="${WADDLE_PYTHON:-/usr/bin/python3}"
+VENV_DIR="$APP_DIR/venv"
+REQUIREMENTS="$APP_DIR/requirements.txt"
+
+install_runtime() {
+  if [ ! -f "$REQUIREMENTS" ]; then
+    echo "waddle: requirements file not found at $REQUIREMENTS" >&2
+    exit 1
+  fi
+
+  if [ ! -x "$PYTHON" ]; then
+    echo "waddle: Python interpreter not found at $PYTHON" >&2
+    exit 1
+  fi
+
+  if [ ! -x "$VENV_DIR/bin/python" ]; then
+    rm -rf "$VENV_DIR"
+    "$PYTHON" -m venv "$VENV_DIR"
+  fi
+
+  "$VENV_DIR/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
+
+  if ! PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 \
+    "$VENV_DIR/bin/python" -m pip install --prefer-binary -r "$REQUIREMENTS"; then
+    cat >&2 <<EOF
+waddle: failed to install Python runtime dependencies into $VENV_DIR.
+waddle: this package uses a private venv because Linux Mint 22.3/Ubuntu 24.04
+waddle: do not provide python3-pyside6 through apt.
+waddle: Check internet access, proxy/certificate settings, or a configured pip
+waddle: wheel/index mirror, then retry the package configuration with:
+waddle:   sudo apt --fix-broken install
+EOF
+    exit 1
+  fi
+}
+
+case "${1:-configure}" in
+  configure)
+    install_runtime
+    ;;
+esac
+
+exit 0

@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="/usr/lib/waddle"
+APP_DIR="${WADDLE_APP_DIR:-/usr/lib/waddle}"
+PYTHON="$APP_DIR/venv/bin/python"
+
+if [ ! -x "$PYTHON" ]; then
+  cat >&2 <<EOF
+waddle-desktop: runtime venv not found at $APP_DIR/venv.
+waddle-desktop: retry package configuration with:
+waddle-desktop:   sudo apt --fix-broken install
+EOF
+  exit 1
+fi
 
 cd "$APP_DIR"
 export PYTHONPATH="$APP_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
 export QML_DISABLE_DISK_CACHE="${QML_DISABLE_DISK_CACHE:-1}"
 
-exec /usr/bin/python3 -m waddle_desktop.app "$@"
+exec "$PYTHON" -m waddle_desktop.app "$@"
